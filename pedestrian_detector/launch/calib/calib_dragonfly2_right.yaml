@@ -1,22 +1,25 @@
-#TODO - There are all DUMMIE VALUES!
+#TODO - These values have been calculated from the media wiki ones.
+#I'm not if sure they are valid
 
 image_width: 640
 image_height: 480
-camera_name: 08144361026320a0
+camera_name: dragonfly2
 camera_matrix:
   rows: 3
   cols: 3
-  data: [1168.68, 0, 295.015, 0, 1169.01, 252.247, 0, 0, 1]
+  data: [451.808, 0, 315.716, 0, 454.082, 227.02, 0, 0, 1]
 distortion_model: plumb_bob
 distortion_coefficients:
   rows: 1
   cols: 5
-  data: [-1.04482, 1.59252, -0.0196308, 0.0287906, 0]
+  data: [-0.377318, 0.155149, -0.000726514, 0.000317338, 0]
 rectification_matrix:
   rows: 3
   cols: 3
   data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+  
+ #This needs to be calculated. No values from the media wiki for this
 projection_matrix:
   rows: 3
   cols: 4
-  data: [1168.68, 0, 295.015, 0, 0, 1169.01, 252.247, 0, 0, 0, 1, 0]
+  data: [451.808, 0, 315.716, 0, 0, 454.082, 227.02, 0, 0, 0, 1, 0]
