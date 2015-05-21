@@ -1,3 +1,33 @@
+<?xml version="1.0"?>
 <launch>
-
+  <!--By default both cameras will be turned on-->
+  <!--If you want to turn on only a specific camera run launch this with ONLY the argument of the desired camera with the value "true"-->
+  <arg name="camera_left" default="false"/>
+  <arg name="camera_right" default="false"/>
+  
+  
+  <!--Left camera node and image_proc-->
+  <group ns="leftcam">
+    <node unless="$(arg camera_right)" 
+      pkg="camera1394" type="camera1394_node" name="camera_left"
+      ns="cam_left">
+	  <rosparam file ="dragonfly2_left.yaml"/>
+    </node>
+    <node ns="camera" pkg="image_proc" type="image_proc" name="image_proc" />
+    <!--WARNING! I don't remeber the default topic name! -->
+	<remap from="image_rect_color" to="/vizzy/l_camera/image_raw"/>
+  </group>
+  
+  
+  <!-- Right camera node and image_proc-->
+  <group ns="rightcam">
+    <node unless="$(arg camera_left)" 
+      pkg="camera1394" type="camera1394_node" name="camera_right"
+      ns="cam_right">
+	  <rosparam file ="dragonfly2_right.yaml"/>
+    </node>
+    <node ns="camera" pkg="image_proc" type="image_proc" name="image_proc" />
+    <!--WARNING! I don't remeber the default topic name! -->
+	<remap from="image_rect_color" to="/vizzy/r_camera/image_raw"/>    
+  </group>
 </launch>

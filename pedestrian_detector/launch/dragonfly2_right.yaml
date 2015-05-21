@@ -1,0 +1,14 @@
+# Use Coriander to find this
+guid: xxxxxxxx
+
+#Video Mode
+video_mode: 640x480_rgb8
+
+#Dont know how this works.
+frame_id: right_camera
+
+#ROS calibration file
+camera_info_url: package://pedestrian_detector/launch/calib/calib_dragonfly2_right.yaml
+
+#FPS
+frame_rate: 30
