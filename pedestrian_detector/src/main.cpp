@@ -5,11 +5,12 @@
 #include <ctime>
 #include <stack>
 #include <string>
-
+#include <sstream>
 
 //ROS Includes
 #include <ros/ros.h>
 #include <sensor_msgs/image_encodings.h>
+#include <ros/package.h>
 
 //OpenCV Includes
 #include <opencv2/opencv.hpp>
@@ -110,10 +111,13 @@ int main(int argc, char** argv)
   
   
   ros::init(argc, argv, "pedestrianDetector");
-//  cv::namedWindow(OPENCV_WINDOW);
   
+  //Get package path. This way we dont need to worry about running the node in the folder of the configuration files
+  stringstream ss;
+  ss << ros::package::getPath("pedestrian_detector");
+  ss << "/configuration.xml";
   
-  PedDetector detector("configuration.xml");
+  PedDetector detector(ss.str());
   
   ros::spin();
   return 0;	

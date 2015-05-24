@@ -18,6 +18,8 @@
 #include <iostream>
 #include <ctime>
 #include <stack>
+#include <ros/package.h>
+#include <sstream>
 
 using namespace std;
 
@@ -91,7 +93,15 @@ helperXMLParser::helperXMLParser(string filename){
 	nrFeatures = atoll(classifierN->first_attribute("nrFeatures")->value());
 	nrProp = atoll(classifierN->first_attribute("nrProp")->value());
 	
+	
+	
 	classFile = classifierN->first_attribute("classFile")->value();
+	
+	//With this we don't really need to worry about our working directory
+	stringstream ss;
+	ss << ros::package::getPath("pedestrian_detector") << "/" << classFile;
+	classFile = ss.str();
+    /**********************************************************************/
 	nrClass = atoll(classifierN->first_attribute("nrClass")->value());
 	nrCol = atoll(classifierN->first_attribute("nrCol")->value());
 	

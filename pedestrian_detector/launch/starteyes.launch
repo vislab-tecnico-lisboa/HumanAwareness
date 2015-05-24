@@ -7,11 +7,11 @@
   
   
   <!--Left camera node and image_proc-->
-  <group ns="leftcam">
-    <node unless="$(arg camera_right)" 
+  <group ns="leftcam" unless="$(arg camera_right)" >
+    <node 
       pkg="camera1394" type="camera1394_node" name="camera_left"
       ns="cam_left">
-	  <rosparam file ="dragonfly2_left.yaml"/>
+	  <rosparam file ="$(find pedestrian_detector)/launch/dragonfly2_left.yaml"/>
     </node>
     <node ns="camera" pkg="image_proc" type="image_proc" name="image_proc">
     <!--WARNING! I don't remeber the default topic name! -->
@@ -21,11 +21,11 @@
   
   
   <!-- Right camera node and image_proc-->
-  <group ns="rightcam">
-    <node unless="$(arg camera_left)" 
+  <group ns="rightcam" unless="$(arg camera_left)">
+    <node 
       pkg="camera1394" type="camera1394_node" name="camera_right"
       ns="cam_right">
-	  <rosparam file ="dragonfly2_right.yaml"/>
+	  <rosparam file ="$(find pedestrian_detector)/dragonfly2_right.yaml"/>
     </node>
     <node ns="camera" pkg="image_proc" type="image_proc" name="image_proc">
     <!--WARNING! I don't remeber the default topic name! -->

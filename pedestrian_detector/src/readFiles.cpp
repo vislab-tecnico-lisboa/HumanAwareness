@@ -9,7 +9,7 @@
 *******************************************************************************/
 
 #include "../include/readFiles.hpp"
-
+#include <iostream>
 
 /*
  * Classifier rectangles
@@ -69,6 +69,13 @@ ClassData::~ClassData(){
 
 void ClassData::readClassifierData(string _fname){
     ifstream file (_fname.c_str());
+    
+    if(!file)
+      {
+	    std::cout << "There was a problem opening: " << _fname << std::endl;
+	    exit(-1);
+	  }
+    
     string valueS;
     int i = 0, j = 0;
     double value;
