@@ -66,7 +66,7 @@ class PedDetector
   
   vector<cv::Rect_<int> >::iterator it;
     for(it = rects->begin(); it != rects->end(); it++){
-		rectangle(image, *it, Scalar_<int>(255,0,0));
+		rectangle(image, *it, Scalar_<int>(0,255,0), 3);
 	}   
 
   cv::waitKey(30);
