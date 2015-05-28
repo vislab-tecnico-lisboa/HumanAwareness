@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!--Only use the left camera-->
+<launch>
+  <node pkg="pedestrian_detector" type="detector" name="detector">
+		<remap from="image_in" to="l_camera"/>
+		<remap from="image_out" to="pedestrian_detector"/>
+  </node>
+</launch>

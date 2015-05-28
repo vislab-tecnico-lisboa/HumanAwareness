@@ -91,9 +91,9 @@ class PedDetector
 	it = new image_transport::ImageTransport(nh);
 	
 	//Advertise
-	image_pub = it->advertise("pedestriandetector/image", 1);
+	image_pub = it->advertise("image_out", 1);
 	//Subscribe to vizzy's left camera
-    image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
+    image_sub = it->subscribe("l_camera/image_raw", 1, &PedDetector::imageCb, this);
     
   }
   
