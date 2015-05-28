@@ -23,6 +23,9 @@
 //Our detector
 #include "../include/pedestrianDetector.hpp"
 
+//Other includes
+#include "../include/detectionProcess.hpp"
+
 
 using namespace std;
 //using namespace cv;
@@ -66,7 +69,8 @@ class PedDetector
   
   vector<cv::Rect_<int> >::iterator it;
     for(it = rects->begin(); it != rects->end(); it++){
-		rectangle(image, *it, Scalar_<int>(255,0,0));
+		rectangle(image, *it, Scalar_<int>(0,255,0), 3);
+        circle(image, getFeet(*it), 3, Scalar_<int>(0, 0, 255), 2);
 	}   
 
   cv::waitKey(30);
