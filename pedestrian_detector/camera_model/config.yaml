@@ -1,30 +1,30 @@
 %YAML:1.0
-#TODO - These values have been calculated from the media wiki ones.
-#I'm not if sure they are valid
+#TODO - VALUES FOR THE GAZEBO CAMERA! 
+#The focal length was calculated using: flength = (width/2)/tan(hfov/2)
 
-image_width: 640
-image_height: 480
-camera_name: dragonfly2
+image_width: 320
+image_height: 240
+camera_name: gazebo
 camera_matrix: !!opencv-matrix
   rows: 3
   cols: 3
   dt: d
-  data: [438.114, 0, 349.484, 0, 438.056, 205.748, 0, 0, 1]
+  data: [173.27, 0, 160, 0, 173.27, 120, 0, 0, 1]
 distortion_model: plumb_bob
 distortion_coefficients: !!opencv-matrix
   rows: 1
   cols: 5
   dt: d
-  data: [-0.374173, 0.205428, 0.00282356, 0.00270998, 0]
+  data: [0, 0, 0, 0, 0]
 rectification_matrix: !!opencv-matrix
   rows: 3
   cols: 3
   dt: d
   data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
   
- #This needs to be calculated. No values from the media wiki for this
+ #This needs to be calculated... For now it's useless
 projection_matrix: !!opencv-matrix
   rows: 3
   cols: 4
   dt: d
-  data: [438.114, 0, 349.484, 0, 0, 438.056, 205.748, 0, 0, 0, 1, 0]
+  data: [173.27, 0, 160, 0, 0, 173.27, 120, 0, 0, 0, 1, 0]

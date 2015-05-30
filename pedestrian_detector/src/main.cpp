@@ -107,10 +107,6 @@ class PedDetector
       cout << coordsInBaseFrame << endl;
     }
 
-
-//  cv::imshow(OPENCV_WINDOW, image);
-//  cv::waitKey(30);
-  
   }
  
   public:

@@ -18,12 +18,7 @@ cameraModel::cameraModel(string configFile)
 //  fs["projection_matrix"] >> projectionMat_;
 
   invert(K_, invertedK);
-
-  cout << "K: " << K_ <<endl;
-
   invertedK.convertTo(invertedK, CV_32FC1);
-
-  cout << "invertedK: " << invertedK <<endl;
 
   //Just initializing pose of the camera relative to the base of the robot...
   float pose_array[] = {0, 1, 0, 0, 0, 0, -1, -500, -1, 0, 0, 0};
@@ -34,13 +29,9 @@ cameraModel::cameraModel(string configFile)
   float homography_array[] = {0, 1, 0, 0, 0, -500, -1, 0, 0};
   homography = Mat(3, 3, CV_32FC1, homography_array).clone();
 
-  cout << "homography: " << homography <<endl;
-
 
   invert(homography, invertedHomography);
   invertedHomography.convertTo(invertedHomography, CV_32FC1);
-
-  cout << "invertedHomography: " << invertedHomography <<endl;
 
 }
 
@@ -61,23 +52,17 @@ vector<Point3d> cameraModel::calculatePointsOnBaseFrame(Mat imagePoints)
 
   Mat &homogeneousPoints = transposedPoints;
 
-  cout << "homogeneousPoints" << homogeneousPoints << endl;
-
   //First normalize the points
   // K^(-1)*x_cam = [R|t]*p
 
 
   Mat normalizedPoints = invertedK*homogeneousPoints;
 
-  cout << "normalizedPoints: " << normalizedPoints << endl;
-
 
   //Finally we get the points on the base frame in homogeneous coordinates
   // p = H^-1 * (K^-1 * x_cam)
 
   Mat homogeneousP = invertedHomography*normalizedPoints;
-
-  cout << "homogeneousP: " << homogeneousP << endl;
 
   //Now we just get the x, y from the homogeneous coordinates and set z to 0
   /*
