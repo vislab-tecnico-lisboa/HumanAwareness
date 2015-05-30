@@ -25,6 +25,7 @@
 
 //Other includes
 #include "../include/detectionProcess.hpp"
+#include "../include/cameraModel.hpp"
 
 
 using namespace std;
@@ -47,6 +48,9 @@ class PedDetector
   
   //Our detector
   pedestrianDetector *detector;
+
+  //Camera model
+  cameraModel *cameramodel;
   
   //Callback to process the images
   void imageCb(const sensor_msgs::ImageConstPtr& msg)
@@ -72,14 +76,36 @@ class PedDetector
 		rectangle(image, *it, Scalar_<int>(0,255,0), 3);
         circle(image, getFeet(*it), 3, Scalar_<int>(0, 0, 255), 2);
 	}   
-
-  cv::waitKey(30);
-  
   
 //Publish the resulting image for now. Later I might publish only the detections for another node to process
     
   sensor_msgs::ImagePtr out_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
   image_pub.publish(out_msg);
+
+//Calculate the position from camera intrinsics and extrinsics
+
+  Mat feetImagePoints;
+
+  for(it = rects->begin(); it!= rects-> end(); it++)
+    {
+      Mat feetMat(getFeet(*it));
+
+      cout << feetMat.type();
+      transpose(feetMat, feetMat);
+
+      feetImagePoints.push_back(feetMat);
+    }
+
+  cout << "size: " << rects->size() << endl;
+  if(rects->size() > 0)
+    {
+      vector<cv::Point3d> coordsInBaseFrame;
+
+      coordsInBaseFrame = cameramodel->calculatePointsOnBaseFrame(feetImagePoints);
+
+      cout << "Coods in Base Frame" << endl;
+      cout << coordsInBaseFrame << endl;
+    }
 
 
 //  cv::imshow(OPENCV_WINDOW, image);
@@ -88,22 +114,28 @@ class PedDetector
   }
  
   public:
-  PedDetector(string conf)
+  PedDetector(string conf, string cameraConfig)
   {
 	//Initialization
+    cameramodel = new cameraModel(cameraConfig);
 	detector = new pedestrianDetector(conf);
 	it = new image_transport::ImageTransport(nh);
+
+
 	
 	//Advertise
 	image_pub = it->advertise("image_out", 1);
-	//Subscribe to vizzy's left camera
-    image_sub = it->subscribe("l_camera/image_raw", 1, &PedDetector::imageCb, this);
+    //Subscribe to vizzy's left camera
+
+    //Change this later
+    image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
     
   }
   
   ~PedDetector() 
   {
     delete detector;
+    delete cameramodel;
   }
   
   
@@ -112,16 +144,19 @@ class PedDetector
 
 int main(int argc, char** argv)
 {
-  
-  
+
+
   ros::init(argc, argv, "pedestrianDetector");
   
   //Get package path. This way we dont need to worry about running the node in the folder of the configuration files
-  stringstream ss;
+  stringstream ss, ss2;
   ss << ros::package::getPath("pedestrian_detector");
+  ss2 << ros::package::getPath("pedestrian_detector");
+
   ss << "/configuration.xml";
-  
-  PedDetector detector(ss.str());
+  ss2 << "/camera_model/config.yaml";
+
+  PedDetector detector(ss.str(), ss2.str());
   
   ros::spin();
   return 0;	
