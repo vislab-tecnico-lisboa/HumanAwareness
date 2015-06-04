@@ -4,6 +4,8 @@
 using namespace cv;
 using namespace std;
 
+//TODO: Usar TF's para fazer isto como deve ser...
+
 cameraModel::cameraModel(string configFile)
 {
   FileStorage fs(configFile, FileStorage::READ);
@@ -20,6 +22,7 @@ cameraModel::cameraModel(string configFile)
   invert(K_, invertedK);
   invertedK.convertTo(invertedK, CV_32FC1);
 
+  /*
   //Just initializing pose of the camera relative to the base of the robot...
   float pose_array[] = {0, 1, 0, 0, 0, 0, -1, 800, -1, 0, 0, 0};
   pose = Mat(3, 4, CV_32FC1, pose_array).clone();
@@ -31,11 +34,17 @@ cameraModel::cameraModel(string configFile)
 
 
   invert(homography, invertedHomography);
-  invertedHomography.convertTo(invertedHomography, CV_32FC1);
+  invertedHomography.convertTo(invertedHomography, CV_32FC1);*/
 
 }
 
-vector<Point3d> cameraModel::calculatePointsOnBaseFrame(Mat imagePoints)
+
+/*
+*  This is the "best" way to calculate the points on the base frame, since it uses real time transformations
+*  between the camera and base link frames.
+*  For now it should only work on simulation, because the real Vizzy only uses YARP on its upper body...
+*/
+vector<Point3d> cameraModel::calculatePointsOnBaseFrame(Mat imagePoints, Mat baseLinkToCamera)
 {
 
   //Transform the points to homogeneous coordinates
@@ -55,9 +64,25 @@ vector<Point3d> cameraModel::calculatePointsOnBaseFrame(Mat imagePoints)
   //First normalize the points
   // K^(-1)*x_cam = [R|t]*p
 
+  //If pz = 0 then, we get a homography wich we can invert
+
+  Mat homography_tmp(4, 3, 6);
+
+  Mat homography(3,3, 6);
+
+  baseLinkToCamera.col(0).copyTo(homography_tmp.col(0));
+  baseLinkToCamera.col(1).copyTo(homography_tmp.col(1));
+  baseLinkToCamera.col(3).copyTo(homography_tmp.col(2));
+
+  homography = homography_tmp(Range(0, 3), Range(0, 3));
+
+  homography.convertTo(homography, CV_32FC1);
+
+  Mat invertedHomography;
+  invert(homography, invertedHomography);
+
 
   Mat normalizedPoints = invertedK*homogeneousPoints;
-
 
   //Finally we get the points on the base frame in homogeneous coordinates
   // p = H^-1 * (K^-1 * x_cam)

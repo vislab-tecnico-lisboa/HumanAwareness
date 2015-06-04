@@ -10,7 +10,11 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   cv_bridge
   image_transport
+  tf
+  tf_conversions
 )
+
+find_package(Eigen)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../binAndDataFiles)
@@ -30,13 +34,13 @@ catkin_package(
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE}") #Default build mode is release mode
 
 include_directories(include)
-include_directories(${catkin_INCLUDE_DIRS}s)
+include_directories(${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
 
 source_group("Source Files" FILES ${folder_source})
 source_group("Header Files" FILES ${folder_header})
 
 add_executable(detector ${folder_header} ${folder_source})
-target_link_libraries(detector ${catkin_LIBRARIES})
+target_link_libraries(detector ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 
 add_executable(viewer src/viewer/viewer.cpp)
 target_link_libraries(viewer ${catkin_LIBRARIES})

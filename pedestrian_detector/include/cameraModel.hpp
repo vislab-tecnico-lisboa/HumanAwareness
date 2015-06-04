@@ -16,12 +16,9 @@ class cameraModel
 
   public:
   cv::Mat invertedK;
-  cv::Mat pose;
-  cv::Mat homography;
-  cv::Mat invertedHomography;
 
   cameraModel(string configFile);
-  std::vector<cv::Point3d> calculatePointsOnBaseFrame(cv::Mat imagePoints);
+  std::vector<cv::Point3d> calculatePointsOnBaseFrame(cv::Mat imagePoints, cv::Mat baseLinkToCamera);
   cv::Mat getK();
   cv::Mat getDistCoefs();
   cv::Mat getProjectionMat();
