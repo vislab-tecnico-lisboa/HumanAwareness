@@ -13,12 +13,15 @@ class cameraModel
   cv::Mat K_;
   cv::Mat distCoefs_;
   cv::Mat projectionMat_;
+  cv::Mat pose;
+
 
   public:
   cv::Mat invertedK;
 
   cameraModel(string configFile);
-  std::vector<cv::Point3d> calculatePointsOnBaseFrame(cv::Mat imagePoints, cv::Mat baseLinkToCamera);
+  std::vector<cv::Point3d> calculatePointsOnWorldFrame(cv::Mat imagePoints, cv::Mat worldLinkToCamera);
+  std::vector<cv::Point3d> calculatePointsOnWorldFrameWithoutHomography(vector<cv::Rect_<int> >* rects, cv::Mat baseLinkToWorld);
   cv::Mat getK();
   cv::Mat getDistCoefs();
   cv::Mat getProjectionMat();

@@ -1,5 +1,8 @@
 #include "../include/cameraModel.hpp"
 #include "opencv2/highgui/highgui.hpp"
+#include "../include/detectionProcess.hpp"
+
+#define PERSON_HEIGHT 1.8
 
 using namespace cv;
 using namespace std;
@@ -22,29 +25,27 @@ cameraModel::cameraModel(string configFile)
   invert(K_, invertedK);
   invertedK.convertTo(invertedK, CV_32FC1);
 
-  /*
-  //Just initializing pose of the camera relative to the base of the robot...
-  float pose_array[] = {0, 1, 0, 0, 0, 0, -1, 800, -1, 0, 0, 0};
-  pose = Mat(3, 4, CV_32FC1, pose_array).clone();
 
-  //If we consider the point to be on the floor, then relatively to the base frame they will have z=0
-  //Therefore the 3rd column of the [R|t] matrix is 0, and we have and homography that we can invert.
-  float homography_array[] = {0, 1, 0, 0, 0, 800, -1, 0, 0};
-  homography = Mat(3, 3, CV_32FC1, homography_array).clone();
+  //Transforms points from camera frame to the robot frame
+  //This is an approximation, considering that the camera is pointing to the front,
+  //the optical axis is parallel to the floor.
 
-
-  invert(homography, invertedHomography);
-  invertedHomography.convertTo(invertedHomography, CV_32FC1);*/
+  float pose_array[] = {0, 0, -1, 0, 1, 0, 0, -0.1, 0, -1, 0, 0.95, 0, 0, 0, 1};
+  pose = Mat(4, 4, CV_32FC1, pose_array).clone();
 
 }
 
 
 /*
 *  This is the "best" way to calculate the points on the base frame, since it uses real time transformations
-*  between the camera and base link frames.
+*  between the camera and world frames.
 *  For now it should only work on simulation, because the real Vizzy only uses YARP on its upper body...
+*
+*  But is actually performing poorer that the other methods, by 2 meters!
+*  I'm probably doing something wrong...
+*
 */
-vector<Point3d> cameraModel::calculatePointsOnBaseFrame(Mat imagePoints, Mat baseLinkToCamera)
+vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera)
 {
 
   //Transform the points to homogeneous coordinates
@@ -70,9 +71,9 @@ vector<Point3d> cameraModel::calculatePointsOnBaseFrame(Mat imagePoints, Mat bas
 
   Mat homography(3,3, 6);
 
-  baseLinkToCamera.col(0).copyTo(homography_tmp.col(0));
-  baseLinkToCamera.col(1).copyTo(homography_tmp.col(1));
-  baseLinkToCamera.col(3).copyTo(homography_tmp.col(2));
+  worldLinkToCamera.col(0).copyTo(homography_tmp.col(0));
+  worldLinkToCamera.col(1).copyTo(homography_tmp.col(1));
+  worldLinkToCamera.col(3).copyTo(homography_tmp.col(2));
 
   homography = homography_tmp(Range(0, 3), Range(0, 3));
 
@@ -111,6 +112,59 @@ vector<Point3d> cameraModel::calculatePointsOnBaseFrame(Mat imagePoints, Mat bas
      }
 
    return basePoints;
+
+}
+
+//This method is used if we dont have access to Vizzy's upper body tfs.
+//Performing suprisingly good. Damn good accuracy. It doesn't give noticeable errors at all! :O
+
+vector<Point3d> cameraModel::calculatePointsOnWorldFrameWithoutHomography(vector<cv::Rect_<int> >* rects, Mat baseLinkToWorld)
+{
+  Mat imagePointsWithDepth(4, rects->size(), CV_32FC1);
+
+  vector<cv::Rect_<int> >::iterator it;
+  int i = 0;
+  for(it = rects->begin(); it != rects->end(); it++)
+  {
+    Point2d center;
+    center = getCenter(*it);
+
+    //z = f*H/h_image
+    float z;
+
+    z = K_.at<float>(0,0)*PERSON_HEIGHT/(*it).height;
+
+    imagePointsWithDepth.at<float>(2, i) = z;
+
+    imagePointsWithDepth.at<float>(0, i) = z*(center.x*invertedK.at<float>(0,0)+invertedK.at<float>(0,2));
+    imagePointsWithDepth.at<float>(1, i) = z*(center.y*invertedK.at<float>(1,1)+invertedK.at<float>(1,2));
+
+    imagePointsWithDepth.at<float>(3, i) = 1;
+
+    i++;
+  }
+
+  //Get the points in the base link frame
+  Mat pointsInBaseFrame;
+  pointsInBaseFrame = pose*imagePointsWithDepth;
+
+  //And finally in the world frame
+  Mat pointsInWorldFrame;
+  baseLinkToWorld.convertTo(baseLinkToWorld, CV_32FC1);
+  pointsInWorldFrame = baseLinkToWorld*pointsInBaseFrame;
+
+  vector<Point3d> worldPoints;
+  for(int i=0; i < pointsInWorldFrame.size().width; i++)
+  {
+    Point3d point;
+    point.x = pointsInWorldFrame.at<float>(0, i);
+    point.y = pointsInWorldFrame.at<float>(1, i);
+    point.z = 0;
+
+    worldPoints.push_back(point);
+  }
+
+  return worldPoints;
 
 }
 
