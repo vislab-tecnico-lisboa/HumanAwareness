@@ -25,14 +25,16 @@
 #include "../include/pedestrianDetector.hpp"
 
 //Other includes
+#include "../include/controller.hpp"
 #include "../include/detectionProcess.hpp"
 #include "../include/cameraModel.hpp"
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
 #include "opencv2/core/eigen.hpp"
+#include "geometry_msgs/PoseStamped.h"
 
 using namespace std;
-//using namespace cv;
+using namespace cv;
 
 static const string OPENCV_WINDOW = "Detector";
 
@@ -46,6 +48,7 @@ class PedDetector
 private:
     //ROS NodeHandle, and image_transport objects
     ros::NodeHandle nh;
+    ros::Publisher control_pub;
     ros::Publisher marker_pub;
     image_transport::ImageTransport *it;
     image_transport::ImageTransport *it2;
@@ -89,6 +92,13 @@ private:
         // convert image from Eigen to openCV
         cv::Mat transform_opencv;
         cv::eigen2cv(eigen_transform.matrix(), transform_opencv);
+
+        cv::Mat odomToBaseLinkTransform;
+
+        invert(transform_opencv, odomToBaseLinkTransform);
+
+        cout << transform_opencv << endl;
+
 
         cv_bridge::CvImagePtr cv_ptr;
         try
@@ -137,7 +147,7 @@ private:
         {
            vector<cv::Point3d> coordsInBaseFrame;
 
-//           coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, transform_opencv);
+//          coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, transform_opencv);
 
            coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(rects,transform_opencv);
 
@@ -148,6 +158,10 @@ private:
            marker.pose.position.z = coordsInBaseFrame[0].z;
 
            marker_pub.publish(marker);
+
+
+           //Send the control command
+           segwayController::moveBase(coordsInBaseFrame[0], odomToBaseLinkTransform, control_pub);
         }
 
     }
@@ -192,10 +206,18 @@ public:
 
         marker.lifetime = ros::Duration();
 
+
+
+        //Base control message
+        control_pub = nh.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10);
+
+
+
         //Advertise
         image_pub = it->advertise("image_out", 1);
-        //Subscribe to vizzy's left camera
 
+
+        //Subscribe to vizzy's left camera
         //Change this later
         image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
 

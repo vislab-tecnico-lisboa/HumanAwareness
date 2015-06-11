@@ -26,7 +26,7 @@ cameraModel::cameraModel(string configFile)
   invertedK.convertTo(invertedK, CV_32FC1);
 
 
-  //Transforms points from camera frame to the robot frame
+  //Transforms points from camera frame to the base_link frame
   //This is an approximation, considering that the camera is pointing to the front,
   //the optical axis is parallel to the floor.
 
