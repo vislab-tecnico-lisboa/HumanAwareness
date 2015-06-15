@@ -72,9 +72,11 @@ private:
 
 //            listener.lookupTransform("/l_camera_vision_link", "/odom",ros::Time(0), transform);
 
-            listener.waitForTransform("/odom", "/base_link", ros::Time(0), ros::Duration(10.0) );
+            listener.waitForTransform("/odom", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
 
-            listener.lookupTransform("/odom", "/base_link",ros::Time(0), transform);
+            listener.lookupTransform("/odom", "/base_footprint",ros::Time(0), transform);
+
+
         }
         catch (tf::TransformException ex)
         {
@@ -87,8 +89,6 @@ private:
         tf::transformTFToEigen(transform, eigen_transform);
 
 
-
-
         // convert image from Eigen to openCV
         cv::Mat transform_opencv;
         cv::eigen2cv(eigen_transform.matrix(), transform_opencv);
@@ -96,9 +96,6 @@ private:
         cv::Mat odomToBaseLinkTransform;
 
         invert(transform_opencv, odomToBaseLinkTransform);
-
-        cout << transform_opencv << endl;
-
 
         cv_bridge::CvImagePtr cv_ptr;
         try

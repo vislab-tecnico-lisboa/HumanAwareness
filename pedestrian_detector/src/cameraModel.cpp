@@ -26,11 +26,11 @@ cameraModel::cameraModel(string configFile)
   invertedK.convertTo(invertedK, CV_32FC1);
 
 
-  //Transforms points from camera frame to the base_link frame
+  //Transforms points from camera frame to the base_footprint frame
   //This is an approximation, considering that the camera is pointing to the front,
   //the optical axis is parallel to the floor.
 
-  float pose_array[] = {0, 0, -1, 0, 1, 0, 0, -0.1, 0, -1, 0, 0.95, 0, 0, 0, 1};
+  float pose_array[] = {0, 0, 1, 0, -1, 0, 0, 0.1, 0, -1, 0, 0.95, 0, 0, 0, 1};
   pose = Mat(4, 4, CV_32FC1, pose_array).clone();
 
 }
