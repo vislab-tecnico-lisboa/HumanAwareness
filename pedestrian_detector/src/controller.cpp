@@ -1,35 +1,27 @@
 #include "../include/controller.hpp"
 #include "ros/ros.h"
-#include "geometry_msgs/PoseStamped.h"
+#include <move_base_msgs/MoveBaseAction.h>
+#include <actionlib/client/simple_action_client.h>
 #include "tf/LinearMath/Matrix3x3.h"
 #include <iostream>
 #include <cmath>
 
 
+
 using namespace cv;
 using namespace std;
 
-void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, ros::Publisher &control_pub)
+void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, MoveBaseClient &ac)
 {
 
 
   Mat personMat(person);
 
-  cout << "personMat before" << endl << personMat << endl;
-
   personMat.convertTo(personMat, CV_32FC1);
-
-  cout << "personMat after" << endl << personMat << endl;
 
   Mat ones = Mat::ones(1, 1, CV_32FC1);
 
-  cout << "ones: " << ones << endl;
-
   personMat.push_back(ones);
-
-
-
-  cout << "personMat: " << endl << personMat << endl;
 
   Mat baseLinkToOdom;
   invert(odomToBaseLink, baseLinkToOdom);
@@ -37,17 +29,12 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, ros:
   odomToBaseLink.convertTo(odomToBaseLink, CV_32FC1);
   baseLinkToOdom.convertTo(baseLinkToOdom, CV_32FC1);
 
-  std::cout << "Person: " << std::endl << personMat << std::endl;
-  std::cout << "odomToBaseLink:" << endl << odomToBaseLink << endl;
-
   //We set the robot desired orientation
 
   //Transform the point to the base_link Frame (this will not be needed if I get the points on this frame directly,
   //wich I do... but for testing purposes I will keep it this way
 
   personMat = odomToBaseLink*personMat;
-
-  std::cout << "personMat*odomToBaseLink:" << std::endl << personMat << std::endl;
 
 
   //The desired orientation will be a rotation of PHI around the Z axis. PHI is the angle between X_robot (axis) and (-P)
@@ -59,8 +46,6 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, ros:
 
   //Desired orientation on world frame
   Mat orientationOnWorldFrame = baseLinkToOdom*orientationOnBaseLink;
-
-  cout << "orientationOnWorldFrame:" << endl << orientationOnWorldFrame << endl;
 
   //And finally we get it in terms of quaternions...
   tf::Matrix3x3 tmp;
@@ -78,8 +63,6 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, ros:
 
   tf::Quaternion q;
   tmp.getRotation(q);
-
-  cout << "quaterion: " << endl << q << endl;
 
   //Goal! Benfica!
   float x;
@@ -104,24 +87,22 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, ros:
 
 
 
-  geometry_msgs::PoseStamped msg;
-  msg.header.frame_id = "map";
-  msg.pose.orientation.x = q.getX();
-  msg.pose.orientation.y = q.getY();
-  msg.pose.orientation.z = q.getZ();
-  msg.pose.orientation.w = q.getW();
+  move_base_msgs::MoveBaseGoal goal_msg;
 
-/*  msg.pose.orientation.x = 0;
-  msg.pose.orientation.y = 0;
-  msg.pose.orientation.z = 0.7;
-  msg.pose.orientation.w = 0.7;*/
+  goal_msg.target_pose.header.frame_id = "map";
+  goal_msg.target_pose.header.stamp = ros::Time::now();
 
-  msg.pose.position.x = goalPointOnWorldFrame.at<float>(0,0);
-  msg.pose.position.y = goalPointOnWorldFrame.at<float>(1,0);
-  msg.pose.position.z = 0;
+  goal_msg.target_pose.pose.orientation.x = q.getX();
+  goal_msg.target_pose.pose.orientation.y = q.getY();
+  goal_msg.target_pose.pose.orientation.z = q.getZ();
+  goal_msg.target_pose.pose.orientation.w = q.getW();
 
-  control_pub.publish(msg);
+  goal_msg.target_pose.pose.position.x = goalPointOnWorldFrame.at<float>(0,0);
+  goal_msg.target_pose.pose.position.y = goalPointOnWorldFrame.at<float>(1,0);
+  goal_msg.target_pose.pose.position.z = 0;
 
-
+  cout << "SENDING TO: " << "[" << goal_msg.target_pose.pose.position.x <<  ", " << goal_msg.target_pose.pose.position.y << "]" << endl;
+  cout << "Orientation" << "[" << q.getX() << ", " << q.getY() <<" ,"  << q.getZ() << ", " << q.getW() << "]" << endl;
+  ac.sendGoal(goal_msg);
 
 }

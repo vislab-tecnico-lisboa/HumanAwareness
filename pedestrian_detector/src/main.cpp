@@ -33,6 +33,7 @@
 #include "opencv2/core/eigen.hpp"
 #include "geometry_msgs/PoseStamped.h"
 
+
 using namespace std;
 using namespace cv;
 
@@ -48,7 +49,7 @@ class PedDetector
 private:
     //ROS NodeHandle, and image_transport objects
     ros::NodeHandle nh;
-    ros::Publisher control_pub;
+    MoveBaseClient *ac = new MoveBaseClient("move_base", true);
     ros::Publisher marker_pub;
     image_transport::ImageTransport *it;
     image_transport::ImageTransport *it2;
@@ -158,7 +159,7 @@ private:
 
 
            //Send the control command
-           segwayController::moveBase(coordsInBaseFrame[0], odomToBaseLinkTransform, control_pub);
+           segwayController::moveBase(coordsInBaseFrame[0], odomToBaseLinkTransform, *ac);
         }
 
     }
@@ -204,12 +205,6 @@ public:
         marker.lifetime = ros::Duration();
 
 
-
-        //Base control message
-        control_pub = nh.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10);
-
-
-
         //Advertise
         image_pub = it->advertise("image_out", 1);
 
@@ -224,6 +219,7 @@ public:
     {
         delete detector;
         delete cameramodel;
+        delete ac;
     }
 
 
