@@ -81,9 +81,19 @@ private:
 
 
         //Print rectangles on the image and add them to the detection list
+        //Print detection numbers so that we can initialize the tracker using Rviz
+        //And send a marker with each detection number to Rviz
         vector<cv::Rect_<int> >::iterator it;
-        for(it = rects->begin(); it != rects->end(); it++){
+
+        int detectionNumber;
+
+        for(it = rects->begin(), detectionNumber=0; it != rects->end(); it++, detectionNumber++){
             rectangle(image, *it, Scalar_<int>(0,255,0), 3);
+            stringstream stream;
+            stream << detectionNumber;
+
+            putText(image, stream.str(), Point2d((*it).x, (*it).y), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0), 2);
+
             pedestrian_detector::BoundingBox bb;
             bb.x = (*it).x;
             bb.y = (*it).y;
@@ -128,12 +138,11 @@ private:
     }
 
 public:
-    PedDetector(string conf, string cameraConfig)
+    PedDetector(string conf)
     {
         //Initialization
         detector = new pedestrianDetector(conf);
         it = new image_transport::ImageTransport(nh);
-
 
         //Rviz marker - It will show people detections on Rviz
  /*       marker_pub = nh.advertise<visualization_msgs::Marker>("person", 1);
@@ -196,12 +205,9 @@ int main(int argc, char** argv)
     //Get package path. This way we dont need to worry about running the node in the folder of the configuration files
     stringstream ss, ss2;
     ss << ros::package::getPath("pedestrian_detector");
-    ss2 << ros::package::getPath("pedestrian_detector");
-
     ss << "/configuration.xml";
-    ss2 << "/camera_model/config.yaml";
 
-    PedDetector detector(ss.str(), ss2.str());
+    PedDetector detector(ss.str());
 
     ros::spin();
     return 0;

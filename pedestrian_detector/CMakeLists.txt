@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   tf_conversions
   message_generation
+  interactive_markers
 )
 
 find_package(Eigen)
