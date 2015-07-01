@@ -44,12 +44,9 @@ class PedDetector
 private:
     //ROS NodeHandle, and image_transport objects
     ros::NodeHandle nh;
-//    MoveBaseClient *ac = new MoveBaseClient("move_base", true);
-//    ros::Publisher marker_pub;
     image_transport::ImageTransport *it;
     image_transport::Subscriber image_sub;
     image_transport::Publisher image_pub;
-//    visualization_msgs::Marker marker;
 
     //Our detector
     pedestrianDetector *detector;
@@ -110,31 +107,6 @@ private:
         //Publish the detections (I will also publish the features associated to each detection)
         detectionPublisher.publish(detectionList);
 
-
-
-        //Calculate the position from camera intrinsics and extrinsics
-
-/*        if(rects->size() > 0)
-        {
-           vector<cv::Point3d> coordsInBaseFrame;
-
-//          coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, transform_opencv);
-
-           coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(rects,transform_opencv);
-
-           cout << coordsInBaseFrame << endl;
-
-           marker.pose.position.x = coordsInBaseFrame[0].x;
-           marker.pose.position.y = coordsInBaseFrame[0].y;
-           marker.pose.position.z = coordsInBaseFrame[0].z;
-
-           marker_pub.publish(marker);
-
-
-           //Send the control command
-           //segwayController::moveBase(coordsInBaseFrame[0], odomToBaseLinkTransform, *ac);
-        }*/
-
     }
 
 public:
@@ -143,38 +115,6 @@ public:
         //Initialization
         detector = new pedestrianDetector(conf);
         it = new image_transport::ImageTransport(nh);
-
-        //Rviz marker - It will show people detections on Rviz
- /*       marker_pub = nh.advertise<visualization_msgs::Marker>("person", 1);
-        uint32_t shape = visualization_msgs::Marker::CYLINDER;
-        marker.header.frame_id = "/map";
-        marker.header.stamp = ros::Time::now();
-
-        marker.ns = "person";
-        marker.id = 0;
-
-        marker.type = shape;
-
-        marker.action = visualization_msgs::Marker::ADD;
-
-        // Set the scale of the marker -- 1x1x1 here means 1m on a side
-        marker.scale.x = 1.0;
-        marker.scale.y = 1.0;
-        marker.scale.z = 1.0;
-
-        // Set the color -- be sure to set alpha to something non-zero!
-        marker.color.r = 0.0f;
-        marker.color.g = 1.0f;
-        marker.color.b = 0.0f;
-        marker.color.a = 1.0;
-
-        marker.pose.orientation.x = 0.0;
-        marker.pose.orientation.y = 0.0;
-        marker.pose.orientation.z = 0.0;
-        marker.pose.orientation.w = 1.0;
-
-        marker.lifetime = ros::Duration();*/
-
 
         //Advertise
         image_pub = it->advertise("image_out", 1);
@@ -203,7 +143,7 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "pedestrianDetector");
 
     //Get package path. This way we dont need to worry about running the node in the folder of the configuration files
-    stringstream ss, ss2;
+    stringstream ss;
     ss << ros::package::getPath("pedestrian_detector");
     ss << "/configuration.xml";
 

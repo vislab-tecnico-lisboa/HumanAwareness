@@ -44,12 +44,14 @@ void PersonMotion::updateModel(Point3d detectedPosition)
   position.x = detectedPosition.x;
   position.y = detectedPosition.y;
 
-  for(int i=0; i < 5; i++)
-      positionHistory[5-i] = positionHistory[5-(i+1)];
+
+  for(int i=0; i < 4; i++)
+      positionHistory[4-i] = positionHistory[4-(i+1)];
 
   positionHistory[0] = position;
 
   //velocity = median...
+
 
 }
 
@@ -103,22 +105,18 @@ Point3d PersonMotion::medianFilter()
     double x[5];
     double y[5];
 
-    cout << "PositionHistory" << endl;
-
-    cout << positionHistory << endl;
-
     for(int i = 0; i<5; i++)
     {
         x[i] = positionHistory[i].x;
         y[i] = positionHistory[i].y;
-        cout << positionHistory[i] << endl;
     }
 
-    vector<double> x_vect(x, x+5);
-    vector<double> y_vect(y, y+5);
+    vector<double> x_vect(x, x + sizeof(x)/sizeof(x[0]));
+    vector<double> y_vect(y, y + sizeof(y)/sizeof(y[0]));
 
-    sort(x_vect.begin(), x_vect.begin()+5);
-    sort(y_vect.begin(), y_vect.begin()+5);
+    sort(x_vect.begin(), x_vect.begin() + 5);
+    sort(y_vect.begin(), y_vect.begin() + 5);
+
 
     Point3d medianPoint(x_vect.at(2), y_vect.at(2), 0);
 

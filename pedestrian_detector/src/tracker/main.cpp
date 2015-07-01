@@ -60,8 +60,8 @@ class Tracker{
     ros::Publisher position_publisher;
 
 
-
   public:
+    //Process the clicks on markers!
     void processFeedback(
         const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
     {
@@ -78,8 +78,6 @@ class Tracker{
 
             int_marker.description = "Objective";
 
-
-
           }
         else
         //The second time we click on the marker we stop following that person. (Only click after some delay are counted...)
@@ -94,6 +92,7 @@ class Tracker{
       ROS_INFO_STREAM( feedback->marker_name << " is now at "
           << feedback->pose.position.x << ", " << feedback->pose.position.y
           << ", " << feedback->pose.position.z );
+
 
 
 
@@ -252,6 +251,7 @@ class Tracker{
           }
 
           marker_server->applyChanges();
+
       }
     }
     Tracker(string cameraConfig)

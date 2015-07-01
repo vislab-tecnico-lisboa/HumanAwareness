@@ -11,7 +11,7 @@
 using namespace cv;
 using namespace std;
 
-void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, MoveBaseClient &ac)
+void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, MoveBaseClient *ac)
 {
 
 
@@ -103,6 +103,6 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, Move
 
   cout << "SENDING TO: " << "[" << goal_msg.target_pose.pose.position.x <<  ", " << goal_msg.target_pose.pose.position.y << "]" << endl;
   cout << "Orientation" << "[" << q.getX() << ", " << q.getY() <<" ,"  << q.getZ() << ", " << q.getW() << "]" << endl;
-  ac.sendGoal(goal_msg);
+  ac->sendGoal(goal_msg);
 
 }
