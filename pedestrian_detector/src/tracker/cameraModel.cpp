@@ -85,11 +85,19 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
 
   Mat normalizedPoints = invertedK*homogeneousPoints;
 
+  cout << "invertedK: " << invertedK << endl;
+  cout << "homogeneousPoints: " << homogeneousPoints << endl;
+
+  cout << "normalizedPoints: " << normalizedPoints << endl;
+
   //Finally we get the points on the base frame in homogeneous coordinates
   // p = H^-1 * (K^-1 * x_cam)
 
   Mat homogeneousP = invertedHomography*normalizedPoints;
 
+  cout << "invertedHomography: " << invertedHomography << endl;
+
+  cout << "homogeneousP: " << homogeneousP << endl;
   //Now we just get the x, y from the homogeneous coordinates and set z to 0
   /*
             [p1x p2x p3x ... pnx]

@@ -50,7 +50,9 @@ class Tracker{
     ros::Subscriber image_sub;
     bool personNotChosenFlag;
     Point3d targetCoords;
-    PersonMotion *personMotion;
+    PersonList personList;
+
+    int targetId;
 
     //Marker stuff
     interactive_markers::InteractiveMarkerServer *marker_server;
@@ -69,24 +71,21 @@ class Tracker{
         //If we click the marker for the first time it will choose that detection to track
         if(personNotChosenFlag)
           {
-            personMotion = new PersonMotion(Point3d(feedback->pose.position.x, feedback->pose.position.y, feedback->pose.position.z));
+            stringstream ss;
+            ss << feedback->marker_name;
+
+            string trash;
+
+            ss >> trash >> targetId;
+
+            cout << "Target! Id = " << targetId << endl;
+
             personNotChosenFlag = false;
-
-            int_marker.controls.at(0).markers.at(0).color.r = 1;
-            int_marker.controls.at(0).markers.at(0).color.g = 0;
-            int_marker.controls.at(0).markers.at(0).color.b = 0;
-
-            int_marker.description = "Objective";
-
           }
         else
         //The second time we click on the marker we stop following that person. (Only click after some delay are counted...)
           {
-            int_marker.controls.at(0).markers.at(0).color.r = 0;
-            int_marker.controls.at(0).markers.at(0).color.g = 1;
-            int_marker.controls.at(0).markers.at(0).color.b = 0;
             personNotChosenFlag = true;
-            delete personMotion;
           }
 
       ROS_INFO_STREAM( feedback->marker_name << " is now at "
@@ -121,6 +120,11 @@ class Tracker{
       {
         listener.waitForTransform("/odom", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
         listener.lookupTransform("/odom", "/base_footprint",ros::Time(0), transform);
+
+            //The following transforms are used if we want to calculate the position using a homography. It's kinda unstable
+            //to do it that way
+//          listener.waitForTransform("/odom", "/l_camera_vision_link", ros::Time(0), ros::Duration(10.0) );
+//          listener.lookupTransform("/odom", "/l_camera_vision_link",ros::Time(0), transform);
       }
       catch(tf::TransformException ex)
       {
@@ -158,105 +162,125 @@ class Tracker{
 
       coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
+//      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, odomToBaseLinkTransform);
 
-      //If we haven't initialized the tracker with an initial person position, show all detections on Rviz
-      //until one of them is clicked
+
+      personList.associateData(coordsInBaseFrame, rects);
+
+      vector<PersonModel> list = personList.getValidTrackerPosition();
+
+      //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
+
+       /*
+        *  TODO!
+        *
+        */
+
+      //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
+      //that have median different than -1000 on either coordinate
+
       if(personNotChosenFlag)
       {
-
+          cout << "Person not chosen" << endl;
         marker_server->clear();
-        int personNumber = 0;
-        for(vector<cv::Point3d>::iterator it = coordsInBaseFrame.begin(); it != coordsInBaseFrame.end(); it++, personNumber++)
+
+        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
             stringstream description, name;
-            name << "person_" << personNumber;
-            description << "Detection " << personNumber;
+            name << "person " << (*it).id;
+            description << "Detection " << (*it).id;
             int_marker.name = name.str();
             int_marker.description = description.str();
 
-            int_marker.pose.position.x = (*it).x;
-            int_marker.pose.position.y = (*it).y;
+            Point3d position = (*it).medianFilter();
+
+            int_marker.controls.at(0).markers.at(0).color.r = 0;
+            int_marker.controls.at(0).markers.at(0).color.g = 1;
+            int_marker.controls.at(0).markers.at(0).color.b = 0;
+
+            int_marker.pose.position.x = position.x;
+            int_marker.pose.position.y = position.y;
 
             marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
         }
 
-            marker_server->applyChanges();
+        marker_server->applyChanges();
       }
       else
       {
 
-      /*
-      *  After initialization we apply some filtering on the detections
-      *  by choosing the detection that is nearer the predicted position.
-      *  If the detection is at a distance that is less than 2m of the
-      *  predicted position, then we assume that is a valid detection.
-      *  Then a median filter is applied on 5 consecutive samples in the valid
-      *  area.
-      *
-      *  If there are more missdetections than detections, then we stop tracking
-      *  that person.
-      */
+        marker_server->clear();
+        cout << "Person " << targetId << " chosen" << endl;
+        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+        {
 
-          marker_server->clear();
+            Point3d position = (*it).medianFilter();
 
-          //Get the nearest position
-          //If point coords are -1000,-1000 then there is no point that satisfies the 2m constraint
-          Point3d nearestPoint = personMotion->getNearestPoint(coordsInBaseFrame, personMotion->getPositionEstimate());
+            cout << "(*it).id =" << (*it).id << endl;
 
-          //Update the model with that point
-          personMotion->updateModel(nearestPoint);
+            if((*it).id == targetId)
+            {
+              int_marker.controls.at(0).markers.at(0).color.r = 1;
+              int_marker.controls.at(0).markers.at(0).color.g = 0;
+              int_marker.controls.at(0).markers.at(0).color.b = 0;
 
+              int_marker.pose.position.x = position.x;
+              int_marker.pose.position.y = position.y;
 
-          //Median filtering
-          nearestPoint = personMotion->medianFilter();
+              cout << "target position: " << position << endl;
 
 
-          if(nearestPoint.x != -1000 && nearestPoint.y != -1000)
-          {
-              int_marker.pose.position.x = nearestPoint.x;
-              int_marker.pose.position.y = nearestPoint.y;
+              stringstream description, name;
+              name << "person " << (*it).id;
+              description << "Objective: Detection " << (*it).id;
 
-              personMotion->updateModel(nearestPoint);
+              int_marker.name = name.str();
+              int_marker.description = description.str();
 
               marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
+
 
               //Now we send out the position
               geometry_msgs::Point final_position;
 
-              final_position.x = nearestPoint.x;
-              final_position.y = nearestPoint.y;
+              final_position.x = position.x;
+              final_position.y = position.y;
               final_position.z = 0;
 
               position_publisher.publish(final_position);
+            }
+            else
+            {
+              int_marker.controls.at(0).markers.at(0).color.r = 0;
+              int_marker.controls.at(0).markers.at(0).color.g = 1;
+              int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-          }
-          else
-          {
+              Point3d position = (*it).medianFilter();
 
-              int missdetections = 0;
+              int_marker.pose.position.x = position.x;
+              int_marker.pose.position.y = position.y;
 
-              for(int i=0; i<5; i++)
-                  if(personMotion->positionHistory[i].x == -1000)
-                      missdetections++;
+              stringstream description, name;
 
-              if(missdetections >= 5)
-              {
-                  int_marker.controls.at(0).markers.at(0).color.r = 0;
-                  int_marker.controls.at(0).markers.at(0).color.g = 1;
-                  int_marker.controls.at(0).markers.at(0).color.b = 0;
-                  personNotChosenFlag = true;
-                  delete personMotion;
-                  personMotion = NULL;
-              }
-          }
+              name << "person " << (*it).id;
+              description << "Detection " << (*it).id;
 
-          marker_server->applyChanges();
+              int_marker.name = name.str();
+              int_marker.description = description.str();
+
+              marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
+
+            }
+
+
+        }
+
+        marker_server->applyChanges();
 
       }
     }
     Tracker(string cameraConfig)
     {
-      personMotion = NULL;
 
       personNotChosenFlag = true;
 
@@ -298,8 +322,6 @@ class Tracker{
     {
       delete cameramodel;
       delete marker_server;
-      if(personMotion != NULL)
-        delete personMotion;
     }
 
 };

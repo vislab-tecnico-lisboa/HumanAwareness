@@ -10,6 +10,9 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+
+#include <iostream>
+
 using namespace std;
 
 class ImageConverter
@@ -53,6 +56,9 @@ class ImageConverter
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "viewer");
+
+  cv::Point3d p1(0,0,1);
+  cv::Point3d p2(1,0,0);
   
   ImageConverter converter;
   
