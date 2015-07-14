@@ -14,7 +14,7 @@ class PersonModel
 
     private:
 
-    //Sampling time - not used yey
+    //Sampling time - not used yet
     int delta_t;
 
     //Five last velocities (Fast Five. lol) - not used yet
@@ -25,6 +25,8 @@ class PersonModel
     public:
 
     int id;
+
+    bool lockedOnce;
 
     //Increment this each time there is no detection and reset it when there is a detection
     //If this counter equals 5 we destroy this tracker.

@@ -121,9 +121,11 @@ class pedestrianDetector{
     int *pad;
     pyrInput *pInput;
     helperXMLParser *parsed;
+
+    vector<cv::Rect_<int> >* boundingBoxes;
     
     public: 
       pedestrianDetector(string configuration);
       ~pedestrianDetector();
-      vector<cv::Rect_<int> >* runDetector(Mat img_original);
+      void runDetector(Mat img_original);
 };

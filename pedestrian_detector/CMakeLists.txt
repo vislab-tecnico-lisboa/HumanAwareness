@@ -48,7 +48,7 @@ catkin_package(
 ## Build ##
 ###########
   SET(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -Wall -std=c++11") #the -g option is implicit...
-  SET(CMAKE_CXX_FLAGS_RELEASE "-g -Wall -O2 -finline-functions -fpredictive-commoning -fgcse-after-reload -ftree-slp-vectorize -ftree-loop-distribute-patterns -fipa-cp-clone -funswitch-loops -fvect-cost-model -ftree-partial-pre")
+  SET(CMAKE_CXX_FLAGS_RELEASE "-g -lpthread -std=c++11 -Wall -O2 -finline-functions -fpredictive-commoning -fgcse-after-reload -ftree-slp-vectorize -ftree-loop-distribute-patterns -fipa-cp-clone -funswitch-loops -fvect-cost-model -ftree-partial-pre")
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE}") #Default build mode is release mode
 
 include_directories(include)

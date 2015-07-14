@@ -2,7 +2,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "../include/tracker/detectionProcess.hpp"
 
-#define PERSON_HEIGHT 1.8
+#define PERSON_HEIGHT 1.7
 
 using namespace cv;
 using namespace std;
@@ -50,7 +50,10 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
 
   //Transform the points to homogeneous coordinates
 
+  vector<Point3d> basePoints;
 
+  if(!imagePoints.empty())
+  {
   Mat transposedPoints;
 
   transpose(imagePoints, transposedPoints);
@@ -108,7 +111,6 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
   //x = pix/l_i
   //y = piy/l_i
 
-  vector<Point3d> basePoints;
 
    for(int i = 0; i< homogeneousP.size().width; i++)
      {
@@ -119,6 +121,7 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
        basePoints.push_back(point);
      }
 
+  }
    return basePoints;
 
 }

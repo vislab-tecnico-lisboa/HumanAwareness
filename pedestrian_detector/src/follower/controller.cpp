@@ -68,8 +68,8 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, Move
   float x;
   float y;
 
-  x = (norm(personMat)-2)*cos(phi);
-  y = (norm(personMat)-2)*sin(phi);
+  x = (norm(personMat)-2.5)*cos(phi);
+  y = (norm(personMat)-2.5)*sin(phi);
 
   x = copysign(x, personMat.at<float>(0,0));
   y = copysign(y, personMat.at<float>(1,0));
@@ -77,6 +77,8 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, Move
   float goalPoint[] = {x, y, 0, 1};
 
   Mat goal = Mat(4, 1, CV_32FC1, goalPoint);
+
+  cout << "Goal: " << goal << endl;
 
 
   //Now we get the goal on the world frame (/odom)

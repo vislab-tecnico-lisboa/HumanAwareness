@@ -83,8 +83,12 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id)
       positionHistory[i].y = -1000;
   }
 
+  lockedOnce = false;
+
   this->id = id;
   noDetection = 0;
+
+  cout << "Tracker: " << id << "created. noDetection =" << noDetection << endl;
 
 }
 
@@ -158,15 +162,25 @@ void PersonList::updateList()
 
     for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();)
     {
+
+        cout << "no detection: " << (*it).noDetection << " id: " << (*it).id << endl;
+
         if((*it).position.x != -1000 && (*it).position.y != -1000)
           (*it).noDetection = 0;
         else
+        {
           (*it).noDetection++;
+            if((*it).lockedOnce)
+                cout << "detection++: " << (*it).noDetection << " id: " << (*it).id << endl;
+        }
 
         (*it).updateModel();
 
-        if((*it).noDetection >= 5)
-            it = personList.erase(it);
+        if(((*it).noDetection > 5 && (*it).lockedOnce==false) || ((*it).noDetection > 1000000 && (*it).lockedOnce==true))
+        {
+            cout << "Tracked: " << (*it).id << " deleted. noDetections: " << (*it).noDetection << endl;
+            it = personList.erase(it);         
+        }
         else
             it++;
     }
@@ -241,7 +255,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                     Point3d hist((*itcolumn).positionHistory[i].x, (*itcolumn).positionHistory[i].y, 0);
 
                     double distHist = norm(hist-detectionPos);
-                    if(distHist < 1.5)
+                    if(distHist < 1.8)
                         if(distHist < best)
                             best = distHist;
                 }
@@ -263,19 +277,35 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
     for(int i=0; i<nDetections; i++)
     {
+
         //If there is an associated tracker and the distance is less than 2 meters we update the position
-        if(assignment[i] != -1 && cost[i] < 1.5)
+        if(assignment[i] != -1)
         {
-          personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
-          personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
+   //       if(cost[i] < 1.5)
+  //          {
+              personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
+              personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
 
           //Bounding boxes...
-          personList.at(assignment[i]).rect = rects.at(i);
+              personList.at(assignment[i]).rect = rects.at(i);
 
+//            }
         }
         else
         {
-            //If there isn't, create a new tracker for each one
+            //If there isn't, create a new tracker for each one - IF THERE IS NO OTHER TRACKER IN A 1.5m radius
+            bool existsInRadius = false;
+
+            for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
+            {
+                Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
+                if(norm(coordsInBaseFrame.at(i)-testPoint) < 1.5)
+                {
+                  existsInRadius = true;
+                  break;
+                }
+            }
+            if(!existsInRadius)
             addPerson(coordsInBaseFrame.at(i), rects.at(i));
         }
     }
@@ -290,9 +320,21 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
     }
     else
     {
-        //We create a tracker for each detection, and if there are none, we do nothing!
+        //We create a tracker for each detection, and if there are none, we do nothing! - can't create 2 trackers in the same 1.5m radius
         for(int i=0; i<nDetections; i++)
         {
+            bool existsInRadius = false;
+
+            for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
+            {
+                Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
+                if(norm(coordsInBaseFrame.at(i)-testPoint) < 1.5)
+                {
+                  existsInRadius = true;
+                  break;
+                }
+            }
+            if(!existsInRadius)
             addPerson(coordsInBaseFrame.at(i), rects.at(i));
         }
 

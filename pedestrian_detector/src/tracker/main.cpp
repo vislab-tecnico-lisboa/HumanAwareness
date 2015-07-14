@@ -220,6 +220,9 @@ class Tracker{
 
             if((*it).id == targetId)
             {
+
+              it->lockedOnce = true;
+
               int_marker.controls.at(0).markers.at(0).color.r = 1;
               int_marker.controls.at(0).markers.at(0).color.g = 0;
               int_marker.controls.at(0).markers.at(0).color.b = 0;

@@ -123,7 +123,7 @@ public:
                     {
                         nextState = PLANNER;
                         delete rate;
-                        rate = new ros::Rate(2);
+                        rate = new ros::Rate(1);
                     }
                     else if(distanceToPerson < 3 && distanceToPerson > 2)
                     {
@@ -211,7 +211,7 @@ public:
 
                         nextState = PLANNER;
                         delete rate;
-                        rate = new ros::Rate(2);
+                        rate = new ros::Rate(1);
 
                     }
 

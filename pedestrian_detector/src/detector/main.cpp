@@ -12,6 +12,7 @@
 #include <stack>
 #include <string>
 #include <sstream>
+//#include <thread>
 
 //ROS Includes
 #include <ros/ros.h>
@@ -48,8 +49,9 @@ private:
     image_transport::Subscriber image_sub;
     image_transport::Publisher image_pub;
 
-    //Our detector
-    pedestrianDetector *detector;
+    //Our detectors
+    pedestrianDetector *person_detector;
+    pedestrianDetector *heads_detector;
 
     //Detections publisher
     ros::Publisher detectionPublisher;
@@ -71,7 +73,10 @@ private:
         cv::Mat image(cv_ptr->image);
 
 
-        vector<cv::Rect_<int> >* rects = detector->runDetector(image);
+        person_detector->runDetector(image);
+        heads_detector->runDetector(image);
+
+
 
 
         pedestrian_detector::DetectionList detectionList;
@@ -82,14 +87,8 @@ private:
         //And send a marker with each detection number to Rviz
         vector<cv::Rect_<int> >::iterator it;
 
-        int detectionNumber;
-
-        for(it = rects->begin(), detectionNumber=0; it != rects->end(); it++, detectionNumber++){
+        for(it = person_detector->boundingBoxes->begin(); it != person_detector->boundingBoxes->end(); it++){
             rectangle(image, *it, Scalar_<int>(0,255,0), 3);
-            stringstream stream;
-            stream << detectionNumber;
-
-            putText(image, stream.str(), Point2d((*it).x, (*it).y), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 0), 2);
 
             pedestrian_detector::BoundingBox bb;
             bb.x = (*it).x;
@@ -97,6 +96,11 @@ private:
             bb.width = (*it).width;
             bb.height = (*it).height;
             detectionList.bbVector.push_back(bb);
+        }
+
+        for(it = heads_detector->boundingBoxes->begin(); it != heads_detector->boundingBoxes->end(); it++)
+        {
+            rectangle(image, *it, Scalar_<int>(0,0,255), 3);
         }
 
         //Publish the resulting image for now. Later I might publish only the detections for another node to process
@@ -107,13 +111,16 @@ private:
         //Publish the detections (I will also publish the features associated to each detection)
         detectionPublisher.publish(detectionList);
 
+
+
     }
 
 public:
-    PedDetector(string conf)
+    PedDetector(string conf_pedestrians, string conf_heads)
     {
         //Initialization
-        detector = new pedestrianDetector(conf);
+        person_detector = new pedestrianDetector(conf_pedestrians);
+        heads_detector = new pedestrianDetector(conf_heads);
         it = new image_transport::ImageTransport(nh);
 
         //Advertise
@@ -128,7 +135,8 @@ public:
 
     ~PedDetector()
     {
-        delete detector;
+        delete person_detector;
+        delete heads_detector;
         delete it;
     }
 
@@ -147,7 +155,11 @@ int main(int argc, char** argv)
     ss << ros::package::getPath("pedestrian_detector");
     ss << "/configuration.xml";
 
-    PedDetector detector(ss.str());
+    stringstream ss2;
+    ss2 << ros::package::getPath("pedestrian_detector");
+    ss2 << "/configurationheadandshoulders.xml";
+
+    PedDetector detector(ss.str(), ss2.str());
 
     ros::spin();
     return 0;
