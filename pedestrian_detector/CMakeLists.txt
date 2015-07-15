@@ -22,10 +22,6 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(Eigen)
 
-add_dependencies(detector ${catkin_EXPORTED_TARGETS})
-add_dependencies(tracker ${catkin_EXPORTED_TARGETS})
-add_dependencies(follower ${catkin_EXPORTED_TARGETS})
-
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../binAndDataFiles)
 
@@ -70,9 +66,11 @@ add_executable(detector ${detector_folder_header} ${detector_folder_source})
 target_link_libraries(detector ${catkin_LIBRARIES})
 add_dependencies(detector pedestrian_detector_generate_messages_cpp)
 
+
 add_executable(tracker ${tracker_folder_header} ${tracker_folder_source})
 target_link_libraries(tracker ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(tracker pedestrian_detector_generate_messages_cpp)
+
 
 add_executable(follower ${follower_folder_header} ${follower_folder_source})
 target_link_libraries(follower ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
@@ -80,6 +78,8 @@ add_dependencies(follower pedestrian_detector_generate_messages_cpp)
 
 add_executable(viewer src/viewer/viewer.cpp)
 target_link_libraries(viewer ${catkin_LIBRARIES})
+
+
 
 ##########################################
 ##Copy needed files to the bin directory##
