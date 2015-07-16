@@ -8,7 +8,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/readFiles.hpp"
+#include "../include/detector/readFiles.hpp"
 #include <iostream>
 
 /*

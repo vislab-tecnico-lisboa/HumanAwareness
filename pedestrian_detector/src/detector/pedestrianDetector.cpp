@@ -14,7 +14,7 @@
 *******************************************************************************/
 
 
-#include "../include/pedestrianDetector.hpp"
+#include "../include/detector/pedestrianDetector.hpp"
 #include <iostream>
 #include <ctime>
 #include <stack>
@@ -146,7 +146,11 @@ pedestrianDetector::pedestrianDetector(string configuration){
     
     pInput = new pyrInput();
     pInput->nApprox = -1; 								//parse it
-    pInput->lambdas = new float[3]{0, 0.1105, 0.1083};  //parse it
+    pInput->lambdas = new float[3];  //parse it
+
+    pInput->lambdas[0] = 0;
+    pInput->lambdas[1] = 0.1105;
+    pInput->lambdas[2] = 0.1083;
 
   /*
    * Prepares the Strong Classifier Inputs
@@ -177,7 +181,11 @@ pedestrianDetector::pedestrianDetector(string configuration){
 
 //padding
   delete [] (pInput->pad);
-  pInput->pad = new int[2]{sctInput->theoreticalVerticalPadding, sctInput->theoreticalHorizontalPadding};
+  pInput->pad = new int[2];
+  pInput->pad[0] = sctInput->theoreticalVerticalPadding;
+  pInput->pad[1] = sctInput->theoreticalHorizontalPadding;
+
+  boundingBoxes = NULL;
 }
 
 
@@ -189,9 +197,12 @@ pedestrianDetector::~pedestrianDetector(){
     delete(pInput);
     delete(parsed);
 
+    if(boundingBoxes != NULL)
+        delete(boundingBoxes);
+
 }
 
-vector<cv::Rect_<int> >* pedestrianDetector::runDetector(Mat img_original){
+void pedestrianDetector::runDetector(Mat img_original){
     
   // These are helper variables
   Mat image, imagef, imageO = img_original;
@@ -220,7 +231,11 @@ vector<cv::Rect_<int> >* pedestrianDetector::runDetector(Mat img_original){
   /*
    * Prepares Pyramid Input
    */
-  int *sz = new int[3]{ h, w, c };
+  int *sz = new int[3];
+
+  sz[0] = h;
+  sz[1] = w;
+  sz[2] = c;
   
   // Image Size
   delete [] (pInput->sz);
@@ -228,7 +243,11 @@ vector<cv::Rect_<int> >* pedestrianDetector::runDetector(Mat img_original){
   
   // Minimum Dimensions
   delete [] (pInput->minDs);
-  int *minDs = new int[2]{parsed->minH,parsed->minW};
+  int *minDs = new int[2];
+
+  minDs[0] = parsed->minH;
+  minDs[1] = parsed->minW;
+
   pInput->minDs = minDs;
   
   
@@ -251,5 +270,5 @@ vector<cv::Rect_<int> >* pedestrianDetector::runDetector(Mat img_original){
   
   
   delete pOutput;
-  return rects;
+  boundingBoxes = rects;
 }

@@ -8,7 +8,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/rgbConvert.hpp"
+#include "../include/detector/rgbConvert.hpp"
 
 float* rgbConvertMeta(float *image, int height, int width, int channels,
 		int misalign, int colorSpace){

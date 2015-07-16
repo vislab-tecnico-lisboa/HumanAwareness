@@ -14,6 +14,7 @@ int getArea(Rect_<int> detection);
 Point2d getCenter(Rect_<int> detection);
 Point2d getFeet(cv::Rect_<int> detection);
 
+int getPersonDistance(cv::Rect_<int> detection);
 
 class simpleFilter
 {
@@ -23,5 +24,7 @@ class simpleFilter
   std::vector<Rect_<int> > filter(std::vector<Rect_<int> >* detection);
 
 };
+
+
 
 #endif // DETECTIONPROCESS_H

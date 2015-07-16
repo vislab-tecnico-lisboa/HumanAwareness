@@ -1,5 +1,7 @@
-#include "../include/detectionProcess.hpp"
+#include "../include/tracker/detectionProcess.hpp"
 #include <algorithm>
+
+#define PERSONHEIGHT 1800
 
 using namespace cv;
 
@@ -57,11 +59,20 @@ std::vector<Rect_<int> > simpleFilter::filter(std::vector<Rect_<int> >* detectio
   lastDetections.clear();
   lastDetections = *detection;
 
-//  for(it = lastDetections.begin(); it!= lastDetections.end(); it++)
-//    {
-//      *it = Rect_<int>((*it).tl().x-5, (*it).tl().y-5, (*it).width+10, (*it).height+10);
-//    }
+
+
 
   return filteredList;
 
 }
+
+//This function is bad... really bad...
+int getPersonDistance(cv::Rect_<int> detection)
+{
+  int distance;
+
+  distance = 318611.9274*pow(detection.height, -1.0096);
+
+  return distance;
+}
+

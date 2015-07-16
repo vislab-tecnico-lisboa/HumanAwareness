@@ -8,7 +8,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/getScales.hpp"
+#include "../include/detector/getScales.hpp"
 
 int getScales(float *&scales, float *&scaleshw, int nPerOct, int nOctUp,
 	      int* minDs, int shrink, int* sz){

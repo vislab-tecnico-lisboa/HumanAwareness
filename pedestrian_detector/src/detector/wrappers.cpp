@@ -7,7 +7,7 @@
 * Please email me if you find bugs, or have suggestions or questions!
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
-#include "../include/wrappers.hpp"
+#include "../include/detector/wrappers.hpp"
 
 /*
  * Insert Piotr Dollar's wrappers.hpp here. But please remove the part

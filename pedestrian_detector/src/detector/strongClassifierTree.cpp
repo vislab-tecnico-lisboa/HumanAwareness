@@ -12,7 +12,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/strongClassifierTree.hpp"
+#include "../include/detector/strongClassifierTree.hpp"
 #include <sys/time.h>
 #include <stack>
 

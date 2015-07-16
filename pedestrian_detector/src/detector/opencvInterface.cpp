@@ -8,7 +8,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/opencvInterface.hpp"
+#include "../include/detector/opencvInterface.hpp"
 
 Mat* convertToMat(const float* data, int height, int width, int channels,
 		int misalign){

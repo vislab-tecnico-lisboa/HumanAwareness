@@ -10,7 +10,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/chnsPyramid.hpp"
+#include "../include/detector/chnsPyramid.hpp"
 #include <iostream>
 #include <ctime>
 #include <stack>

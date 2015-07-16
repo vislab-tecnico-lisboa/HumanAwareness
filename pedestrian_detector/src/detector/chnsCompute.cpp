@@ -10,7 +10,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/chnsCompute.hpp"
+#include "../include/detector/chnsCompute.hpp"
 #include <ctime>
 #include <sys/time.h>
 #include <stack>

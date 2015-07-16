@@ -8,7 +8,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/convConst.hpp"
+#include "../include/detector/convConst.hpp"
 
 
 /*

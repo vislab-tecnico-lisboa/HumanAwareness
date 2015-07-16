@@ -8,7 +8,7 @@
 * Licensed under the Simplified BSD License [see external/bsd.txt]
 *******************************************************************************/
 
-#include "../include/gradientMex.hpp"
+#include "../include/detector/gradientMex.hpp"
 
 
 /*
