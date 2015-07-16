@@ -129,7 +129,7 @@ public:
 
         //Subscribe to vizzy's left camera
         //Change this later
-        image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
+        image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
 
     }
 
