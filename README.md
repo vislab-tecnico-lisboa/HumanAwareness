@@ -5,19 +5,25 @@
 -> detector: detects pedestrians on an image and sends the bounding boxes to the tracker.
 
 subscribes to: /vizzy/l_camera/image_raw (é preciso mudar no vizzy real...)
+
 advertises to: image_out (the image with printed detections that we can view on Rviz), detections (list of bounding boxes to be used by the tracker node)
 	
 	rosrun pedestrian_detector detector
 	
 -> tracker: receives the detections, computes the position of pedestrians, creates/associates trackers to each detection, filters the results and let's you choose a target to follow
+
 subscribes to: detections
+
 advertises to: person_position
+
 It also uses INTERACTIVE MARKERS so that we can see each individual tracker position on Rviz and choose one to follow. So don't forget to add that on Rviz!
 	
 	rosrun pedestrian_detector tracker
 	
 -> follower: simply receives the target position from the tracker and follows it. Uses the ros navigation stack (eband_local_planner) with a sampling rate of 2Hz to start following persons that are at more than 3m and stops at aproximatelly 2.5m.
+
 subscribes to: person_position
+
 advertises to: move_base (well... it's actually ros actionlib that is advertising...)
 	
 	rosrun pedestrian_detector follower
@@ -52,4 +58,5 @@ Fica já escrito em inglês (com algumas calinadas) para quando isto for públic
   Tested on Ubuntu 14.04
 
   (-std=c++11 vs -std=c++0x makes the difference)
+
   (why so many flags on 4.8? because -O3 uses the same flags of -O2 plus all these flags and another one that is bugged and makes my detector segfault, so I removed it...)
