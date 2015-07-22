@@ -47,6 +47,8 @@ Fica já escrito em inglês (com algumas calinadas) para quando isto for públic
 	
 ## Warning regarding compilation flags ##
 
+On CMakeLists.txt, line 51. Change that line to one of these according to your version of gcc (I will find a way to use an IF to do it later):
+
   gcc 4.6.x:
   SET(CMAKE_CXX_FLAGS_RELEASE " -lpthread -std=c++0x -Wall -O3")
   
