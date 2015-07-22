@@ -59,4 +59,4 @@ Fica já escrito em inglês (com algumas calinadas) para quando isto for públic
 
   (-std=c++11 vs -std=c++0x makes the difference)
 
-  (why so many flags on 4.8? because -O3 uses the same flags of -O2 plus all these flags and another one that is bugged and makes my detector segfault, so I removed it...)
+  (why so many flags on 4.8? because -O3 uses the same flags of -O2 plus all these flags and another one that is bugged on 4.8 and makes my detector segfault, so I removed it...)
