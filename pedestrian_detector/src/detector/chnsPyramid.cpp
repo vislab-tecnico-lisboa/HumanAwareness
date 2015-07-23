@@ -41,8 +41,16 @@ pyrInput::pyrInput(){
     lambdas = 0;
 
     shrink = 4;
-    pad = new int[2]{0, 0};
-    minDs = new int[2]{16, 16};
+    pad = new int[2];
+
+    pad[0] = 0;
+    pad[1] = 0;
+
+    minDs = new int[2];
+    minDs[0] = 16;
+    minDs[1] = 16;
+
+
 
     smoothIm = 1;
     smoothChns = 1;
@@ -50,7 +58,10 @@ pyrInput::pyrInput(){
     concat = true;
     complete = false;
 
-    sz = new int[3]{ 0 };
+    sz = new int[3];
+    sz[0] = 0;
+    sz[1] = 0;
+    sz[2] = 0;
 }
 
 pyrInput::~pyrInput(){
