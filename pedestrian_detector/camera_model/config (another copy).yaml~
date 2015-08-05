@@ -1,0 +1,32 @@
+%YAML:1.0
+#TODO - VALUES FOR THE GAZEBO CAMERA! 
+#The focal length was calculated using: flength = (width/2)/tan(hfov/2)
+#Results are strange... must review this more carefully
+#For now the empiric values are working fine
+
+image_width: 320
+image_height: 240
+camera_name: gazebo
+camera_matrix: !!opencv-matrix
+  rows: 3
+  cols: 3
+  dt: f
+  data: [173.27, 0, 160.5, 0, 173.27, 120.5, 0, 0, 1]
+distortion_model: plumb_bob
+distortion_coefficients: !!opencv-matrix
+  rows: 1
+  cols: 5
+  dt: f
+  data: [0, 0, 0, 0, 0]
+rectification_matrix: !!opencv-matrix
+  rows: 3
+  cols: 3
+  dt: f
+  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+  
+ #This needs to be calculated... For now it's useless
+projection_matrix: !!opencv-matrix
+  rows: 3
+  cols: 4
+  dt: f
+  data: [173.27, 0, 160, 0, 0, 173.27, 120, 0, 0, 0, 1, 0]

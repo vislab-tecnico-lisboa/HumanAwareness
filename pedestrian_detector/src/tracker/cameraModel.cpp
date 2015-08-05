@@ -2,7 +2,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "../include/tracker/detectionProcess.hpp"
 
-#define PERSON_HEIGHT 1.7
+#define PERSON_HEIGHT 1.8
 
 using namespace cv;
 using namespace std;

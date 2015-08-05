@@ -118,13 +118,13 @@ class Tracker{
       tf::StampedTransform transform;
       try
       {
-        listener.waitForTransform("/odom", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
-        listener.lookupTransform("/odom", "/base_footprint",ros::Time(0), transform);
+//        listener.waitForTransform("/map", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
+//        listener.lookupTransform("/map", "/base_footprint",ros::Time(0), transform);
 
             //The following transforms are used if we want to calculate the position using a homography. It's kinda unstable
             //to do it that way
-//          listener.waitForTransform("/odom", "/l_camera_vision_link", ros::Time(0), ros::Duration(10.0) );
-//          listener.lookupTransform("/odom", "/l_camera_vision_link",ros::Time(0), transform);
+          listener.waitForTransform("/map", "/l_camera_vision_link", ros::Time(0), ros::Duration(10.0) );
+          listener.lookupTransform("/map", "/l_camera_vision_link",ros::Time(0), transform);
       }
       catch(tf::TransformException ex)
       {
@@ -136,6 +136,7 @@ class Tracker{
       tf::transformTFToEigen(transform, eigen_transform);
 
 
+
       // convert matrix from Eigen to openCV
       cv::Mat transform_opencv;
       cv::eigen2cv(eigen_transform.matrix(), transform_opencv);
@@ -143,6 +144,10 @@ class Tracker{
       cv::Mat odomToBaseLinkTransform;
 
       invert(transform_opencv, odomToBaseLinkTransform);
+
+      cout << odomToBaseLinkTransform << endl;
+
+      exit(0);
 
       //Calculate the position from camera intrinsics and extrinsics
 
@@ -160,9 +165,9 @@ class Tracker{
 
       vector<cv::Point3d> coordsInBaseFrame;
 
-      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
+//      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
-//      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, odomToBaseLinkTransform);
+      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, odomToBaseLinkTransform);
 
 
       personList.associateData(coordsInBaseFrame, rects);
@@ -181,7 +186,7 @@ class Tracker{
 
       if(personNotChosenFlag)
       {
-          cout << "Person not chosen" << endl;
+
         marker_server->clear();
 
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
@@ -200,6 +205,8 @@ class Tracker{
 
             int_marker.pose.position.x = position.x;
             int_marker.pose.position.y = position.y;
+
+            cout << "Sending to marker server: " << "(" << position.x << "," << position.y << ")" << endl;
 
             marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
         }
@@ -229,8 +236,6 @@ class Tracker{
 
               int_marker.pose.position.x = position.x;
               int_marker.pose.position.y = position.y;
-
-              cout << "target position: " << position << endl;
 
 
               stringstream description, name;
@@ -296,9 +301,9 @@ class Tracker{
       visualization_msgs::Marker person_marker;
 
       person_marker.type = visualization_msgs::Marker::CYLINDER;
-      person_marker.scale.x = 0.3;
-      person_marker.scale.y = 0.3;
-      person_marker.scale.z = 1;
+      person_marker.scale.x = 0.3;  //0.3
+      person_marker.scale.y = 0.3; //0.3
+      person_marker.scale.z = 1;  //1
       person_marker.color.r = 0;
       person_marker.color.g = 1;
       person_marker.color.b = 0;
@@ -311,7 +316,7 @@ class Tracker{
       click_me.name = "click";
       click_me.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
 
-      int_marker.header.frame_id = "/odom";
+      int_marker.header.frame_id = "/map";
       int_marker.header.stamp=ros::Time::now();
 
       int_marker.controls.push_back(click_me);

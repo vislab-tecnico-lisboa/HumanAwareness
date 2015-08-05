@@ -3,7 +3,8 @@
 <launch>
   <arg name="image_in" default="/vizzy/l_camera/image_rect_color" />
   <arg name="image_out" default="pedestrian_detector_image" />
-  <node pkg="pedestrian_detector" type="detector" name="detector">
+  <node pkg="pedestrian_detector" type="detector" name="detector" output="screen">
+  		<param name="image_transport" value="compressed" />
 		<remap from="image_in" to="$(arg image_in)"/>
 		<remap from="image_out" to="$(arg image_out)"/>
   </node>

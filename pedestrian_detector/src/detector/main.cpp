@@ -59,6 +59,7 @@ private:
     //Callback to process the images
     void imageCb(const sensor_msgs::ImageConstPtr& msg)
     {
+
         cv_bridge::CvImagePtr cv_ptr;
         try
         {
@@ -129,7 +130,9 @@ public:
 
         //Subscribe to vizzy's left camera
         //Change this later
-        image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
+        image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
+        //image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
+
 
     }
 
