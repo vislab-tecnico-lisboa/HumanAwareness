@@ -1,26 +1,48 @@
 #include "../include/tracker/cameraModel.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "../include/tracker/detectionProcess.hpp"
+#include <ros/ros.h>
+#include "sensor_msgs/CameraInfo.h"
 
 #define PERSON_HEIGHT 1.8
 
 using namespace cv;
 using namespace std;
 
-//TODO: Usar TF's para fazer isto como deve ser...
-
 cameraModel::cameraModel(string configFile)
 {
-  FileStorage fs(configFile, FileStorage::READ);
-  if(!fs.isOpened())
-    {
-      cout << "Couldn't open camera config file." << endl;
-      exit(-4);
-    }
+  //Getting camera intrinsics from camera info topic
 
-  fs["camera_matrix"] >> K_;
-  fs["distortion_coefficients"] >> distCoefs_;
-//  fs["projection_matrix"] >> projectionMat_;
+  ROS_INFO("Getting camera parameters");
+
+
+  sensor_msgs::CameraInfoConstPtr l_camera_info = ros::topic::waitForMessage<sensor_msgs::CameraInfo>("/vizzy/l_camera/camera_info", ros::Duration(30));
+
+
+
+  //Check if timed out. If there is no topic, then load default parameters from file!
+
+  if (l_camera_info == NULL)
+  {
+    //Failed. Just load default file
+      FileStorage fs(configFile, FileStorage::READ);
+      if(!fs.isOpened())
+        {
+          cout << "Couldn't open camera config file." << endl;
+          exit(-4);
+        }
+
+       fs["camera_matrix"] >> K_;
+       ROS_INFO("No cameraInfoTopic found. Loading default parameters. RESULTS WILL BE BAD!");
+  }
+  else
+  {
+  K_ = Mat::eye(3,3,CV_64F);
+  K_.at<double>(0,0) = l_camera_info->K.at(0);
+  K_.at<double>(1,1) = l_camera_info->K.at(4);
+  K_.at<double>(0,2) = l_camera_info->K.at(2);
+  K_.at<double>(1,2) = l_camera_info->K.at(5);
+  }
 
   invert(K_, invertedK);
   invertedK.convertTo(invertedK, CV_32FC1);
@@ -28,7 +50,7 @@ cameraModel::cameraModel(string configFile)
 
   //Transforms points from camera frame to the base_footprint frame
   //This is an approximation, considering that the camera is pointing to the front,
-  //the optical axis is parallel to the floor.
+  //the optical axis is parallel to the floor. Only used if I don't have TF's
 
   float pose_array[] = {0, 0, 1, 0, -1, 0, 0, 0.1, 0, -1, 0, 0.95, 0, 0, 0, 1};
   pose = Mat(4, 4, CV_32FC1, pose_array).clone();
@@ -43,6 +65,7 @@ cameraModel::cameraModel(string configFile)
 *
 *  But is actually performing poorer that the other methods, by 2 meters!
 *  I'm probably doing something wrong...
+*  UPDATE: I wasn't... It was a bug on Gazebo. It's working awesomely well :)
 *
 */
 vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera)
@@ -88,19 +111,11 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
 
   Mat normalizedPoints = invertedK*homogeneousPoints;
 
-  cout << "invertedK: " << invertedK << endl;
-  cout << "homogeneousPoints: " << homogeneousPoints << endl;
-
-  cout << "normalizedPoints: " << normalizedPoints << endl;
-
   //Finally we get the points on the base frame in homogeneous coordinates
   // p = H^-1 * (K^-1 * x_cam)
 
   Mat homogeneousP = invertedHomography*normalizedPoints;
 
-  cout << "invertedHomography: " << invertedHomography << endl;
-
-  cout << "homogeneousP: " << homogeneousP << endl;
   //Now we just get the x, y from the homogeneous coordinates and set z to 0
   /*
             [p1x p2x p3x ... pnx]
@@ -127,7 +142,7 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
 }
 
 //This method is used if we dont have access to Vizzy's upper body tfs.
-//Performing suprisingly good. Damn good accuracy. It doesn't give noticeable errors at all! :O
+//Performing suprisingly good.
 
 vector<Point3d> cameraModel::calculatePointsOnWorldFrameWithoutHomography(vector<cv::Rect_<int> >* rects, Mat baseLinkToWorld)
 {

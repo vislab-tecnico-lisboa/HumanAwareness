@@ -13,6 +13,7 @@
 #include <string>
 #include <sstream>
 //#include <thread>
+#include <fstream>
 
 //ROS Includes
 #include <ros/ros.h>
@@ -39,6 +40,13 @@
 using namespace std;
 using namespace cv;
 
+int movAverageLength=10;
+float currentTime = 0, oldestTime = 0, timesSum = 0;
+std::deque<float> times (movAverageLength,0); //I keep the 10 most recent processing times, to compute a moving average
+int frameCounter = 0;
+
+//ofstream myfile;
+
 class PedDetector
 {
 
@@ -51,7 +59,6 @@ private:
 
     //Our detectors
     pedestrianDetector *person_detector;
-    pedestrianDetector *heads_detector;
 
     //Detections publisher
     ros::Publisher detectionPublisher;
@@ -59,6 +66,7 @@ private:
     //Callback to process the images
     void imageCb(const sensor_msgs::ImageConstPtr& msg)
     {
+        tic();
 
         cv_bridge::CvImagePtr cv_ptr;
         try
@@ -74,9 +82,8 @@ private:
         cv::Mat image(cv_ptr->image);
 
 
-        person_detector->runDetector(image);
-        heads_detector->runDetector(image);
 
+        person_detector->runDetector(image);
 
 
 
@@ -99,7 +106,30 @@ private:
             detectionList.bbVector.push_back(bb);
         }
 
-        for(it = heads_detector->boundingBoxes->begin(); it != heads_detector->boundingBoxes->end(); it++)
+
+        //Compute processing time
+        frameCounter++;
+        currentTime=tocMatteo();
+            times.push_front(currentTime); //Insert a new time in the list
+        oldestTime = times.back(); //Read the oldest time from the list
+        times.pop_back(); //Remove the oldest time from the list
+        //Update the moving average sum
+        timesSum+=currentTime;
+        timesSum-=oldestTime;
+        if(frameCounter>=10)
+        {
+//          cout<<"Processing time = "<<timesSum/float(movAverageLength)<<". FPS="<<float(movAverageLength)/timesSum<<std::endl;
+            stringstream ss;
+            ss << float(movAverageLength)/timesSum;
+            putText(image, ss.str(), Point(0, 30), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
+        }
+
+        //Number of detections, fps
+//        myfile << person_detector->headBoundingBoxes->size() << " " << float(movAverageLength)/timesSum << endl;
+
+
+
+        for(it = person_detector->headBoundingBoxes->begin(); it != person_detector->headBoundingBoxes->end(); it++)
         {
             rectangle(image, *it, Scalar_<int>(0,0,255), 3);
         }
@@ -120,8 +150,7 @@ public:
     PedDetector(string conf_pedestrians, string conf_heads)
     {
         //Initialization
-        person_detector = new pedestrianDetector(conf_pedestrians);
-        heads_detector = new pedestrianDetector(conf_heads);
+        person_detector = new pedestrianDetector(conf_pedestrians, conf_heads);
         it = new image_transport::ImageTransport(nh);
 
         //Advertise
@@ -132,14 +161,11 @@ public:
         //Change this later
         image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
-
-
     }
 
     ~PedDetector()
     {
         delete person_detector;
-        delete heads_detector;
         delete it;
     }
 
@@ -153,6 +179,10 @@ int main(int argc, char** argv)
 
     ros::init(argc, argv, "pedestrianDetector");
 
+
+
+
+
     //Get package path. This way we dont need to worry about running the node in the folder of the configuration files
     stringstream ss;
     ss << ros::package::getPath("pedestrian_detector");
@@ -162,8 +192,11 @@ int main(int argc, char** argv)
     ss2 << ros::package::getPath("pedestrian_detector");
     ss2 << "/configurationheadandshoulders.xml";
 
+//    myfile.open ("/home/avelino/fps_results.txt");
+
     PedDetector detector(ss.str(), ss2.str());
 
     ros::spin();
+//    myfile.close();
     return 0;
 }

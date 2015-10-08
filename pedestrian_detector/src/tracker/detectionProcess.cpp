@@ -1,8 +1,6 @@
 #include "../include/tracker/detectionProcess.hpp"
 #include <algorithm>
 
-#define PERSONHEIGHT 1800
-
 using namespace cv;
 
 //Computes the area of a rectangle. Might be usefull to find out the

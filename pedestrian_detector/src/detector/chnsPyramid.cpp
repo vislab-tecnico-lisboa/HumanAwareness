@@ -36,7 +36,7 @@ pyrInput::pyrInput(){
     pchns = new pChns();
 
     nPerOct = 8;
-    nOctUp = 1;
+    nOctUp = 0;
     nApprox = -1;
     lambdas = 0;
 
@@ -196,11 +196,12 @@ pyrOutput* chnsPyramid(float *image, pyrInput *input){
 
     int shrink = input->shrink;
     float shr[3] = { 0, 0, 0};
+
     for (int it = 0, i = isR[0]; it < countIsR; it++, i=isR[it]){
 	
-//	cout << "I address is: " << I << endl;
 	bool i_replaced_flag1 = false;
 	float scale = scales[i];
+
 	
 	int newHeight = round((float) heightO * (float) scale /
 			(float) shrink) * shrink;
@@ -320,7 +321,7 @@ pyrOutput* chnsPyramid(float *image, pyrInput *input){
 	wrFree(I1-misalign);
 
     }
-    
+
 
     // In case I changed it when scale = 0.5f
     height = heightO;

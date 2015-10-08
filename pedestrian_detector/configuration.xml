@@ -35,6 +35,10 @@
       <!-- What are these? -->
       <!-- nBaseFeatures -->
       <!-- nExtraFeatures -->  
+
+      <!--theoActWWidth="39.36"
+    theoActWHeight="96" -->
+
   <classifier id="1"
     widthOverHeight="0.41"
     
@@ -50,8 +54,8 @@
     nrFeatures="4160"
     nrProp="5"
     
-    classFile="StrongClassifierTreeStep4.txt"
-    nrClass="1000"
+    classFile="StrongClassifierTreeStep8.txt"
+    nrClass="2000"
     nrCol="14"
     
     nBaseFeatures="4160"
