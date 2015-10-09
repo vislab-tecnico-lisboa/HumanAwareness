@@ -34,9 +34,19 @@
 #include <stack>
 #include <iostream>
 
+//Stuff for results from simulation...
+#include <nav_msgs/Odometry.h>
+#include <fstream>
+
 
 using namespace std;
 
+
+//Stuff for results from simulation...
+cv::Point2d person1;
+cv::Point2d person2;
+int frame = 1;
+ofstream results;
 
 
 
@@ -62,7 +72,26 @@ class Tracker{
     ros::Publisher position_publisher;
 
 
+    //Things to get results...
+    ros::Subscriber person1Topic;
+    ros::Subscriber person2Topic;
+
+
   public:
+
+    //Stuff to get results!
+    void person1PosCallback(const nav_msgs::OdometryConstPtr &odom)
+    {
+        person1.x = odom->pose.pose.position.x;
+        person1.y = odom->pose.pose.position.y;
+    }
+
+    void person2PosCallback(const nav_msgs::OdometryConstPtr &odom)
+    {
+        person2.x = odom->pose.pose.position.x;
+        person2.y = odom->pose.pose.position.y;
+    }
+
     //Process the clicks on markers!
     void processFeedback(
         const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
@@ -145,10 +174,6 @@ class Tracker{
 
       invert(transform_opencv, odomToBaseLinkTransform);
 
-      cout << odomToBaseLinkTransform << endl;
-
-      exit(0);
-
       //Calculate the position from camera intrinsics and extrinsics
 
       Mat feetImagePoints;
@@ -181,6 +206,14 @@ class Tracker{
         *
         */
 
+
+      //SIMULATION ONLY
+      /*Write simulated persons positions to file. Frame | Id | x | y |*/
+      /*Person1 ID: -1, Person2 ID: -2*/
+
+      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
+      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
+
       //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
       //that have median different than -1000 on either coordinate
 
@@ -206,7 +239,7 @@ class Tracker{
             int_marker.pose.position.x = position.x;
             int_marker.pose.position.y = position.y;
 
-            cout << "Sending to marker server: " << "(" << position.x << "," << position.y << ")" << endl;
+            results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
 
             marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
         }
@@ -286,6 +319,8 @@ class Tracker{
         marker_server->applyChanges();
 
       }
+
+      frame++;
     }
     Tracker(string cameraConfig)
     {
@@ -295,20 +330,31 @@ class Tracker{
       cameramodel = new cameraModel(cameraConfig);
       image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
 
+      //Stuff for results...
+      person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
+      person2Topic = n.subscribe("/person2/odom", 1, &Tracker::person2PosCallback, this);
+
+
       //Prepare the marker
       marker_server = new interactive_markers::InteractiveMarkerServer("tracker");
 
       visualization_msgs::Marker person_marker;
 
-      person_marker.type = visualization_msgs::Marker::CYLINDER;
-      person_marker.scale.x = 0.3;  //0.3
-      person_marker.scale.y = 0.3; //0.3
-      person_marker.scale.z = 1;  //1
+      person_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+      person_marker.mesh_resource = "package://pedestrian_detector/meshes/animated_walking_man.mesh";
+      person_marker.scale.x = 1.5 / 7.0 * 1.8;  //0.3
+      person_marker.scale.y = 1.5 / 7.0 * 1.8; //0.3
+      person_marker.scale.z = 1.5 / 7.0 * 1.8;  //1
       person_marker.color.r = 0;
       person_marker.color.g = 1;
       person_marker.color.b = 0;
       person_marker.color.a = 1.0;
-      person_marker.pose.position.z = 0.5;
+      person_marker.pose.position.z = 0;
+
+      person_marker.pose.orientation.x = 1;
+      person_marker.pose.orientation.y = 0;
+      person_marker.pose.orientation.z = 0;
+      person_marker.pose.orientation.w = 1;
 
       visualization_msgs::InteractiveMarkerControl click_me;
       click_me.always_visible = true;
@@ -318,6 +364,8 @@ class Tracker{
 
       int_marker.header.frame_id = "/map";
       int_marker.header.stamp=ros::Time::now();
+
+      int_marker.scale = 1.5;
 
       int_marker.controls.push_back(click_me);
 
@@ -341,12 +389,17 @@ int main(int argc, char **argv)
 
   stringstream ss;
 
+  //Simulation results file
+  results.open("/home/avelino/results.txt");
+
   ss << ros::package::getPath("pedestrian_detector");
   ss << "/camera_model/config.yaml";
 
   Tracker tracker(ss.str());
 
   ros::spin();
+
+  results.close();
 
   return 0;
 }

@@ -46,6 +46,7 @@ using namespace std;
 
 void tic();
 void toc();
+float tocMatteo();
 
 /*
  * XML meta function
@@ -117,15 +118,19 @@ class pedestrianDetector{
     public:
     ClassRectangles *rectangles;
     ClassData *classData;
+    ClassData *classDataHeads;
     classifierInput *sctInput;
+    classifierInput *sctInputHeads;
     int *pad;
     pyrInput *pInput;
     helperXMLParser *parsed;
+    helperXMLParser *parsedHeads;
 
     vector<cv::Rect_<int> >* boundingBoxes;
+    vector<cv::Rect_<int> >* headBoundingBoxes;
     
     public: 
-      pedestrianDetector(string configuration);
+      pedestrianDetector(string configuration, string configHeadAndShoulders);
       ~pedestrianDetector();
       void runDetector(Mat img_original);
 };

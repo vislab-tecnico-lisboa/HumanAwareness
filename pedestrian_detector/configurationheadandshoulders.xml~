@@ -43,15 +43,15 @@
     theoWWidth="40"
     theoWHeight="36"
     
-    theoActWWidth="38"
-    theoActWHeight="34"
+    theoActWWidth="36"
+    theoActWHeight="32"
     
     rectFile="rectangles.dat"
     nrFeatures="900"
     nrProp="5"
     
-    classFile="StrongClassifierTreeStep2.txt"
-    nrClass="1000"
+    classFile="HeadAndShoulders.txt"
+    nrClass="500"
     nrCol="14"
     
     nBaseFeatures="900"

@@ -1,6 +1,6 @@
 <launch>
-  <node pkg="rosbag" type="play" name="rosbag" args="-d 2 /home/avelino/catkin_ws/src/pedestrian_detector/detections.bag"/>
+  <node pkg="rosbag" type="play" name="rosbag" args="-d 2 /home/avelino/catkin_ws/src/humanawareness_ros/pedestrian_detector/bags/fourth.bag"/>
   <node name="extract" pkg="image_view" type="extract_images" respawn="false" output="screen" cwd="ROS_HOME">
-    <remap from="image" to="/pedestriandetector/image"/>
+    <remap from="image" to="/vizzy/l_camera/image_rect_color"/>
   </node>
 </launch>

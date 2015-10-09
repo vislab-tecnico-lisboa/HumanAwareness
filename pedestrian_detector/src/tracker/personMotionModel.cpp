@@ -88,8 +88,6 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id)
   this->id = id;
   noDetection = 0;
 
-  cout << "Tracker: " << id << "created. noDetection =" << noDetection << endl;
-
 }
 
 Point3d PersonModel::getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point2d estimation)
@@ -163,23 +161,18 @@ void PersonList::updateList()
     for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();)
     {
 
-        cout << "no detection: " << (*it).noDetection << " id: " << (*it).id << endl;
-
         if((*it).position.x != -1000 && (*it).position.y != -1000)
           (*it).noDetection = 0;
         else
         {
           (*it).noDetection++;
-            if((*it).lockedOnce)
-                cout << "detection++: " << (*it).noDetection << " id: " << (*it).id << endl;
         }
 
         (*it).updateModel();
 
         if(((*it).noDetection > 5 && (*it).lockedOnce==false) || ((*it).noDetection > 1000000 && (*it).lockedOnce==true))
         {
-            cout << "Tracked: " << (*it).id << " deleted. noDetections: " << (*it).noDetection << endl;
-            it = personList.erase(it);         
+            it = personList.erase(it);
         }
         else
             it++;
@@ -271,7 +264,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
     //assignment vector positions represents the detections and the value in each position represents the assigned tracker
     //if there is no possible association, then the value is -1
-
+    //cost vector doesn't mean anything at this point...
 
     //for each detection we update it's tracker with the position
 
@@ -279,17 +272,17 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
     {
 
         //If there is an associated tracker and the distance is less than 2 meters we update the position
-        if(assignment[i] != -1)
+        if(assignment[i] != -1)          
         {
-   //       if(cost[i] < 1.5)
-  //          {
-              personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
-              personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
+   //
+            if(distMatrixIn[i+((int)assignment[i])*nDetections] < 2)
+            {
+            personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
+            personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
 
           //Bounding boxes...
               personList.at(assignment[i]).rect = rects.at(i);
-
-//            }
+            }
         }
         else
         {
@@ -362,4 +355,3 @@ std::vector<PersonModel> PersonList::getValidTrackerPosition()
     return validTrackers;
 
 }
-

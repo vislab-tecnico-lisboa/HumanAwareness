@@ -1,6 +1,6 @@
 /*******************************************************************************
-* Pedestrian Detector v0.2    2015-03
-* 
+* Pedestrian Detector v0.3    2015-09
+* With Head and shoulders
 *
 * Joao Avelino and Matteo Taiana
 * 
@@ -34,6 +34,15 @@ void toc() {
               << ((double)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC
               << std::endl;
     tictoc_stack.pop();
+}
+
+float tocMatteo() {
+    float currentTime=((double)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC;
+    //std::cout << "Time elapsed: "
+     //         << ((double)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC
+    //          << std::endl;
+    tictoc_stack.pop();
+    return currentTime;
 }
 
 
@@ -136,13 +145,18 @@ void helperXMLParser::print(){
 }
 
 
-pedestrianDetector::pedestrianDetector(string configuration){
+pedestrianDetector::pedestrianDetector(string configuration, string configHeadAndShoulders){
 
 /*Detector initialization*/
 
   parsed = new helperXMLParser(configuration);
   if(parsed->verbose)
     parsed->print();
+
+
+
+  //Parse HeadAndShoulders
+  parsedHeads = new helperXMLParser(configHeadAndShoulders);
     
     pInput = new pyrInput();
     pInput->nApprox = -1; 								//parse it
@@ -164,7 +178,12 @@ pedestrianDetector::pedestrianDetector(string configuration){
   classData = new ClassData(parsed->classFile,
                                        parsed->nrClass, 
                                        parsed->nrCol);
-  
+
+  //HeadsClassifier Data
+
+  classDataHeads = new ClassData(parsedHeads->classFile,
+                                 parsedHeads->nrClass,
+                                 parsedHeads->nrCol);
   // Setup the classifier
   sctInput = new classifierInput(classData, 
                                                   rectangles,
@@ -179,6 +198,21 @@ pedestrianDetector::pedestrianDetector(string configuration){
                                                   parsed->nExtraFeatures
                                                  );
 
+  //Setup Heads classifier
+  sctInputHeads = new classifierInput(classDataHeads,
+                                                  rectangles,
+                                                  parsedHeads->verbose,
+                                                  parsedHeads->widthOverHeight,
+                                                  parsedHeads->shrinkFactor,
+                                                  parsedHeads->theoWWidth,
+                                                  parsedHeads->theoWHeight,
+                                                  parsedHeads->theoActWWidth,
+                                                  parsedHeads->theoActWHeight,
+                                                  parsedHeads->nBaseFeatures,
+                                                  parsedHeads->nExtraFeatures
+                                                 );
+
+
 //padding
   delete [] (pInput->pad);
   pInput->pad = new int[2];
@@ -186,6 +220,7 @@ pedestrianDetector::pedestrianDetector(string configuration){
   pInput->pad[1] = sctInput->theoreticalHorizontalPadding;
 
   boundingBoxes = NULL;
+  headBoundingBoxes = NULL;
 }
 
 
@@ -196,6 +231,14 @@ pedestrianDetector::~pedestrianDetector(){
     delete(sctInput);
     delete(pInput);
     delete(parsed);
+
+
+    delete(parsedHeads);
+    delete(classDataHeads);
+    delete(sctInputHeads);
+
+    if(headBoundingBoxes != NULL)
+        delete(headBoundingBoxes);
 
     if(boundingBoxes != NULL)
         delete(boundingBoxes);
@@ -266,9 +309,11 @@ void pedestrianDetector::runDetector(Mat img_original){
    * Running the detector
    */
   vector<cv::Rect_<int> >* rects = sctRun(pOutput, sctInput);
-  
+  sctInputHeads->verticalSuperPadding=12;
+  vector<cv::Rect_<int> >* rectsHeads = sctRun(pOutput, sctInputHeads);
   
   
   delete pOutput;
   boundingBoxes = rects;
+  headBoundingBoxes = rectsHeads;
 }

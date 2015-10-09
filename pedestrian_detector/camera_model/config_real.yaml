@@ -1,8 +1,4 @@
 %YAML:1.0
-#TODO - VALUES FOR THE GAZEBO CAMERA! 
-#The focal length was calculated using: flength = (width/2)/tan(hfov/2)
-#Results are strange... must review this more carefully
-#For now the empiric values are working fine
 
 image_width: 320
 image_height: 240

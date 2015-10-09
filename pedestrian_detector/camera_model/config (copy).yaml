@@ -2,7 +2,7 @@
 
 image_width: 640
 image_height: 480
-camera_name: gazebo
+camera_name: 00b09d01007ad691
 camera_matrix: !!opencv-matrix
   rows: 3
   cols: 3
@@ -19,8 +19,6 @@ rectification_matrix: !!opencv-matrix
   cols: 3
   dt: f
   data: [0.999935, 0.005385, 0.010016, -0.005309, 0.999957, -0.007642, -0.010056, 0.007588, 0.999921]
-  
- #This needs to be calculated... For now it's useless
 projection_matrix: !!opencv-matrix
   rows: 3
   cols: 4
