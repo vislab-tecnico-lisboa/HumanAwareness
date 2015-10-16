@@ -53,6 +53,7 @@ class PedDetector
 private:
     //ROS NodeHandle, and image_transport objects
     ros::NodeHandle nh;
+    ros::NodeHandle nPriv;
     image_transport::ImageTransport *it;
     image_transport::Subscriber image_sub;
     image_transport::Publisher image_pub;
@@ -147,7 +148,7 @@ private:
     }
 
 public:
-    PedDetector(string conf_pedestrians, string conf_heads)
+    PedDetector(ros::NodeHandle & nh_,string conf_pedestrians, string conf_heads): nh(nh_), nPriv("~")
     {
         //Initialization
         person_detector = new pedestrianDetector(conf_pedestrians, conf_heads);
@@ -159,8 +160,9 @@ public:
 
         //Subscribe to vizzy's left camera
         //Change this later
-        image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
+        //image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
+        image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
     }
 
     ~PedDetector()
@@ -179,8 +181,7 @@ int main(int argc, char** argv)
 
     ros::init(argc, argv, "pedestrianDetector");
 
-
-
+    ros::NodeHandle n;
 
 
     //Get package path. This way we dont need to worry about running the node in the folder of the configuration files
@@ -194,7 +195,7 @@ int main(int argc, char** argv)
 
 //    myfile.open ("/home/avelino/fps_results.txt");
 
-    PedDetector detector(ss.str(), ss2.str());
+    PedDetector detector(n, ss.str(), ss2.str());
 
     ros::spin();
 //    myfile.close();
