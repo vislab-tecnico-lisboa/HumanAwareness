@@ -76,6 +76,8 @@ class Tracker{
 //    ros::Subscriber person1Topic;
 //    ros::Subscriber person2Topic;
 
+    std::string cameraStr;
+    ros::NodeHandle nPriv;
 
   public:
 
@@ -152,8 +154,11 @@ class Tracker{
 
             //The following transforms are used if we want to calculate the position using a homography.
 
-          listener.waitForTransform("/map", "/r_camera_vision_link", ros::Time(0), ros::Duration(10.0) );
-          listener.lookupTransform("/map", "/r_camera_vision_link",ros::Time(0), transform);
+          stringstream camera;
+          camera << cameraStr << "_vision_link";
+
+          listener.waitForTransform("/map", camera.str(), ros::Time(0), ros::Duration(10.0) );
+          listener.lookupTransform("/map", camera.str(),ros::Time(0), transform);
       }
       catch(tf::TransformException ex)
       {
@@ -322,12 +327,14 @@ class Tracker{
 
       frame++;
     }
-    Tracker(string cameraConfig)
+    Tracker(string cameraConfig) : nPriv("~")
     {
+
+        nPriv.param<std::string>("camera", cameraStr, "l_camera");
 
       personNotChosenFlag = true;
 
-      cameramodel = new cameraModel(cameraConfig);
+      cameramodel = new cameraModel(cameraConfig, cameraStr);
       image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
 
       //Stuff for results...

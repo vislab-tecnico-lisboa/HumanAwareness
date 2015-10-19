@@ -19,7 +19,7 @@ class cameraModel
   public:
   cv::Mat invertedK;
 
-  cameraModel(string configFile);
+  cameraModel(string configFile, std::string cameraStr);
   std::vector<cv::Point3d> calculatePointsOnWorldFrame(cv::Mat imagePoints, cv::Mat worldLinkToCamera);
   std::vector<cv::Point3d> calculatePointsOnWorldFrameWithoutHomography(vector<cv::Rect_<int> >* rects, cv::Mat baseLinkToWorld);
   cv::Mat getK();

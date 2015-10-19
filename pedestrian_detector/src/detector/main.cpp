@@ -165,6 +165,7 @@ public:
 
         nPriv.param<std::string>("detector_type", detectorType, "full");
 
+
         person_detector = new pedestrianDetector(conf_pedestrians, conf_heads, detectorType);
         it = new image_transport::ImageTransport(nh);
 
