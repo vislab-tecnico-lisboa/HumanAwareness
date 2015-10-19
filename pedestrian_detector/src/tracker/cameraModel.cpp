@@ -16,7 +16,7 @@ cameraModel::cameraModel(string configFile)
   ROS_INFO("Getting camera parameters");
 
 
-  sensor_msgs::CameraInfoConstPtr l_camera_info = ros::topic::waitForMessage<sensor_msgs::CameraInfo>("/vizzy/l_camera/camera_info", ros::Duration(30));
+  sensor_msgs::CameraInfoConstPtr l_camera_info = ros::topic::waitForMessage<sensor_msgs::CameraInfo>("/vizzy/r_camera/camera_info", ros::Duration(30));
 
 
 

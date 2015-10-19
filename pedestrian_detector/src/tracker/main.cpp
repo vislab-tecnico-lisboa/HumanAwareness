@@ -46,7 +46,7 @@ using namespace std;
 cv::Point2d person1;
 cv::Point2d person2;
 int frame = 1;
-ofstream results;
+//ofstream results;
 
 
 
@@ -73,8 +73,8 @@ class Tracker{
 
 
     //Things to get results...
-    ros::Subscriber person1Topic;
-    ros::Subscriber person2Topic;
+//    ros::Subscriber person1Topic;
+//    ros::Subscriber person2Topic;
 
 
   public:
@@ -150,10 +150,10 @@ class Tracker{
 //        listener.waitForTransform("/map", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
 //        listener.lookupTransform("/map", "/base_footprint",ros::Time(0), transform);
 
-            //The following transforms are used if we want to calculate the position using a homography. It's kinda unstable
-            //to do it that way
-          listener.waitForTransform("/map", "/l_camera_vision_link", ros::Time(0), ros::Duration(10.0) );
-          listener.lookupTransform("/map", "/l_camera_vision_link",ros::Time(0), transform);
+            //The following transforms are used if we want to calculate the position using a homography.
+
+          listener.waitForTransform("/map", "/r_camera_vision_link", ros::Time(0), ros::Duration(10.0) );
+          listener.lookupTransform("/map", "/r_camera_vision_link",ros::Time(0), transform);
       }
       catch(tf::TransformException ex)
       {
@@ -211,8 +211,8 @@ class Tracker{
       /*Write simulated persons positions to file. Frame | Id | x | y |*/
       /*Person1 ID: -1, Person2 ID: -2*/
 
-      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
-      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
+//      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
+//      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
 
       //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
       //that have median different than -1000 on either coordinate
@@ -239,7 +239,7 @@ class Tracker{
             int_marker.pose.position.x = position.x;
             int_marker.pose.position.y = position.y;
 
-            results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
+//            results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
 
             marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
         }
@@ -331,8 +331,8 @@ class Tracker{
       image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
 
       //Stuff for results...
-      person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
-      person2Topic = n.subscribe("/person2/odom", 1, &Tracker::person2PosCallback, this);
+ //     person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
+ //     person2Topic = n.subscribe("/person2/odom", 1, &Tracker::person2PosCallback, this);
 
 
       //Prepare the marker
@@ -390,7 +390,7 @@ int main(int argc, char **argv)
   stringstream ss;
 
   //Simulation results file
-  results.open("/home/avelino/results.txt");
+//  results.open("/home/avelino/results.txt");
 
   ss << ros::package::getPath("pedestrian_detector");
   ss << "/camera_model/config.yaml";
@@ -399,7 +399,7 @@ int main(int argc, char **argv)
 
   ros::spin();
 
-  results.close();
+//  results.close();
 
   return 0;
 }

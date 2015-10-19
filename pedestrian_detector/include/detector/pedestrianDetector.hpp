@@ -128,9 +128,11 @@ class pedestrianDetector{
 
     vector<cv::Rect_<int> >* boundingBoxes;
     vector<cv::Rect_<int> >* headBoundingBoxes;
+
+    std::string detectorType;
     
     public: 
-      pedestrianDetector(string configuration, string configHeadAndShoulders);
+      pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType);
       ~pedestrianDetector();
       void runDetector(Mat img_original);
 };

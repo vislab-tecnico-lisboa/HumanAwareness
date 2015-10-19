@@ -157,7 +157,7 @@ public:
                 {
                     nextState = PLANNER;
                     delete rate;
-                    rate = new ros::Rate(1);
+                    rate = new ros::Rate(10);
                 }
                 else if(distanceToPerson < planner_activation_distance && distanceToPerson > minimum_distance && hold == false)
                 {
@@ -245,7 +245,7 @@ public:
 
                     nextState = PLANNER;
                     delete rate;
-                    rate = new ros::Rate(1);
+                    rate = new ros::Rate(10);
 
                 }
 
