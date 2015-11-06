@@ -95,6 +95,8 @@ private:
 
         pedestrian_detector::DetectionList detectionList;
 
+        detectionList.header.stamp = msg->header.stamp;
+
 
         //Print rectangles on the image and add them to the detection list
         //Print detection numbers so that we can initialize the tracker using Rviz
@@ -175,9 +177,9 @@ public:
 
         //Subscribe to vizzy's left camera
         //Change this later
-        //image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
+        image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
-        image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
+        //image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
     }
 
     ~PedDetector()

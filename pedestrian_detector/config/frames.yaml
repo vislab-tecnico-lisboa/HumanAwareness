@@ -1,0 +1,10 @@
+world_frame: map
+neck_frame: ego_frame
+ego_frame: eyes_center_vision_link
+base_frame: base_link
+left_camera_frame: l_camera_vision_link
+right_camera_frame: r_camera_vision_link
+left_eye_frame: l_eye_version_link
+right_eye_frame: r_eye_version_link
+eyes_center_frame: eyes_center_vision_link
+head_origin_frame: head_origin_frame

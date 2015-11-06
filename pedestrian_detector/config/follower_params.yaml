@@ -1,0 +1,5 @@
+world_frame: map
+robot_frame: base_footprint
+minimum_distance: 1
+planner_activation_distance: 2
+minimum_planner_distance: 1.5

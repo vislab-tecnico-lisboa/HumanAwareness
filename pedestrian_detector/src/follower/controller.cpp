@@ -37,7 +37,7 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, Move
     personMat = odomToBaseLink*personMat;
 
 
-    //The desired orientation will be a rotation of PHI around the Z axis. PHI is the angle between X_robot (axis) and (-P)
+    //The desired orientation will be a rotation of PHI around the Z axis. PHI is the angle between X_robot (axis) and (P)
     //Desired orientation on base_link frame
     float phi = atan2(personMat.at<float>(1, 0), personMat.at<float>(0, 0));
 
@@ -160,3 +160,39 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, Move
         ROS_INFO("Could not connect to server.");
     }
 }
+
+
+/*void segwayController::PID(cv::Point3d person, cv::Mat odomToBaseLink)
+{
+
+    //Lets get phi
+
+    Mat personMat(person);
+
+    personMat.convertTo(personMat, CV_32FC1);
+
+    Mat ones = Mat::ones(1, 1, CV_32FC1);
+
+    personMat.push_back(ones);
+
+    Mat baseLinkToOdom;
+    invert(odomToBaseLink, baseLinkToOdom);
+
+    odomToBaseLink.convertTo(odomToBaseLink, CV_32FC1);
+    baseLinkToOdom.convertTo(baseLinkToOdom, CV_32FC1);
+
+    //We set the robot desired orientation
+
+    //Transform the point to the base_link Frame (this will not be needed if I get the points on this frame directly,
+    //wich I do... but for testing purposes I will keep it this way
+
+    personMat = odomToBaseLink*personMat;
+
+
+    //The desired orientation will be a rotation of PHI around the Z axis. PHI is the angle between X_robot (axis) and (P)
+    //Desired orientation on base_link frame
+    float phi = atan2(personMat.at<float>(1, 0), personMat.at<float>(0, 0));
+
+    //Now
+
+}*/

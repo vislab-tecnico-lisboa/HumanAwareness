@@ -12,28 +12,55 @@
 */
 
 
-//Not used yet...
-void PersonModel::updateVelocityArray(Point3d detectedPosition)
+void PersonModel::updateVelocityArray(Point2d detectedPosition)
 {
-    for(int i=0; i < 5; i++)
-        velocity[5-i] = velocity[5-(i+1)];
+    for(int i=0; i < 25; i++)
+        velocity[25-i] = velocity[25-(i+1)];
 
-    if(detectedPosition.x != -1000 && detectedPosition.y != -1000)
+    if(!deadReckoning)
     {
-      velocity[0].x = (detectedPosition.x - position.x)/delta_t;
-      velocity[0].y = (detectedPosition.y - position.y)/delta_t;
+      if(positionHistory[1].x != -1000 && positionHistory[1].y != -1000)
+      {
+      velocity[0].x = -(detectedPosition.x - positionHistory[1].x)/delta_t;
+      velocity[0].y = -(detectedPosition.y - positionHistory[1].y)/delta_t;
+      }
+      else
+      {
+          Point2d vel;
+          vel = velocityMedianFilter();
+          velocity[0].x = vel.x;
+          velocity[0].y = vel.y;
+      }
+
     }
-     //If there is no suitabled detection we don't update it
+    else
+    {
+        //Dead reckoning.
+        velocity[0].x = velocity[1].x;
+        velocity[0].y = velocity[1].y;
+    }
+
+    //ROS_ERROR_STREAM("Id:" << id << " | velx: " << velocity[0].x << " | vely: " << velocity[0].y);
+
     //This must be better thinked...
+
 }
 
 
 Point2d PersonModel::getPositionEstimate()
 {
 
-    //For now just return the last detection...
-    return positionHistory[0];
+    Point2d filteredPosition;
+    Point3d aux;
+    aux = medianFilter();
 
+    filteredPosition.x = aux.x;
+    filteredPosition.y = aux.y;
+
+
+    //return filteredPosition+filteredVelocity*delta_t;
+
+    return filteredPosition;
 }
 
 
@@ -44,10 +71,17 @@ void PersonModel::updateModel()
 
   //updateVelocityArray(detectedPosition); - not used yet
 
+  ros::Duration sampleTime = ros::Time::now() - lastUpdate;
+
+  delta_t = sampleTime.toSec();
+  lastUpdate = ros::Time::now();
+
   for(int i=0; i < 4; i++)
       positionHistory[4-i] = positionHistory[4-(i+1)];
 
   positionHistory[0] = position;
+
+  updateVelocityArray(position);
 
   position.x = -1000;
   position.y = -1000;
@@ -58,18 +92,21 @@ void PersonModel::updateModel()
 
   rectHistory[0] = rect;
 
-  //velocity = median...
+  //velocity in m/ns
+
+  filteredVelocity = velocityMedianFilter();
 
 
 }
 
 PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id)
 {
-    for(int i=0; i < 5; i++)
+    for(int i=0; i < 25; i++)
         velocity[i] = Point2d(0, 0);
 
   position.x = detectedPosition.x;
   position.y = detectedPosition.y;
+
 
   rect = bb;
   rectHistory[0] = bb;
@@ -87,6 +124,11 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id)
 
   this->id = id;
   noDetection = 0;
+
+  delta_t = 0.1;
+  lastUpdate = ros::Time::now();
+
+  deadReckoning = false;
 
 }
 
@@ -143,6 +185,32 @@ Point3d PersonModel::medianFilter()
 
 }
 
+Point2d PersonModel::velocityMedianFilter()
+{
+    //Optimize this later
+
+    double x[25];
+    double y[25];
+
+    for(int i = 0; i<25; i++)
+    {
+        x[i] = velocity[i].x;
+        y[i] = velocity[i].y;
+    }
+
+    vector<double> x_vect(x, x + sizeof(x)/sizeof(x[0]));
+    vector<double> y_vect(y, y + sizeof(y)/sizeof(y[0]));
+
+    std::sort(x_vect.begin(), x_vect.begin() + 5);
+    std::sort(y_vect.begin(), y_vect.begin() + 5);
+
+
+    Point2d medianPoint(x_vect.at(2), y_vect.at(2));
+
+    return medianPoint;
+
+}
+
 PersonModel::~PersonModel()
 {
 
@@ -162,15 +230,21 @@ void PersonList::updateList()
     {
 
         if((*it).position.x != -1000 && (*it).position.y != -1000)
+        {
           (*it).noDetection = 0;
+          (*it).deadReckoning = false;
+        }
         else
         {
           (*it).noDetection++;
-        }
+          //Dead reckoning - We can't see it but we will assume it will maitain the same velocity
+            (*it).deadReckoning = true;
+          (*it).position = (*it).getPositionEstimate();
 
+        }
         (*it).updateModel();
 
-        if(((*it).noDetection > 5 && (*it).lockedOnce==false) || ((*it).noDetection > 1000000 && (*it).lockedOnce==true))
+        if(((*it).noDetection > 25 && (*it).lockedOnce==false) || ((*it).noDetection > 1000000 && (*it).lockedOnce==true))
         {
             it = personList.erase(it);
         }
@@ -292,7 +366,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
             {
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
-                if(norm(coordsInBaseFrame.at(i)-testPoint) < 1.5)
+                if(norm(coordsInBaseFrame.at(i)-testPoint) < 0.5)
                 {
                   existsInRadius = true;
                   break;
@@ -321,7 +395,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
             {
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
-                if(norm(coordsInBaseFrame.at(i)-testPoint) < 1.5)
+                if(norm(coordsInBaseFrame.at(i)-testPoint) < 0.5)
                 {
                   existsInRadius = true;
                   break;

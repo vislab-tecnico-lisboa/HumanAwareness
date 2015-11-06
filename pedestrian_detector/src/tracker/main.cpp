@@ -38,6 +38,10 @@
 #include <nav_msgs/Odometry.h>
 #include <fstream>
 
+//Gaze control
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/client/terminal_state.h>
+#include <move_robot_msgs/GazeAction.h>
 
 using namespace std;
 
@@ -47,7 +51,6 @@ cv::Point2d person1;
 cv::Point2d person2;
 int frame = 1;
 //ofstream results;
-
 
 
 class Tracker{
@@ -61,6 +64,13 @@ class Tracker{
     bool personNotChosenFlag;
     Point3d targetCoords;
     PersonList personList;
+    Point3d lastFixationPoint;
+
+
+
+    actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
+    ros::Time imageStamp;
+
 
     int targetId;
 
@@ -77,12 +87,13 @@ class Tracker{
 //    ros::Subscriber person2Topic;
 
     std::string cameraStr;
+    std::string mapTopic;
     ros::NodeHandle nPriv;
 
   public:
 
     //Stuff to get results!
-    void person1PosCallback(const nav_msgs::OdometryConstPtr &odom)
+/*    void person1PosCallback(const nav_msgs::OdometryConstPtr &odom)
     {
         person1.x = odom->pose.pose.position.x;
         person1.y = odom->pose.pose.position.y;
@@ -92,6 +103,23 @@ class Tracker{
     {
         person2.x = odom->pose.pose.position.x;
         person2.y = odom->pose.pose.position.y;
+    }*/
+
+
+    //Compute the z coordinate in the world frame knowing both x and y
+
+    double getZ(Point2d center, Point2d worldXY, Mat mapToCameraTransform)
+    {
+      Mat K = cameramodel->getK();
+      Mat RT = mapToCameraTransform(Range(0,3), Range(0, 4));
+      Mat P = K*RT;
+
+
+      double z = worldXY.x*(center.x/center.y*P.at<double>(1,0)-P.at<double>(0,0))+worldXY.y*(center.x/center.y*P.at<double>(1,1)-P.at<double>(0,1))+center.x/center.y*P.at<double>(1,3)-P.at<double>(0,3);
+
+      z = z/(P.at<double>(0,2)-center.x/center.y*P.at<double>(1,2));
+
+      return z;
     }
 
     //Process the clicks on markers!
@@ -117,6 +145,7 @@ class Tracker{
         //The second time we click on the marker we stop following that person. (Only click after some delay are counted...)
           {
             personNotChosenFlag = true;
+            targetId = -1;
           }
 
       ROS_INFO_STREAM( feedback->marker_name << " is now at "
@@ -132,7 +161,9 @@ class Tracker{
     {
 
       //Get rects from message
+
       vector<cv::Rect_<int> > rects;
+      imageStamp = detection->header.stamp;
 
       for(pedestrian_detector::DetectionList::_bbVector_type::const_iterator it = detection->bbVector.begin(); it != detection ->bbVector.end(); it++)
       {
@@ -175,9 +206,9 @@ class Tracker{
       cv::Mat transform_opencv;
       cv::eigen2cv(eigen_transform.matrix(), transform_opencv);
 
-      cv::Mat odomToBaseLinkTransform;
+      cv::Mat mapToCameraTransform;
 
-      invert(transform_opencv, odomToBaseLinkTransform);
+      invert(transform_opencv, mapToCameraTransform);
 
       //Calculate the position from camera intrinsics and extrinsics
 
@@ -197,7 +228,7 @@ class Tracker{
 
 //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
-      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, odomToBaseLinkTransform);
+      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform);
 
 
       personList.associateData(coordsInBaseFrame, rects);
@@ -266,6 +297,9 @@ class Tracker{
             if((*it).id == targetId)
             {
 
+                //Start looking at that person. Even if we have to turn the base to avoid obstacles, we will still try to see
+              // our target
+
               it->lockedOnce = true;
 
               int_marker.controls.at(0).markers.at(0).color.r = 1;
@@ -287,13 +321,54 @@ class Tracker{
 
 
               //Now we send out the position
-              geometry_msgs::Point final_position;
+              geometry_msgs::PointStamped final_position;
 
-              final_position.x = position.x;
-              final_position.y = position.y;
-              final_position.z = 0;
+              final_position.header.stamp = imageStamp;
+              final_position.point.x = position.x;
+              final_position.point.y = position.y;
+              final_position.point.z = 0;
 
               position_publisher.publish(final_position);
+
+
+              move_robot_msgs::GazeGoal fixationGoal;
+
+              //We wish to gaze at the center of the bounding box
+              Point2d bbCenter = getCenter(it->rect);
+
+              double z = getZ(bbCenter, Point2d(position.x, position.y), mapToCameraTransform);
+
+              if(cv::norm(Point3d(position.x, position.y, z)-lastFixationPoint) > 0.5)
+              {
+                fixationGoal.fixation_point.header.frame_id="map";
+                fixationGoal.fixation_point.point.x = position.x;
+                fixationGoal.fixation_point.point.y =  position.y;
+                fixationGoal.fixation_point.point.z = z;
+                fixationGoal.fixation_point_error_tolerance = 0.5;
+
+                fixationGoal.fixation_point.header.stamp=imageStamp;
+
+                ac.sendGoal(fixationGoal);
+                ROS_INFO("Gaze Action server started, sending goal.");
+
+                lastFixationPoint = Point3d(position.x, position.y, z);
+
+              }
+
+
+
+              //wait for the action to return
+/*              bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+
+              if (finished_before_timeout)
+              {
+                  actionlib::SimpleClientGoalState state = ac.getState();
+                  ROS_INFO("Gaze action finished: %s",state.toString().c_str());
+              }
+              else
+                  ROS_INFO("Gaze action did not finish before the time out.");
+*/
+
             }
             else
             {
@@ -327,12 +402,18 @@ class Tracker{
 
       frame++;
     }
-    Tracker(string cameraConfig) : nPriv("~")
+    Tracker(string cameraConfig) : ac("gaze", true), nPriv("~")
     {
+        ROS_INFO("Waiting for action server to start.");
+        ac.waitForServer();
 
         nPriv.param<std::string>("camera", cameraStr, "l_camera");
+        nPriv.param<std::string>("map_topic", mapTopic, "/map");
 
       personNotChosenFlag = true;
+
+      //Initialize at infinity
+      lastFixationPoint = Point3d(1000, 1000, 1000);
 
       cameramodel = new cameraModel(cameraConfig, cameraStr);
       image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
@@ -349,9 +430,9 @@ class Tracker{
 
       person_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
       person_marker.mesh_resource = "package://pedestrian_detector/meshes/animated_walking_man.mesh";
-      person_marker.scale.x = 1.5 / 7.0 * 1.8;  //0.3
-      person_marker.scale.y = 1.5 / 7.0 * 1.8; //0.3
-      person_marker.scale.z = 1.5 / 7.0 * 1.8;  //1
+      person_marker.scale.x = 1.2 / 7.0 * 1.8;  //0.3
+      person_marker.scale.y = 1.2 / 7.0 * 1.8; //0.3
+      person_marker.scale.z = 1.2 / 7.0 * 1.8;  //1
       person_marker.color.r = 0;
       person_marker.color.g = 1;
       person_marker.color.b = 0;
@@ -376,7 +457,9 @@ class Tracker{
 
       int_marker.controls.push_back(click_me);
 
-      position_publisher = n.advertise<geometry_msgs::Point>("person_position", 1);
+      position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
+
+
 
 
     }

@@ -70,19 +70,19 @@ private:
         }
     }
 
-    void receiveInformation(const geometry_msgs::PointConstPtr &person)
+    void receiveInformation(const geometry_msgs::PointStampedConstPtr &person)
     {
 
         notReceivedNumber = 0;
         hold = false;
         geometry_msgs::PointStamped personInRobotBaseFrame;
 
-        personMapPosition.header.stamp = ros::Time();
+        personMapPosition.header.stamp = person->header.stamp;
         personMapPosition.header.frame_id = world_frame;
 
-        personMapPosition.point.x = person->x;
-        personMapPosition.point.y = person->y;
-        personMapPosition.point.z = person->z;
+        personMapPosition.point.x = person->point.x;
+        personMapPosition.point.y = person->point.y;
+        personMapPosition.point.z = person->point.z;
 
         /*Check distance to objective*/
         //Get person on robot frame
@@ -123,7 +123,7 @@ public:
         nPriv.param<double>("planner_activation_distance", planner_activation_distance, 3);
         nPriv.param("minimum_planner_distance", minimum_planner_distance, 2.5);
 
-        ROS_INFO_STREAM("world_frame:"<<world_frame);
+        ROS_ERROR_STREAM("minimum distance: "<< minimum_distance << " | " << "planner_activation_distance: " << planner_activation_distance << " | minumum_planner_distance" << minimum_planner_distance);
         notReceivedNumber = 0;
         sub = n.subscribe("person_position", 1, &FollowerFSM::receiveInformation, this);
 
