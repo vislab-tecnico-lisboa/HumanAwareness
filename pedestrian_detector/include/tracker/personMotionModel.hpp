@@ -31,6 +31,8 @@ class PersonModel
 
     int id;
 
+    bool toBeDeleted;
+
     Point2d bbCenter;
 
     bool lockedOnce;

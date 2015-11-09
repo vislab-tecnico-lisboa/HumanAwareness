@@ -162,6 +162,8 @@ class Tracker{
 
       //Get rects from message
 
+        ROS_ERROR("RECEIVED DETECTION");
+
       vector<cv::Rect_<int> > rects;
       imageStamp = detection->header.stamp;
 
@@ -233,6 +235,38 @@ class Tracker{
 
       personList.associateData(coordsInBaseFrame, rects);
 
+
+      //Delete the trackers that need to be deleted...
+      for(vector<PersonModel>::iterator it = personList.personList.begin(); it != personList.personList.end();)
+      {
+          if(it->toBeDeleted)
+          {
+              if(it->id == targetId)
+              {
+                  personNotChosenFlag = true;
+                  it = personList.personList.erase(it);
+                  targetId = -1;
+
+                  //Send eyes to home position
+                  move_robot_msgs::GazeGoal fixationGoal;
+                  fixationGoal.type = fixationGoal.HOME;
+                  ac.sendGoal(fixationGoal);
+                  ROS_INFO("Lost target. Sending eyes to home position");
+              }
+              else
+              {
+                it = personList.personList.erase(it);
+              }
+          }
+          else
+          {
+              it++;
+          }
+
+      }
+
+
+
       vector<PersonModel> list = personList.getValidTrackerPosition();
 
       //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
@@ -286,13 +320,10 @@ class Tracker{
       {
 
         marker_server->clear();
-        cout << "Person " << targetId << " chosen" << endl;
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
 
             Point3d position = (*it).medianFilter();
-
-            cout << "(*it).id =" << (*it).id << endl;
 
             if((*it).id == targetId)
             {
@@ -372,6 +403,7 @@ class Tracker{
             }
             else
             {
+
               int_marker.controls.at(0).markers.at(0).color.r = 0;
               int_marker.controls.at(0).markers.at(0).color.g = 1;
               int_marker.controls.at(0).markers.at(0).color.b = 0;
@@ -416,7 +448,9 @@ class Tracker{
       lastFixationPoint = Point3d(1000, 1000, 1000);
 
       cameramodel = new cameraModel(cameraConfig, cameraStr);
+      ROS_ERROR("Subscribing detections");
       image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
+      ROS_ERROR("Subscribed");
 
       //Stuff for results...
  //     person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
@@ -458,10 +492,6 @@ class Tracker{
       int_marker.controls.push_back(click_me);
 
       position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
-
-
-
-
     }
 
     ~Tracker()

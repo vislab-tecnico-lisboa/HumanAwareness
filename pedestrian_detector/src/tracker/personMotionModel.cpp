@@ -101,6 +101,8 @@ void PersonModel::updateModel()
 
 PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id)
 {
+  toBeDeleted = false;
+
     for(int i=0; i < 25; i++)
         velocity[i] = Point2d(0, 0);
 
@@ -244,11 +246,12 @@ void PersonList::updateList()
         }
         (*it).updateModel();
 
-        if(((*it).noDetection > 25 && (*it).lockedOnce==false) || ((*it).noDetection > 1000000 && (*it).lockedOnce==true))
+        if(((*it).noDetection > 25 && (*it).lockedOnce==false) || ((*it).noDetection > 35 && (*it).lockedOnce==true))
         {
-            it = personList.erase(it);
+            ROS_ERROR("MARKED TO BE DELETED!");
+            it->toBeDeleted = true;
         }
-        else
+
             it++;
     }
 
