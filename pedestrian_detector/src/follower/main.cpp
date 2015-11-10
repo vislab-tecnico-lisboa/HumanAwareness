@@ -56,6 +56,7 @@ private:
     std::string robot_frame;
     double minimum_distance;
     double minimum_planner_distance;
+    double distance_to_target;
     double planner_activation_distance;
 
     tf::TransformListener listener;
@@ -122,8 +123,8 @@ public:
         nPriv.param<double>("minimum_distance", minimum_distance, 2);
         nPriv.param<double>("planner_activation_distance", planner_activation_distance, 3);
         nPriv.param("minimum_planner_distance", minimum_planner_distance, 2.5);
+        nPriv.param("distance_to_target", distance_to_target, 1.5);
 
-        ROS_ERROR_STREAM("minimum distance: "<< minimum_distance << " | " << "planner_activation_distance: " << planner_activation_distance << " | minumum_planner_distance" << minimum_planner_distance);
         notReceivedNumber = 0;
         sub = n.subscribe("person_position", 1, &FollowerFSM::receiveInformation, this);
 
@@ -203,7 +204,7 @@ public:
                     personPoint.x = personMapPosition.point.x;
                     personPoint.y = personMapPosition.point.y;
                     personPoint.z = personMapPosition.point.z;
-                    segwayController::moveBase(personPoint, odomToRobotBase, ac);
+                    segwayController::moveBase(personPoint, odomToRobotBase, ac, distance_to_target);
                     rate->sleep();
                 }
                 else if( distanceToPerson < minimum_planner_distance && distanceToPerson >= minimum_distance && hold == false)

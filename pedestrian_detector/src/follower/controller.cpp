@@ -11,7 +11,7 @@
 using namespace cv;
 using namespace std;
 
-void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, MoveBaseClient *ac)
+void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, MoveBaseClient *ac, double distance_to_target)
 {
 
 
@@ -68,8 +68,8 @@ void segwayController::moveBase(cv::Point3d person, cv::Mat odomToBaseLink, Move
     float x;
     float y;
 
-    x = (norm(personMat)-2.5)*cos(phi);
-    y = (norm(personMat)-2.5)*sin(phi);
+    x = (norm(personMat)-distance_to_target)*cos(phi);
+    y = (norm(personMat)-distance_to_target)*sin(phi);
 
     x = copysign(x, personMat.at<float>(0,0));
     y = copysign(y, personMat.at<float>(1,0));

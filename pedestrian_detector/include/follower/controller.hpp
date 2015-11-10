@@ -16,7 +16,7 @@ class segwayController
 
     //Calculates target coordinates and orientation and moves the base to them
     //using the /move_base topic
-    static void moveBase(cv::Point3d person, cv::Mat odomToBaseLink, MoveBaseClient *ac);
+    static void moveBase(cv::Point3d person, cv::Mat odomToBaseLink, MoveBaseClient *ac, double distance_to_target);
 
 };
 

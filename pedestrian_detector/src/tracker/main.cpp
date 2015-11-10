@@ -162,8 +162,6 @@ class Tracker{
 
       //Get rects from message
 
-        ROS_ERROR("RECEIVED DETECTION");
-
       vector<cv::Rect_<int> > rects;
       imageStamp = detection->header.stamp;
 
