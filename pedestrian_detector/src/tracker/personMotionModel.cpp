@@ -70,11 +70,11 @@ void PersonModel::updateModel()
  //Maybe applying a median filter to the velocity gives good predictive results
 
   //updateVelocityArray(detectedPosition); - not used yet
-
-  ros::Duration sampleTime = ros::Time::now() - lastUpdate;
+  ros::Time now = ros::Time::now();
+  ros::Duration sampleTime = now - lastUpdate;
 
   delta_t = sampleTime.toSec();
-  lastUpdate = ros::Time::now();
+  lastUpdate = now;
 
   for(int i=0; i < 4; i++)
       positionHistory[4-i] = positionHistory[4-(i+1)];
@@ -151,7 +151,7 @@ Point3d PersonModel::getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Poin
         // double dist = norm(est3d, Mat((*it)), NORM_L2);
 
         double dist = norm(estimation3d-(*it));
-        if(dist < distance && dist < 2)
+        if(dist < distance && dist < 0.5)
         {
             distance = dist;
             nearest = (*it);
@@ -315,7 +315,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             Point3d detectionPos = (*itrow);
 
             double dist = norm(trackerPos-detectionPos);
-            if(dist < 2)
+            if(dist < 0.5)
               distMatrixIn[row+col*nDetections] = dist;
             else
             {
@@ -352,7 +352,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
         if(assignment[i] != -1)          
         {
    //
-            if(distMatrixIn[i+((int)assignment[i])*nDetections] < 2)
+            if(distMatrixIn[i+((int)assignment[i])*nDetections] < 0.5)
             {
             personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
             personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;

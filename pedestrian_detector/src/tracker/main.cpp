@@ -56,8 +56,9 @@ int frame = 1;
 class Tracker{
 
   private:
+ros::Time now;
     cameraModel *cameramodel;
-    tf::TransformListener listener;
+    boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
     ros::NodeHandle n;
     ros::Subscriber image_sub;
@@ -88,6 +89,7 @@ class Tracker{
 
     std::string cameraStr;
     std::string mapTopic;
+    double gaze_threshold;
     ros::NodeHandle nPriv;
 
   public:
@@ -178,8 +180,10 @@ class Tracker{
 
       //Get transforms
       tf::StampedTransform transform;
+      
       try
       {
+	 now=ros::Time::now();
 //        listener.waitForTransform("/map", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
 //        listener.lookupTransform("/map", "/base_footprint",ros::Time(0), transform);
 
@@ -187,9 +191,10 @@ class Tracker{
 
           stringstream camera;
           camera << cameraStr << "_vision_link";
-
-          listener.waitForTransform("/map", camera.str(), ros::Time(0), ros::Duration(10.0) );
-          listener.lookupTransform("/map", camera.str(),ros::Time(0), transform);
+	std::cout << "detection frame:" <<detection->header.frame_id << std::endl;
+	std::cout << "cameraStr:" <<camera.str() << std::endl;
+          listener->waitForTransform(mapTopic, now, camera.str(), imageStamp,mapTopic , ros::Duration(10.0) );
+          listener->lookupTransform(mapTopic, now, camera.str(), imageStamp,mapTopic ,transform);
       }
       catch(tf::TransformException ex)
       {
@@ -367,18 +372,21 @@ class Tracker{
 
               double z = getZ(bbCenter, Point2d(position.x, position.y), mapToCameraTransform);
 
-              if(cv::norm(Point3d(position.x, position.y, z)-lastFixationPoint) > 0.5)
+              if(cv::norm(Point3d(position.x, position.y, z)-lastFixationPoint) > gaze_threshold)
               {
-                fixationGoal.fixation_point.header.frame_id="map";
+                fixationGoal.fixation_point.header.frame_id=mapTopic;
                 fixationGoal.fixation_point.point.x = position.x;
                 fixationGoal.fixation_point.point.y =  position.y;
                 fixationGoal.fixation_point.point.z = z;
-                fixationGoal.fixation_point_error_tolerance = 0.5;
+                fixationGoal.fixation_point_error_tolerance = 0.01;
 
-                fixationGoal.fixation_point.header.stamp=imageStamp;
+                fixationGoal.fixation_point.header.stamp=now;
 
                 ac.sendGoal(fixationGoal);
                 ROS_INFO("Gaze Action server started, sending goal.");
+
+		//bool finished_before_timeout = ac.waitForResult(ros::Duration(2));
+		
 
                 lastFixationPoint = Point3d(position.x, position.y, z);
 
@@ -432,13 +440,15 @@ class Tracker{
 
       frame++;
     }
-    Tracker(string cameraConfig) : ac("gaze", true), nPriv("~")
+    Tracker(string cameraConfig) : ac("gaze", true), nPriv("~"),
+		listener(new tf::TransformListener(ros::Duration(30.0)))
     {
         ROS_INFO("Waiting for action server to start.");
         ac.waitForServer();
 
         nPriv.param<std::string>("camera", cameraStr, "l_camera");
         nPriv.param<std::string>("map_topic", mapTopic, "/map");
+	nPriv.param("gaze_threshold", gaze_threshold, 0.2);
 
       personNotChosenFlag = true;
 
@@ -482,8 +492,8 @@ class Tracker{
       click_me.name = "click";
       click_me.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
 
-      int_marker.header.frame_id = "/map";
-      int_marker.header.stamp=ros::Time::now();
+      int_marker.header.frame_id = mapTopic;
+      int_marker.header.stamp=now;
 
       int_marker.scale = 1.5;
 
