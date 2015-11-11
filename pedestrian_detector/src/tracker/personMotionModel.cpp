@@ -12,6 +12,8 @@
 */
 
 
+
+
 void PersonModel::updateVelocityArray(Point2d detectedPosition)
 {
     for(int i=0; i < 25; i++)
@@ -76,8 +78,8 @@ void PersonModel::updateModel()
   delta_t = sampleTime.toSec();
   lastUpdate = now;
 
-  for(int i=0; i < 4; i++)
-      positionHistory[4-i] = positionHistory[4-(i+1)];
+  for(int i=0; i < median_window-1; i++)
+      positionHistory[median_window-1-i] = positionHistory[median_window-1-(i+1)];
 
   positionHistory[0] = position;
 
@@ -99,9 +101,14 @@ void PersonModel::updateModel()
 
 }
 
-PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id)
+PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window)
 {
+
+  this->median_window = median_window;
   toBeDeleted = false;
+
+//  positionHistory = new Point2d[median_window];
+
 
     for(int i=0; i < 25; i++)
         velocity[i] = Point2d(0, 0);
@@ -116,11 +123,13 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id)
   positionHistory[0].x = detectedPosition.x;
   positionHistory[0].y = detectedPosition.y;
 
-  for(int i=1; i < 5; i++)
+
+  for(int i=1; i < median_window; i++)
   {
       positionHistory[i].x =-1000;
       positionHistory[i].y = -1000;
   }
+
 
   lockedOnce = false;
 
@@ -165,10 +174,10 @@ Point3d PersonModel::medianFilter()
 {
     //Optimize this later
 
-    double x[5];
-    double y[5];
+    double x[median_window];
+    double y[median_window];
 
-    for(int i = 0; i<5; i++)
+    for(int i = 0; i<median_window; i++)
     {
         x[i] = positionHistory[i].x;
         y[i] = positionHistory[i].y;
@@ -177,11 +186,10 @@ Point3d PersonModel::medianFilter()
     vector<double> x_vect(x, x + sizeof(x)/sizeof(x[0]));
     vector<double> y_vect(y, y + sizeof(y)/sizeof(y[0]));
 
-    std::sort(x_vect.begin(), x_vect.begin() + 5);
-    std::sort(y_vect.begin(), y_vect.begin() + 5);
+    std::sort(x_vect.begin(), x_vect.begin() + median_window);
+    std::sort(y_vect.begin(), y_vect.begin() + median_window);
 
-
-    Point3d medianPoint(x_vect.at(2), y_vect.at(2), 0);
+    Point3d medianPoint(x_vect.at((int) (median_window/2)), y_vect.at((int) (median_window/2)), 0);
 
     return medianPoint;
 
@@ -215,13 +223,18 @@ Point2d PersonModel::velocityMedianFilter()
 
 PersonModel::~PersonModel()
 {
-
+//    delete [] positionHistory;
 }
 
-PersonList::PersonList()
+PersonList::PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance)
 {
   //This will never get reseted. That will make sure that we have a new id for every new detection
+  this->numberOfFramesBeforeDestruction = numberOfFramesBeforeDestruction;
+    this->numberOfFramesBeforeDestructionLocked = numberOfFramesBeforeDestructionLocked;
+    this-> associatingDistance = associatingDistance;
   nPersons = 0;
+  this->median_window = median_window;
+
 }
 
 void PersonList::updateList()
@@ -246,7 +259,7 @@ void PersonList::updateList()
         }
         (*it).updateModel();
 
-        if(((*it).noDetection > 25 && (*it).lockedOnce==false) || ((*it).noDetection > 35 && (*it).lockedOnce==true))
+        if(((*it).noDetection > numberOfFramesBeforeDestruction && (*it).lockedOnce==false) || ((*it).noDetection > numberOfFramesBeforeDestructionLocked && (*it).lockedOnce==true))
         {
             ROS_ERROR("MARKED TO BE DELETED!");
             it->toBeDeleted = true;
@@ -260,7 +273,7 @@ void PersonList::updateList()
 void PersonList::addPerson(Point3d pos, cv::Rect_<int> rect)
 {
 
-   PersonModel person(pos, rect, nPersons);
+   PersonModel person(pos, rect, nPersons, median_window);
    personList.push_back(person);
    nPersons++;
 
@@ -315,15 +328,14 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             Point3d detectionPos = (*itrow);
 
             double dist = norm(trackerPos-detectionPos);
-            if(dist < 0.5)
+            if(dist < associatingDistance)
               distMatrixIn[row+col*nDetections] = dist;
             else
             {
                 double best = 1000;
-                for(int i = 1; i<5; i++)
+                for(int i = 1; i<median_window; i++)
                 {
                     Point3d hist((*itcolumn).positionHistory[i].x, (*itcolumn).positionHistory[i].y, 0);
-
                     double distHist = norm(hist-detectionPos);
                     if(distHist < 1.8)
                         if(distHist < best)
@@ -352,7 +364,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
         if(assignment[i] != -1)          
         {
    //
-            if(distMatrixIn[i+((int)assignment[i])*nDetections] < 0.5)
+            if(distMatrixIn[i+((int)assignment[i])*nDetections] < associatingDistance)
             {
             personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
             personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
@@ -369,7 +381,8 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
             {
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
-                if(norm(coordsInBaseFrame.at(i)-testPoint) < 0.5)
+
+                if(norm(coordsInBaseFrame.at(i)-testPoint) < associatingDistance)
                 {
                   existsInRadius = true;
                   break;
@@ -398,7 +411,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
             {
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
-                if(norm(coordsInBaseFrame.at(i)-testPoint) < 0.5)
+                if(norm(coordsInBaseFrame.at(i)-testPoint) < associatingDistance)
                 {
                   existsInRadius = true;
                   break;

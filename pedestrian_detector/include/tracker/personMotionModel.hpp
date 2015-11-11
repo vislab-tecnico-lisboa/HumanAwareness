@@ -20,6 +20,8 @@ class PersonModel
 
     double delta_t;
 
+    int median_window;
+
 
 
     //Five last velocities (Fast Five. lol) - not used yet
@@ -43,11 +45,11 @@ class PersonModel
 
     Point2d position;
 
-    Point2d positionHistory[5];
+    Point2d positionHistory[100];
     cv::Rect_<int> rectHistory[5];
     cv::Rect rect;
 
-    PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id);
+    PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window);
     Point3d medianFilter();
     ~PersonModel();
     Point2d getPositionEstimate();
@@ -62,13 +64,16 @@ class PersonList
 public:
 
     int nPersons;
-
+    int median_window;
+    int numberOfFramesBeforeDestruction;
+    int numberOfFramesBeforeDestructionLocked;
+    double associatingDistance;
     void associateData(vector<cv::Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects);
     void addPerson(Point3d pos, cv::Rect_<int> rect);
     std::vector<PersonModel> personList;
     void updateList();
 
-    PersonList();
+    PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance);
 
     //Returns a vector containing positions associated to each tracker, that are valid after the median filter
     std::vector<PersonModel> getValidTrackerPosition();

@@ -64,8 +64,10 @@ ros::Time now;
     ros::Subscriber image_sub;
     bool personNotChosenFlag;
     Point3d targetCoords;
-    PersonList personList;
+    PersonList *personList;
     Point3d lastFixationPoint;
+
+    double z_history[100];
 
 
 
@@ -89,8 +91,13 @@ ros::Time now;
 
     std::string cameraStr;
     std::string mapTopic;
-    double gaze_threshold;
     ros::NodeHandle nPriv;
+    double gaze_threshold;
+    int median_window;
+    double fixation_tolerance;
+    int numberOfFramesBeforeDestruction;
+    int numberOfFramesBeforeDestructionLocked;
+    double associatingDistance;
 
   public:
 
@@ -148,6 +155,11 @@ ros::Time now;
           {
             personNotChosenFlag = true;
             targetId = -1;
+            move_robot_msgs::GazeGoal fixationGoal;
+            fixationGoal.type = fixationGoal.HOME;
+            ac.sendGoal(fixationGoal);
+            ROS_INFO("No target selected. Sending eyes to home position");
+
           }
 
       ROS_INFO_STREAM( feedback->marker_name << " is now at "
@@ -191,10 +203,12 @@ ros::Time now;
 
           stringstream camera;
           camera << cameraStr << "_vision_link";
-	std::cout << "detection frame:" <<detection->header.frame_id << std::endl;
-	std::cout << "cameraStr:" <<camera.str() << std::endl;
-          listener->waitForTransform(mapTopic, now, camera.str(), imageStamp,mapTopic , ros::Duration(10.0) );
-          listener->lookupTransform(mapTopic, now, camera.str(), imageStamp,mapTopic ,transform);
+
+          listener->waitForTransform(mapTopic, camera.str(), ros::Time(0), ros::Duration(10.0) );
+          listener->lookupTransform(mapTopic,  camera.str(), ros::Time(0) ,transform);
+
+//          listener->waitForTransform(mapTopic, now, camera.str(), imageStamp,mapTopic , ros::Duration(10.0) );
+//          listener->lookupTransform(mapTopic, now, camera.str(), imageStamp,mapTopic ,transform);
       }
       catch(tf::TransformException ex)
       {
@@ -236,18 +250,18 @@ ros::Time now;
       coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform);
 
 
-      personList.associateData(coordsInBaseFrame, rects);
+      personList->associateData(coordsInBaseFrame, rects);
 
 
       //Delete the trackers that need to be deleted...
-      for(vector<PersonModel>::iterator it = personList.personList.begin(); it != personList.personList.end();)
+      for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
       {
           if(it->toBeDeleted)
           {
               if(it->id == targetId)
               {
                   personNotChosenFlag = true;
-                  it = personList.personList.erase(it);
+                  it = personList->personList.erase(it);
                   targetId = -1;
 
                   //Send eyes to home position
@@ -258,7 +272,7 @@ ros::Time now;
               }
               else
               {
-                it = personList.personList.erase(it);
+                it = personList->personList.erase(it);
               }
           }
           else
@@ -270,7 +284,7 @@ ros::Time now;
 
 
 
-      vector<PersonModel> list = personList.getValidTrackerPosition();
+      vector<PersonModel> list = personList->getValidTrackerPosition();
 
       //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
 
@@ -370,15 +384,26 @@ ros::Time now;
               //We wish to gaze at the center of the bounding box
               Point2d bbCenter = getCenter(it->rect);
 
+
+
               double z = getZ(bbCenter, Point2d(position.x, position.y), mapToCameraTransform);
 
-              if(cv::norm(Point3d(position.x, position.y, z)-lastFixationPoint) > gaze_threshold)
+              for(int i=0; i < median_window-1; i++)
+                  z_history[median_window-1-i] = z_history[median_window-1-(i+1)];
+              z_history[0] = z;
+              //Perform median
+              vector<double> z_vect(z_history, z_history + sizeof(z_history)/sizeof(z_history[0]));
+              std::sort(z_vect.begin(), z_vect.begin() + median_window);
+              double medianZ = z_vect.at((int) round((median_window-1)/2));
+              //Median end
+
+              if(cv::norm(Point3d(position.x, position.y, medianZ)-lastFixationPoint) > gaze_threshold)
               {
                 fixationGoal.fixation_point.header.frame_id=mapTopic;
                 fixationGoal.fixation_point.point.x = position.x;
                 fixationGoal.fixation_point.point.y =  position.y;
-                fixationGoal.fixation_point.point.z = z;
-                fixationGoal.fixation_point_error_tolerance = 0.01;
+                fixationGoal.fixation_point.point.z = medianZ;
+                fixationGoal.fixation_point_error_tolerance = fixation_tolerance;
 
                 fixationGoal.fixation_point.header.stamp=now;
 
@@ -391,6 +416,7 @@ ros::Time now;
                 lastFixationPoint = Point3d(position.x, position.y, z);
 
               }
+
 
 
 
@@ -448,7 +474,22 @@ ros::Time now;
 
         nPriv.param<std::string>("camera", cameraStr, "l_camera");
         nPriv.param<std::string>("map_topic", mapTopic, "/map");
-	nPriv.param("gaze_threshold", gaze_threshold, 0.2);
+        nPriv.param("gaze_threshold", gaze_threshold, 0.2);
+        nPriv.param("median_window", median_window, 5);
+        nPriv.param("fixation_tolerance", fixation_tolerance, 0.1);
+        nPriv.param("number_of_frames_before_destruction", numberOfFramesBeforeDestruction, 25);
+        nPriv.param("number_of_frames_before_destruction_locked", numberOfFramesBeforeDestructionLocked, 35);
+        nPriv.param("associating_distance", associatingDistance, 0.5);
+
+
+
+
+//        z_history = new double[median_window];
+
+        for(int i = 0; i<median_window; i++)
+            z_history[i] = 0.95;
+
+        personList = new PersonList(median_window,numberOfFramesBeforeDestruction, numberOfFramesBeforeDestructionLocked, associatingDistance);
 
       personNotChosenFlag = true;
 
@@ -506,6 +547,8 @@ ros::Time now;
     {
       delete cameramodel;
       delete marker_server;
+       // delete []z_history;
+      delete personList;
     }
 
 };
