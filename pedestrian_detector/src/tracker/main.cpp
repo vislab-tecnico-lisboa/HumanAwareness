@@ -195,7 +195,7 @@ ros::Time now;
       
       try
       {
-	 now=ros::Time::now();
+     //now=ros::Time::now();
 //        listener.waitForTransform("/map", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
 //        listener.lookupTransform("/map", "/base_footprint",ros::Time(0), transform);
 
@@ -207,8 +207,8 @@ ros::Time now;
 //          listener->waitForTransform(mapTopic, camera.str(), ros::Time(0), ros::Duration(10.0) );
 //          listener->lookupTransform(mapTopic,  camera.str(), ros::Time(0) ,transform);
 
-          listener->waitForTransform(mapTopic, now, camera.str(), imageStamp,mapTopic , ros::Duration(10.0) );
-          listener->lookupTransform(mapTopic, now, camera.str(), imageStamp,mapTopic ,transform);
+          listener->waitForTransform(mapTopic, imageStamp, camera.str(), imageStamp, mapTopic, ros::Duration(10.0) );
+          listener->lookupTransform(mapTopic, imageStamp, camera.str(), imageStamp, mapTopic, transform);
       }
       catch(tf::TransformException ex)
       {
