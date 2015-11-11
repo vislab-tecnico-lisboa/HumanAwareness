@@ -204,11 +204,11 @@ ros::Time now;
           stringstream camera;
           camera << cameraStr << "_vision_link";
 
-          listener->waitForTransform(mapTopic, camera.str(), ros::Time(0), ros::Duration(10.0) );
-          listener->lookupTransform(mapTopic,  camera.str(), ros::Time(0) ,transform);
+//          listener->waitForTransform(mapTopic, camera.str(), ros::Time(0), ros::Duration(10.0) );
+//          listener->lookupTransform(mapTopic,  camera.str(), ros::Time(0) ,transform);
 
-//          listener->waitForTransform(mapTopic, now, camera.str(), imageStamp,mapTopic , ros::Duration(10.0) );
-//          listener->lookupTransform(mapTopic, now, camera.str(), imageStamp,mapTopic ,transform);
+          listener->waitForTransform(mapTopic, now, camera.str(), imageStamp,mapTopic , ros::Duration(10.0) );
+          listener->lookupTransform(mapTopic, now, camera.str(), imageStamp,mapTopic ,transform);
       }
       catch(tf::TransformException ex)
       {
