@@ -209,35 +209,6 @@ class Tracker{
         rects.push_back(detect);
       }
 
-<<<<<<< HEAD
-=======
-      //Get transforms
-      tf::StampedTransform transform;
-      
-      try
-      {
-     //now=ros::Time::now();
-//        listener.waitForTransform("/map", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
-//        listener.lookupTransform("/map", "/base_footprint",ros::Time(0), transform);
-
-            //The following transforms are used if we want to calculate the position using a homography.
-
-          stringstream camera;
-          camera << cameraStr << "_vision_link";
-
-//          listener->waitForTransform(mapTopic, camera.str(), ros::Time(0), ros::Duration(10.0) );
-//          listener->lookupTransform(mapTopic,  camera.str(), ros::Time(0) ,transform);
-
-          listener->waitForTransform(mapTopic, imageStamp, camera.str(), imageStamp, mapTopic, ros::Duration(10.0) );
-          listener->lookupTransform(mapTopic, imageStamp, camera.str(), imageStamp, mapTopic, transform);
-      }
-      catch(tf::TransformException ex)
-      {
-        ROS_ERROR("%s",ex.what());
-        ros::Duration(1.0).sleep();
-      }
-
->>>>>>> f2b8ec888b80dc132672f2f8c684f4b67c8078c1
       Eigen::Affine3d eigen_transform;
       tf::transformTFToEigen(transform, eigen_transform);
 
