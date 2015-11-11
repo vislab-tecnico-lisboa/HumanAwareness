@@ -56,7 +56,7 @@ int frame = 1;
 class Tracker{
 
   private:
-ros::Time now;
+
     cameraModel *cameramodel;
     boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
@@ -72,7 +72,7 @@ ros::Time now;
 
 
     actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
-    ros::Time imageStamp;
+    std_msgs::Header last_image_header;
 
 
     int targetId;
@@ -90,7 +90,7 @@ ros::Time now;
 //    ros::Subscriber person2Topic;
 
     std::string cameraStr;
-    std::string mapTopic;
+    std::string world_frame;
     ros::NodeHandle nPriv;
     double gaze_threshold;
     int median_window;
@@ -156,7 +156,9 @@ ros::Time now;
             personNotChosenFlag = true;
             targetId = -1;
             move_robot_msgs::GazeGoal fixationGoal;
-            fixationGoal.type = fixationGoal.HOME;
+            fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
+            fixationGoal.fixation_point.header.stamp=ros::Time::now();
+	    fixationGoal.fixation_point.header.frame_id=world_frame;
             ac.sendGoal(fixationGoal);
             ROS_INFO("No target selected. Sending eyes to home position");
 
@@ -173,11 +175,28 @@ ros::Time now;
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
+      last_image_header = detection->header;
+      //Get transforms
+      tf::StampedTransform transform;
+      
+      try
+      {
+
+          stringstream camera;
+          listener->waitForTransform(world_frame, last_image_header.stamp, detection->header.frame_id, last_image_header.stamp, world_frame, ros::Duration(10.0) );
+          listener->lookupTransform(world_frame, last_image_header.stamp, detection->header.frame_id, last_image_header.stamp, world_frame, transform);
+      }
+      catch(tf::TransformException ex)
+      {
+        ROS_WARN("%s",ex.what());
+        //ros::Duration(1.0).sleep();
+        return;
+      }
 
       //Get rects from message
 
       vector<cv::Rect_<int> > rects;
-      imageStamp = detection->header.stamp;
+
 
       for(pedestrian_detector::DetectionList::_bbVector_type::const_iterator it = detection->bbVector.begin(); it != detection ->bbVector.end(); it++)
       {
@@ -190,36 +209,8 @@ ros::Time now;
         rects.push_back(detect);
       }
 
-      //Get transforms
-      tf::StampedTransform transform;
-      
-      try
-      {
-	 now=ros::Time::now();
-//        listener.waitForTransform("/map", "/base_footprint", ros::Time(0), ros::Duration(10.0) );
-//        listener.lookupTransform("/map", "/base_footprint",ros::Time(0), transform);
-
-            //The following transforms are used if we want to calculate the position using a homography.
-
-          stringstream camera;
-          camera << cameraStr << "_vision_link";
-
-//          listener->waitForTransform(mapTopic, camera.str(), ros::Time(0), ros::Duration(10.0) );
-//          listener->lookupTransform(mapTopic,  camera.str(), ros::Time(0) ,transform);
-
-          listener->waitForTransform(mapTopic, now, camera.str(), imageStamp,mapTopic , ros::Duration(10.0) );
-          listener->lookupTransform(mapTopic, now, camera.str(), imageStamp,mapTopic ,transform);
-      }
-      catch(tf::TransformException ex)
-      {
-        ROS_ERROR("%s",ex.what());
-        ros::Duration(1.0).sleep();
-      }
-
       Eigen::Affine3d eigen_transform;
       tf::transformTFToEigen(transform, eigen_transform);
-
-
 
       // convert matrix from Eigen to openCV
       cv::Mat transform_opencv;
@@ -266,7 +257,9 @@ ros::Time now;
 
                   //Send eyes to home position
                   move_robot_msgs::GazeGoal fixationGoal;
-                  fixationGoal.type = fixationGoal.HOME;
+            	  fixationGoal.fixation_point.header.stamp=ros::Time::now();
+            	  fixationGoal.fixation_point.header.frame_id=world_frame;
+                  fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
                   ac.sendGoal(fixationGoal);
                   ROS_INFO("Lost target. Sending eyes to home position");
               }
@@ -303,17 +296,17 @@ ros::Time now;
 
       //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
       //that have median different than -1000 on either coordinate
-
+        marker_server->clear();
+	ros::Time now=ros::Time::now();
       if(personNotChosenFlag)
       {
-
-        marker_server->clear();
 
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
             stringstream description, name;
             name << "person " << (*it).id;
             description << "Detection " << (*it).id;
+	    int_marker.header.stamp=last_image_header.stamp;
             int_marker.name = name.str();
             int_marker.description = description.str();
 
@@ -330,21 +323,18 @@ ros::Time now;
 
             marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
         }
-
-        marker_server->applyChanges();
       }
       else
       {
-
-        marker_server->clear();
+	ROS_ERROR("PERSON CHOSEN");
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
-
+	    int_marker.header.stamp=last_image_header.stamp;
+	    int_marker.header.frame_id=world_frame;
             Point3d position = (*it).medianFilter();
 
             if((*it).id == targetId)
             {
-
                 //Start looking at that person. Even if we have to turn the base to avoid obstacles, we will still try to see
               // our target
 
@@ -371,7 +361,9 @@ ros::Time now;
               //Now we send out the position
               geometry_msgs::PointStamped final_position;
 
-              final_position.header.stamp = imageStamp;
+              final_position.header.stamp = last_image_header.stamp;
+              final_position.header.frame_id = world_frame;
+
               final_position.point.x = position.x;
               final_position.point.y = position.y;
               final_position.point.z = 0;
@@ -379,7 +371,7 @@ ros::Time now;
               position_publisher.publish(final_position);
 
 
-              move_robot_msgs::GazeGoal fixationGoal;
+
 
               //We wish to gaze at the center of the bounding box
               Point2d bbCenter = getCenter(it->rect);
@@ -397,15 +389,19 @@ ros::Time now;
               double medianZ = z_vect.at((int) round((median_window-1)/2));
               //Median end
 
+
+	      // CONTROL GAZE
               if(cv::norm(Point3d(position.x, position.y, medianZ)-lastFixationPoint) > gaze_threshold)
               {
-                fixationGoal.fixation_point.header.frame_id=mapTopic;
+                move_robot_msgs::GazeGoal fixationGoal;
+                fixationGoal.fixation_point.header.stamp=last_image_header.stamp;
+                fixationGoal.fixation_point.header.frame_id=world_frame;
                 fixationGoal.fixation_point.point.x = position.x;
-                fixationGoal.fixation_point.point.y =  position.y;
+                fixationGoal.fixation_point.point.y = position.y;
                 fixationGoal.fixation_point.point.z = medianZ;
                 fixationGoal.fixation_point_error_tolerance = fixation_tolerance;
 
-                fixationGoal.fixation_point.header.stamp=now;
+			
 
                 ac.sendGoal(fixationGoal);
                 ROS_INFO("Gaze Action server started, sending goal.");
@@ -456,24 +452,19 @@ ros::Time now;
               marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
 
             }
-
-
         }
-
-        marker_server->applyChanges();
-
       }
-
+      marker_server->applyChanges();
       frame++;
     }
     Tracker(string cameraConfig) : ac("gaze", true), nPriv("~"),
-		listener(new tf::TransformListener(ros::Duration(30.0)))
+		listener(new tf::TransformListener(ros::Duration(2.0)))
     {
         ROS_INFO("Waiting for action server to start.");
         ac.waitForServer();
 
         nPriv.param<std::string>("camera", cameraStr, "l_camera");
-        nPriv.param<std::string>("map_topic", mapTopic, "/map");
+        nPriv.param<std::string>("world_frame", world_frame, "/map");
         nPriv.param("gaze_threshold", gaze_threshold, 0.2);
         nPriv.param("median_window", median_window, 5);
         nPriv.param("fixation_tolerance", fixation_tolerance, 0.1);
@@ -533,9 +524,7 @@ ros::Time now;
       click_me.name = "click";
       click_me.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
 
-      int_marker.header.frame_id = mapTopic;
-      int_marker.header.stamp=now;
-
+      int_marker.header.frame_id = world_frame;
       int_marker.scale = 1.5;
 
       int_marker.controls.push_back(click_me);

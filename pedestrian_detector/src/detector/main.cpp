@@ -95,7 +95,7 @@ private:
 
         pedestrian_detector::DetectionList detectionList;
 
-        detectionList.header.stamp = msg->header.stamp;
+        detectionList.header = msg->header;
 
 
         //Print rectangles on the image and add them to the detection list

@@ -20,7 +20,8 @@ find_package(catkin REQUIRED COMPONENTS
   interactive_markers
 )
 
-find_package(Eigen)
+find_package(Eigen REQUIRED)
+find_package(cmake_modules REQUIRED)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../binAndDataFiles)
@@ -52,7 +53,7 @@ catkin_package(
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE}") #Default build mode is release mode
 
 include_directories(include)
-include_directories(${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
+include_directories(${catkin_INCLUDE_DIRS})
 
 source_group("Detector Source Files" FILES ${detector_folder_source})
 source_group("Detector Header Files" FILES ${detector_folder_header})
