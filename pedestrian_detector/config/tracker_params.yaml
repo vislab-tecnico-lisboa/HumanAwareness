@@ -4,3 +4,4 @@ median_window: 5
 number_of_frames_before_destruction: 25
 number_of_frames_before_destruction_locked: 35
 associating_distance: 0.5
+camera: l_camera_vision_link

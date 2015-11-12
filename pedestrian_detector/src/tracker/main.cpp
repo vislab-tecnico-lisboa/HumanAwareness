@@ -121,6 +121,10 @@ class Tracker{
     {
       Mat K = cameramodel->getK();
       Mat RT = mapToCameraTransform(Range(0,3), Range(0, 4));
+
+      K.convertTo(K,CV_64FC1);
+      RT.convertTo(RT, CV_64FC1);
+
       Mat P = K*RT;
 
 
@@ -183,8 +187,8 @@ class Tracker{
       {
 
           stringstream camera;
-          listener->waitForTransform(world_frame, last_image_header.stamp, detection->header.frame_id, last_image_header.stamp, world_frame, ros::Duration(10.0) );
-          listener->lookupTransform(world_frame, last_image_header.stamp, detection->header.frame_id, last_image_header.stamp, world_frame, transform);
+          listener->waitForTransform(world_frame, last_image_header.stamp, cameraStr, last_image_header.stamp, world_frame, ros::Duration(10.0) );
+          listener->lookupTransform(world_frame, last_image_header.stamp, cameraStr, last_image_header.stamp, world_frame, transform);
       }
       catch(tf::TransformException ex)
       {
@@ -331,7 +335,12 @@ class Tracker{
         {
 	    int_marker.header.stamp=last_image_header.stamp;
 	    int_marker.header.frame_id=world_frame;
-            Point3d position = (*it).medianFilter();
+
+
+
+
+        Point3d position = (*it).medianFilter();
+
 
             if((*it).id == targetId)
             {
@@ -374,8 +383,8 @@ class Tracker{
 
 
               //We wish to gaze at the center of the bounding box
+                      ROS_ERROR("Get Center");
               Point2d bbCenter = getCenter(it->rect);
-
 
 
               double z = getZ(bbCenter, Point2d(position.x, position.y), mapToCameraTransform);
@@ -388,6 +397,8 @@ class Tracker{
               std::sort(z_vect.begin(), z_vect.begin() + median_window);
               double medianZ = z_vect.at((int) round((median_window-1)/2));
               //Median end
+
+              ROS_ERROR("PERFORMED MEDIAN");
 
 
 	      // CONTROL GAZE
@@ -463,7 +474,7 @@ class Tracker{
         ROS_INFO("Waiting for action server to start.");
         ac.waitForServer();
 
-        nPriv.param<std::string>("camera", cameraStr, "l_camera");
+        nPriv.param<std::string>("camera", cameraStr, "l_camera_vision_link");
         nPriv.param<std::string>("world_frame", world_frame, "/map");
         nPriv.param("gaze_threshold", gaze_threshold, 0.2);
         nPriv.param("median_window", median_window, 5);
