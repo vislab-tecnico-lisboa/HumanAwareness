@@ -20,6 +20,7 @@
 #include "../include/tracker/detectionProcess.hpp"
 #include "../include/tracker/cameraModel.hpp"
 #include "../include/tracker/personMotionModel.hpp"
+#include "../include/tracker/filtersAndUtilities.hpp"
 
 //OpenCV Includes
 #include <opencv2/opencv.hpp>
@@ -66,6 +67,7 @@ class Tracker{
     Point3d targetCoords;
     PersonList *personList;
     Point3d lastFixationPoint;
+    DetectionFilter *detectionfilter;
 
     double z_history[100];
 
@@ -98,6 +100,8 @@ class Tracker{
     int numberOfFramesBeforeDestruction;
     int numberOfFramesBeforeDestructionLocked;
     double associatingDistance;
+    double minimum_person_height;
+    double maximum_person_height;
 
   public:
 
@@ -113,27 +117,6 @@ class Tracker{
         person2.x = odom->pose.pose.position.x;
         person2.y = odom->pose.pose.position.y;
     }*/
-
-
-    //Compute the z coordinate in the world frame knowing both x and y
-
-    double getZ(Point2d center, Point2d worldXY, Mat mapToCameraTransform)
-    {
-      Mat K = cameramodel->getK();
-      Mat RT = mapToCameraTransform(Range(0,3), Range(0, 4));
-
-      K.convertTo(K,CV_64FC1);
-      RT.convertTo(RT, CV_64FC1);
-
-      Mat P = K*RT;
-
-
-      double z = worldXY.x*(center.x/center.y*P.at<double>(1,0)-P.at<double>(0,0))+worldXY.y*(center.x/center.y*P.at<double>(1,1)-P.at<double>(0,1))+center.x/center.y*P.at<double>(1,3)-P.at<double>(0,3);
-
-      z = z/(P.at<double>(0,2)-center.x/center.y*P.at<double>(1,2));
-
-      return z;
-    }
 
     //Process the clicks on markers!
     void processFeedback(
@@ -243,6 +226,10 @@ class Tracker{
 //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
       coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform);
+
+
+     //Before we associate the data we need to filter invalid detections
+     detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
 
 
       personList->associateData(coordsInBaseFrame, rects);
@@ -387,7 +374,7 @@ class Tracker{
               Point2d bbCenter = getCenter(it->rect);
 
 
-              double z = getZ(bbCenter, Point2d(position.x, position.y), mapToCameraTransform);
+              double z = getZ(bbCenter, Point2d(position.x, position.y), mapToCameraTransform, cameramodel);
 
               for(int i=0; i < median_window-1; i++)
                   z_history[median_window-1-i] = z_history[median_window-1-(i+1)];
@@ -471,7 +458,7 @@ class Tracker{
     Tracker(string cameraConfig) : ac("gaze", true), nPriv("~"),
 		listener(new tf::TransformListener(ros::Duration(2.0)))
     {
-        ROS_INFO("Waiting for action server to start.");
+        ROS_ERROR("Waiting for action server to start.");
         ac.waitForServer();
 
         nPriv.param<std::string>("camera", cameraStr, "l_camera_vision_link");
@@ -483,8 +470,14 @@ class Tracker{
         nPriv.param("number_of_frames_before_destruction_locked", numberOfFramesBeforeDestructionLocked, 35);
         nPriv.param("associating_distance", associatingDistance, 0.5);
 
+        /*The tallest man living is Sultan Kösen (Turkey, b.10 December 1982) who measured 251 cm (8 ft 3 in) in Ankara,
+         *Turkey, on 08 February 2011.*/
+        nPriv.param("maximum_person_height", maximum_person_height, 2.51);
 
-
+        /*Chandra was declared the shortest human adult ever documented and verified, measuring 21.51 in (54.64 cm).
+         *Height confirmed by Guinness World Records.
+         */
+        nPriv.param("minimum_person_height", minimum_person_height, 0.55);
 
 //        z_history = new double[median_window];
 
@@ -499,6 +492,8 @@ class Tracker{
       lastFixationPoint = Point3d(1000, 1000, 1000);
 
       cameramodel = new cameraModel(cameraConfig, cameraStr);
+      detectionfilter = new DetectionFilter(maximum_person_height, minimum_person_height, cameramodel);
+
       ROS_ERROR("Subscribing detections");
       image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
       ROS_ERROR("Subscribed");
@@ -549,6 +544,7 @@ class Tracker{
       delete marker_server;
        // delete []z_history;
       delete personList;
+      delete detectionfilter;
     }
 
 };
