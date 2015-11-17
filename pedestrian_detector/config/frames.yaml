@@ -1,4 +1,4 @@
-world_frame: map
+world_frame: odom
 neck_frame: ego_frame
 ego_frame: eyes_center_vision_link
 base_frame: base_link

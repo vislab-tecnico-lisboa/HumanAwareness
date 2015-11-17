@@ -1,9 +1,12 @@
 file(GLOB detector_folder_source src/detector/*.cpp)
 file(GLOB detector_folder_header include/detector/*.hpp)
+file(GLOB tracker_lib_folder_source src/tracker/tracker_lib/*.cpp)
+file(GLOB tracker_lib_folder_header include/tracker/tracker_lib/*.hpp)
 file(GLOB tracker_folder_source src/tracker/*.cpp)
 file(GLOB tracker_folder_header include/tracker/*.hpp)
 file(GLOB follower_folder_source src/follower/*.cpp)
 file(GLOB follower_folder_header include/follower/*.hpp)
+file(GLOB auto_tracker_folder_source src/auto_tracker/*.cpp)
 
 cmake_minimum_required(VERSION 2.8.3)
 project(pedestrian_detector)
@@ -21,6 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(Eigen)
+find_package(OpenCV REQUIRED)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../binAndDataFiles)
@@ -61,20 +65,33 @@ source_group("Tracker Header Files" FILES ${tracker_folder_header})
 source_group("Follower Source Files" FILES ${follower_folder_source})
 source_group("Follower Header Files" FILES ${follower_folder_header})
 
-
 add_executable(detector ${detector_folder_header} ${detector_folder_source})
 target_link_libraries(detector ${catkin_LIBRARIES})
 add_dependencies(detector pedestrian_detector_generate_messages_cpp)
 
+add_library(tracker_lib ${tracker_lib_folder_header} ${tracker_lib_folder_source})
+target_link_libraries(tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
+add_dependencies(tracker_lib pedestrian_detector_generate_messages_cpp)
+
+
 
 add_executable(tracker ${tracker_folder_header} ${tracker_folder_source})
-target_link_libraries(tracker ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
+target_link_libraries(tracker tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(tracker pedestrian_detector_generate_messages_cpp)
+
+
+add_executable(auto_tracker ${tracker_folder_header} ${auto_tracker_folder_source})
+target_link_libraries(auto_tracker tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
+add_dependencies(auto_tracker pedestrian_detector_generate_messages_cpp)
+
 
 
 add_executable(follower ${follower_folder_header} ${follower_folder_source})
 target_link_libraries(follower ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(follower pedestrian_detector_generate_messages_cpp)
+
+
+
 
 add_executable(viewer src/viewer/viewer.cpp)
 target_link_libraries(viewer ${catkin_LIBRARIES})
