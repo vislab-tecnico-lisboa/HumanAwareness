@@ -15,12 +15,9 @@ cameraModel::cameraModel(string configFile, string cameraStr)
 
   ROS_INFO("Getting camera parameters");
 
-  stringstream camera;
+  sensor_msgs::CameraInfoConstPtr l_camera_info = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(cameraStr, ros::Duration(30));
 
-  camera << "/vizzy/" << cameraStr << "/camera_info";
-  sensor_msgs::CameraInfoConstPtr l_camera_info = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(camera.str(), ros::Duration(30));
-
-  ROS_ERROR_STREAM(camera.str());
+  ROS_ERROR_STREAM(cameraStr);
 
   //Check if timed out. If there is no topic, then load default parameters from file!
 
@@ -35,7 +32,7 @@ cameraModel::cameraModel(string configFile, string cameraStr)
         }
 
        fs["camera_matrix"] >> K_;
-       ROS_INFO("No cameraInfoTopic found. Loading default parameters. RESULTS WILL BE BAD!");
+       ROS_ERROR("No cameraInfoTopic found. Loading default parameters. RESULTS WILL BE BAD!");
   }
   else
   {

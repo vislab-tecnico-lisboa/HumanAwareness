@@ -1,4 +1,5 @@
 #include "../include/tracker/filtersAndUtilities.hpp"
+#include <ros/ros.h>
 
 
 
@@ -18,6 +19,8 @@ double getZ(Point2d center, Point2d worldXY, Mat mapToCameraTransform, cameraMod
     double z = worldXY.x*(center.x/center.y*P.at<double>(1,0)-P.at<double>(0,0))+worldXY.y*(center.x/center.y*P.at<double>(1,1)-P.at<double>(0,1))+center.x/center.y*P.at<double>(1,3)-P.at<double>(0,3);
 
     z = z/(P.at<double>(0,2)-center.x/center.y*P.at<double>(1,2));
+
+    ROS_ERROR_STREAM("K: " << K << " | P: " << P);
 
     return z;
 }

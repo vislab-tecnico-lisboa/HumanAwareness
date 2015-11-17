@@ -91,7 +91,8 @@ class Tracker{
 //    ros::Subscriber person1Topic;
 //    ros::Subscriber person2Topic;
 
-    std::string cameraStr;
+    std::string cameraFrameId;
+    std::string cameraInfoTopic;
     std::string world_frame;
     ros::NodeHandle nPriv;
     double gaze_threshold;
@@ -170,8 +171,8 @@ class Tracker{
       {
 
           stringstream camera;
-          listener->waitForTransform(world_frame, last_image_header.stamp, cameraStr, last_image_header.stamp, world_frame, ros::Duration(10.0) );
-          listener->lookupTransform(world_frame, last_image_header.stamp, cameraStr, last_image_header.stamp, world_frame, transform);
+          listener->waitForTransform(world_frame, last_image_header.stamp, cameraFrameId, last_image_header.stamp, world_frame, ros::Duration(10.0) );
+          listener->lookupTransform(world_frame, last_image_header.stamp, cameraFrameId, last_image_header.stamp, world_frame, transform);
       }
       catch(tf::TransformException ex)
       {
@@ -508,7 +509,8 @@ class Tracker{
         ROS_ERROR("Waiting for action server to start.");
         ac.waitForServer();
 
-        nPriv.param<std::string>("camera", cameraStr, "l_camera_vision_link");
+        nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
+        nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
         nPriv.param<std::string>("world_frame", world_frame, "/map");
         nPriv.param("gaze_threshold", gaze_threshold, 0.2);
         nPriv.param("median_window", median_window, 5);
@@ -538,7 +540,7 @@ class Tracker{
       //Initialize at infinity
       lastFixationPoint = Point3d(1000, 1000, 1000);
 
-      cameramodel = new cameraModel(cameraConfig, cameraStr);
+      cameramodel = new cameraModel(cameraConfig, cameraInfoTopic);
       detectionfilter = new DetectionFilter(maximum_person_height, minimum_person_height, cameramodel);
 
       ROS_ERROR("Subscribing detections");

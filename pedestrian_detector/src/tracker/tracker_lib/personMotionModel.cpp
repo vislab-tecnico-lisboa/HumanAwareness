@@ -261,7 +261,6 @@ void PersonList::updateList()
 
         if(((*it).noDetection > numberOfFramesBeforeDestruction && (*it).lockedOnce==false) || ((*it).noDetection > numberOfFramesBeforeDestructionLocked && (*it).lockedOnce==true))
         {
-            ROS_ERROR("MARKED TO BE DELETED!");
             it->toBeDeleted = true;
         }
 
