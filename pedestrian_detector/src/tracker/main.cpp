@@ -378,13 +378,9 @@ class Tracker{
 
               double z = getZ(bbCenter, zPlanePosition, mapToCameraTransform, cameramodel);
 
-              if(z < 0 || z > 1.6)
+              if(z < 0 || z > 1.2)
               {
-                  ROS_ERROR("z is out of bounds!");
-                  ROS_ERROR_STREAM("z: " << z << " | bbcenter: " << bbCenter << " | position on z=0 plane: " << zPlanePosition);
-
-
-                  exit(0);
+                  z = 0.95;
               }
 
 
