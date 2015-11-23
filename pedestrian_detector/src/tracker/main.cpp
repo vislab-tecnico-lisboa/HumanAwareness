@@ -374,11 +374,9 @@ class Tracker{
 
               Point2d zPlanePosition = Point2d(position.x, position.y);
 
-              ROS_ERROR_STREAM("targetID! " << targetId);
-
               double z = getZ(bbCenter, zPlanePosition, mapToCameraTransform, cameramodel);
 
-              if(z < 0 || z > 1.2)
+              if(z < 0.4 || z > 1.2)
               {
                   z = 0.95;
               }

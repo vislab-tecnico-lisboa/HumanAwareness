@@ -20,8 +20,6 @@ double getZ(Point2d center, Point2d worldXY, Mat mapToCameraTransform, cameraMod
 
     z = z/(P.at<double>(0,2)-center.x/center.y*P.at<double>(1,2));
 
-    ROS_ERROR_STREAM("K: " << K << " | P: " << P);
-
     return z;
 }
 

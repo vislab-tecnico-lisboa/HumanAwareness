@@ -121,8 +121,8 @@ public:
         nPriv.param<std::string>("world_frame", world_frame, "world");
         nPriv.param<std::string>("robot_frame", robot_frame, "robot");
         nPriv.param<double>("minimum_distance", minimum_distance, 2);
-        nPriv.param<double>("planner_activation_distance", planner_activation_distance, 3);
-        nPriv.param("minimum_planner_distance", minimum_planner_distance, 2.5);
+        nPriv.param<double>("planner_activation_distance", planner_activation_distance, 1.7);
+        nPriv.param("minimum_planner_distance", minimum_planner_distance, 1.7);
         nPriv.param("distance_to_target", distance_to_target, 1.5);
 
         notReceivedNumber = 0;
@@ -143,6 +143,7 @@ public:
     void run()
     {
 
+		
 
         while(ros::ok())
         {
@@ -151,10 +152,10 @@ public:
             switch(currentState)
             {
             case STOPPED:
-                ROS_DEBUG("STOPPED!");
+                ROS_ERROR("STOPPED!");
 
                 //Next state
-                if(distanceToPerson > 3 && hold == false)
+                if(distanceToPerson > planner_activation_distance && hold == false)
                 {
                     nextState = PLANNER;
                     delete rate;
@@ -174,7 +175,7 @@ public:
 
                 break;
             case PLANNER:
-                ROS_DEBUG("PLANNER");
+                ROS_ERROR("PLANNER");
 
                 if(distanceToPerson >= minimum_planner_distance && hold == false)
                 {
@@ -225,7 +226,7 @@ public:
 
                 break;
             case LOCALCONTROLLER:
-                ROS_DEBUG("LOCALCONTROLLER");
+                ROS_ERROR("LOCALCONTROLLER");
                 //TODO!
                 /*
                *  Local controller...
