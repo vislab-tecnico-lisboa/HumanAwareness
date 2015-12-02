@@ -7,3 +7,6 @@ associating_distance: 0.5
 camera: l_camera_vision_link
 maximum_person_height: 2.1
 minimum_person_height: 1.4
+filtering_frame_id: base_footprint
+markers_frame_id: map
+fixed_frame_id: odom

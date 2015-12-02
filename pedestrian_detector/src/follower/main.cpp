@@ -54,6 +54,7 @@ private:
     //Params
     std::string world_frame;
     std::string robot_frame;
+    std::string fixed_frame_id;
     double minimum_distance;
     double minimum_planner_distance;
     double distance_to_target;
@@ -77,13 +78,26 @@ private:
         notReceivedNumber = 0;
         hold = false;
         geometry_msgs::PointStamped personInRobotBaseFrame;
+	
+	personInRobotBaseFrame = *person;
 
         personMapPosition.header.stamp = person->header.stamp;
         personMapPosition.header.frame_id = world_frame;
 
-        personMapPosition.point.x = person->point.x;
-        personMapPosition.point.y = person->point.y;
-        personMapPosition.point.z = person->point.z;
+              geometry_msgs::PointStamped personInMap;
+             try
+              {
+              geometry_msgs::PointStamped personInBase;
+
+              listener.waitForTransform(world_frame, person->header.stamp, person->header.frame_id, person->header.stamp, fixed_frame_id, ros::Duration(10.0) );
+              listener.transformPoint(world_frame, person->header.stamp, personInRobotBaseFrame, fixed_frame_id, personMapPosition);
+              }
+              catch(tf::TransformException ex)
+              {
+            ROS_WARN("%s",ex.what());
+            //ros::Duration(1.0).sleep();
+            return;
+              }
 
         /*Check distance to objective*/
         //Get person on robot frame
@@ -120,6 +134,7 @@ public:
 
         nPriv.param<std::string>("world_frame", world_frame, "world");
         nPriv.param<std::string>("robot_frame", robot_frame, "robot");
+	nPriv.param<std::string>("fixed_frame", fixed_frame_id, "odom");
         nPriv.param<double>("minimum_distance", minimum_distance, 2);
         nPriv.param<double>("planner_activation_distance", planner_activation_distance, 1.7);
         nPriv.param("minimum_planner_distance", minimum_planner_distance, 1.7);

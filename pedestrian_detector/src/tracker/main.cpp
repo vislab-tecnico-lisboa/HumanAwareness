@@ -51,7 +51,7 @@ using namespace std;
 cv::Point2d person1;
 cv::Point2d person2;
 int frame = 1;
-//ofstream results;
+ofstream results;
 
 
 class Tracker{
@@ -68,8 +68,6 @@ class Tracker{
     PersonList *personList;
     Point3d lastFixationPoint;
     DetectionFilter *detectionfilter;
-
-    double z_history[100];
 
 
 
@@ -92,7 +90,11 @@ class Tracker{
 //    ros::Subscriber person2Topic;
 
     std::string cameraFrameId;
+    std::string fixed_frame_id;
     std::string cameraInfoTopic;
+    std::string markers_frame_id;
+    std::string filtering_frame_id;
+    std::string marker_frame_id;
     std::string world_frame;
     ros::NodeHandle nPriv;
     double gaze_threshold;
@@ -103,6 +105,8 @@ class Tracker{
     double associatingDistance;
     double minimum_person_height;
     double maximum_person_height;
+
+
 
   public:
 
@@ -146,7 +150,7 @@ class Tracker{
             move_robot_msgs::GazeGoal fixationGoal;
             fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
             fixationGoal.fixation_point.header.stamp=ros::Time::now();
-	    fixationGoal.fixation_point.header.frame_id=world_frame;
+        fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
             ac.sendGoal(fixationGoal);
             ROS_INFO("No target selected. Sending eyes to home position");
 
@@ -166,12 +170,14 @@ class Tracker{
       last_image_header = detection->header;
       //Get transforms
       tf::StampedTransform transform;
-      
+
+      ros::Time currentTime = ros::Time(0);
+
       try
       {
 
-          listener->waitForTransform(world_frame, last_image_header.stamp, cameraFrameId, last_image_header.stamp, world_frame, ros::Duration(10.0) );
-          listener->lookupTransform(world_frame, last_image_header.stamp, cameraFrameId, last_image_header.stamp, world_frame, transform);
+          listener->waitForTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+          listener->lookupTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
       }
       catch(tf::TransformException ex)
       {
@@ -200,12 +206,10 @@ class Tracker{
       tf::transformTFToEigen(transform, eigen_transform);
 
       // convert matrix from Eigen to openCV
-      cv::Mat transform_opencv;
-      cv::eigen2cv(eigen_transform.matrix(), transform_opencv);
-
       cv::Mat mapToCameraTransform;
+      cv::eigen2cv(eigen_transform.matrix(), mapToCameraTransform);
 
-      invert(transform_opencv, mapToCameraTransform);
+      //invert(transform_opencv, mapToCameraTransform);
 
       //Calculate the position from camera intrinsics and extrinsics
 
@@ -225,11 +229,11 @@ class Tracker{
 
 //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
-      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform);
+      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, results, rects);
 
 
      //Before we associate the data we need to filter invalid detections
-     detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
+      detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
 
 
       personList->associateData(coordsInBaseFrame, rects);
@@ -248,8 +252,8 @@ class Tracker{
 
                   //Send eyes to home position
                   move_robot_msgs::GazeGoal fixationGoal;
-            	  fixationGoal.fixation_point.header.stamp=ros::Time::now();
-            	  fixationGoal.fixation_point.header.frame_id=world_frame;
+                  fixationGoal.fixation_point.header.stamp=ros::Time::now();
+                  fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
                   fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
                   ac.sendGoal(fixationGoal);
                   ROS_INFO("Lost target. Sending eyes to home position");
@@ -288,7 +292,7 @@ class Tracker{
       //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
       //that have median different than -1000 on either coordinate
         marker_server->clear();
-	ros::Time now=ros::Time::now();
+    ros::Time now=ros::Time::now();
       if(personNotChosenFlag)
       {
 
@@ -297,7 +301,7 @@ class Tracker{
             stringstream description, name;
             name << "person " << (*it).id;
             description << "Detection " << (*it).id;
-	    int_marker.header.stamp=last_image_header.stamp;
+            int_marker.header.stamp=currentTime;
             int_marker.name = name.str();
             int_marker.description = description.str();
 
@@ -307,8 +311,30 @@ class Tracker{
             int_marker.controls.at(0).markers.at(0).color.g = 1;
             int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-            int_marker.pose.position.x = position.x;
-            int_marker.pose.position.y = position.y;
+
+          geometry_msgs::PointStamped personInMap;
+         try
+          {
+          geometry_msgs::PointStamped personInBase;
+          personInBase.header.frame_id = filtering_frame_id;
+          personInBase.header.stamp = last_image_header.stamp;
+          personInBase.point.x = position.x;
+          personInBase.point.y = position.y;
+          personInBase.point.z = 0;
+
+
+          listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+          listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
+          }
+          catch(tf::TransformException ex)
+          {
+        ROS_WARN("%s",ex.what());
+        //ros::Duration(1.0).sleep();
+        return;
+          }
+
+            int_marker.pose.position.x = personInMap.point.x;
+            int_marker.pose.position.y = personInMap.point.y;
 
 //            results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
 
@@ -317,11 +343,10 @@ class Tracker{
       }
       else
       {
-	ROS_ERROR("PERSON CHOSEN");
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
-	    int_marker.header.stamp=last_image_header.stamp;
-	    int_marker.header.frame_id=world_frame;
+        int_marker.header.stamp=currentTime;
+        int_marker.header.frame_id=world_frame;
 
 
 
@@ -340,9 +365,28 @@ class Tracker{
               int_marker.controls.at(0).markers.at(0).color.g = 0;
               int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-              int_marker.pose.position.x = position.x;
-              int_marker.pose.position.y = position.y;
+              geometry_msgs::PointStamped personInMap;
+             try
+              {
+              geometry_msgs::PointStamped personInBase;
+              personInBase.header.frame_id = filtering_frame_id;
+              personInBase.header.stamp = currentTime;
+              personInBase.point.x = position.x;
+              personInBase.point.y = position.y;
+              personInBase.point.z = position.z;
 
+              listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+              listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
+              }
+              catch(tf::TransformException ex)
+              {
+            ROS_WARN("%s",ex.what());
+            //ros::Duration(1.0).sleep();
+            return;
+              }
+
+                int_marker.pose.position.x = personInMap.point.x;
+                int_marker.pose.position.y = personInMap.point.y;
 
               stringstream description, name;
               name << "person " << (*it).id;
@@ -357,8 +401,8 @@ class Tracker{
               //Now we send out the position
               geometry_msgs::PointStamped final_position;
 
-              final_position.header.stamp = last_image_header.stamp;
-              final_position.header.frame_id = world_frame;
+              final_position.header.stamp = currentTime;
+              final_position.header.frame_id = filtering_frame_id;
 
               final_position.point.x = position.x;
               final_position.point.y = position.y;
@@ -366,52 +410,26 @@ class Tracker{
 
               position_publisher.publish(final_position);
 
+              double z = position.z;
 
-
-
-              //We wish to gaze at the center of the bounding box
-              Point2d bbCenter = getCenter(it->rect);
-
-              Point2d zPlanePosition = Point2d(position.x, position.y);
-
-              double z = getZ(bbCenter, zPlanePosition, mapToCameraTransform, cameramodel);
-
-              if(z < 0.4 || z > 1.2)
-              {
-                  z = 0.95;
-              }
-
-
-              for(int i=0; i < median_window-1; i++)
-                  z_history[median_window-1-i] = z_history[median_window-1-(i+1)];
-              z_history[0] = z;
-              //Perform median
-              vector<double> z_vect(z_history, z_history + sizeof(z_history)/sizeof(z_history[0]));
-              std::sort(z_vect.begin(), z_vect.begin() + median_window);
-              double medianZ = z_vect.at((int) round((median_window-1)/2));
-
-
-              //Median end
-
-
-	      // CONTROL GAZE
-              if(cv::norm(Point3d(position.x, position.y, medianZ)-lastFixationPoint) > gaze_threshold)
+          // CONTROL GAZE
+              if(cv::norm(Point3d(position.x, position.y, z)-lastFixationPoint) > gaze_threshold)
               {
                 move_robot_msgs::GazeGoal fixationGoal;
-                fixationGoal.fixation_point.header.stamp=last_image_header.stamp;
-                fixationGoal.fixation_point.header.frame_id=world_frame;
+                fixationGoal.fixation_point.header.stamp=currentTime;
+                fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
                 fixationGoal.fixation_point.point.x = position.x;
                 fixationGoal.fixation_point.point.y = position.y;
-                fixationGoal.fixation_point.point.z = medianZ;
+                fixationGoal.fixation_point.point.z = z;
                 fixationGoal.fixation_point_error_tolerance = fixation_tolerance;
 
-			
+
 
                 ac.sendGoal(fixationGoal);
                 ROS_INFO("Gaze Action server started, sending goal.");
 
-		//bool finished_before_timeout = ac.waitForResult(ros::Duration(2));
-		
+        //bool finished_before_timeout = ac.waitForResult(ros::Duration(10));
+
 
                 lastFixationPoint = Point3d(position.x, position.y, z);
 
@@ -441,9 +459,30 @@ class Tracker{
               int_marker.controls.at(0).markers.at(0).color.b = 0;
 
               Point3d position = (*it).medianFilter();
+              geometry_msgs::PointStamped personInMap;
 
-              int_marker.pose.position.x = position.x;
-              int_marker.pose.position.y = position.y;
+             try
+              {
+              geometry_msgs::PointStamped personInBase;
+              personInBase.header.frame_id = filtering_frame_id;
+              personInBase.header.stamp = currentTime;
+              personInBase.point.x = position.x;
+              personInBase.point.y = position.y;
+              personInBase.point.z = 0;
+
+
+              listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10));
+              listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
+              }
+              catch(tf::TransformException ex)
+              {
+            ROS_WARN("%s",ex.what());
+            //ros::Duration(1.0).sleep();
+            return;
+              }
+
+                int_marker.pose.position.x = personInMap.point.x;
+                int_marker.pose.position.y = personInMap.point.y;
 
               stringstream description, name;
 
@@ -462,13 +501,18 @@ class Tracker{
       frame++;
     }
     Tracker(string cameraConfig) : ac("gaze", true), nPriv("~"),
-		listener(new tf::TransformListener(ros::Duration(2.0)))
+        listener(new tf::TransformListener(ros::Duration(2.0)))
     {
         ROS_ERROR("Waiting for action server to start.");
-        ac.waitForServer();
+        //ac.waitForServer();
+
+
 
         nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
+        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/odom");
+        nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
+        nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/map");
         nPriv.param<std::string>("world_frame", world_frame, "/map");
         nPriv.param("gaze_threshold", gaze_threshold, 0.2);
         nPriv.param("median_window", median_window, 5);
@@ -477,7 +521,7 @@ class Tracker{
         nPriv.param("number_of_frames_before_destruction_locked", numberOfFramesBeforeDestructionLocked, 35);
         nPriv.param("associating_distance", associatingDistance, 0.5);
 
-        /*The tallest man living is Sultan Kösen (Turkey, b.10 December 1982) who measured 251 cm (8 ft 3 in) in Ankara,
+        /*The tallest man living is Sultan Ksen (Turkey, b.10 December 1982) who measured 251 cm (8 ft 3 in) in Ankara,
          *Turkey, on 08 February 2011.*/
         nPriv.param("maximum_person_height", maximum_person_height, 2.51);
 
@@ -485,11 +529,6 @@ class Tracker{
          *Height confirmed by Guinness World Records.
          */
         nPriv.param("minimum_person_height", minimum_person_height, 0.55);
-
-//        z_history = new double[median_window];
-
-        for(int i = 0; i<median_window; i++)
-            z_history[i] = 0.95;
 
         personList = new PersonList(median_window,numberOfFramesBeforeDestruction, numberOfFramesBeforeDestructionLocked, associatingDistance);
 
@@ -503,7 +542,10 @@ class Tracker{
 
       ROS_ERROR("Subscribing detections");
       image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
+
       ROS_ERROR("Subscribed");
+
+
 
       //Stuff for results...
  //     person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
@@ -537,7 +579,7 @@ class Tracker{
       click_me.name = "click";
       click_me.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
 
-      int_marker.header.frame_id = world_frame;
+      int_marker.header.frame_id = markers_frame_id;
       int_marker.scale = 1.5;
 
       int_marker.controls.push_back(click_me);
@@ -549,7 +591,6 @@ class Tracker{
     {
       delete cameramodel;
       delete marker_server;
-       // delete []z_history;
       delete personList;
       delete detectionfilter;
     }
@@ -564,7 +605,7 @@ int main(int argc, char **argv)
   stringstream ss;
 
   //Simulation results file
-//  results.open("/home/avelino/results.txt");
+  results.open("/home/avelino/debug_avelino.txt");
 
   ss << ros::package::getPath("pedestrian_detector");
   ss << "/camera_model/config.yaml";
@@ -573,7 +614,7 @@ int main(int argc, char **argv)
 
   ros::spin();
 
-//  results.close();
+  results.close();
 
   return 0;
 }

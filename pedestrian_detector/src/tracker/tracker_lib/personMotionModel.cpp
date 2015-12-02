@@ -14,7 +14,7 @@
 
 
 
-void PersonModel::updateVelocityArray(Point2d detectedPosition)
+void PersonModel::updateVelocityArray(Point3d detectedPosition)
 {
     for(int i=0; i < 25; i++)
         velocity[25-i] = velocity[25-(i+1)];
@@ -49,20 +49,11 @@ void PersonModel::updateVelocityArray(Point2d detectedPosition)
 }
 
 
-Point2d PersonModel::getPositionEstimate()
+Point3d PersonModel::getPositionEstimate()
 {
-
-    Point2d filteredPosition;
-    Point3d aux;
-    aux = medianFilter();
-
-    filteredPosition.x = aux.x;
-    filteredPosition.y = aux.y;
-
-
     //return filteredPosition+filteredVelocity*delta_t;
 
-    return filteredPosition;
+    return medianFilter();
 }
 
 
@@ -87,6 +78,7 @@ void PersonModel::updateModel()
 
   position.x = -1000;
   position.y = -1000;
+  position.z = 0.95;
 
 
   for(int i=0; i < 4; i++)
@@ -113,21 +105,20 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
     for(int i=0; i < 25; i++)
         velocity[i] = Point2d(0, 0);
 
-  position.x = detectedPosition.x;
-  position.y = detectedPosition.y;
+  position = detectedPosition;
 
 
   rect = bb;
   rectHistory[0] = bb;
 
-  positionHistory[0].x = detectedPosition.x;
-  positionHistory[0].y = detectedPosition.y;
+  positionHistory[0] = detectedPosition;
 
 
   for(int i=1; i < median_window; i++)
   {
       positionHistory[i].x =-1000;
       positionHistory[i].y = -1000;
+      positionHistory[i].z = 0.95;
   }
 
 
@@ -143,7 +134,7 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
 
 }
 
-Point3d PersonModel::getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point2d estimation)
+Point3d PersonModel::getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point3d estimation)
 {
     Point3d nearest(-1000, -1000, 0);
     Point3d estimation3d(estimation.x, estimation.y, 0);
@@ -176,20 +167,24 @@ Point3d PersonModel::medianFilter()
 
     double x[median_window];
     double y[median_window];
+    double z[median_window];
 
     for(int i = 0; i<median_window; i++)
     {
         x[i] = positionHistory[i].x;
         y[i] = positionHistory[i].y;
+        z[i] = positionHistory[i].z;
     }
 
     vector<double> x_vect(x, x + sizeof(x)/sizeof(x[0]));
     vector<double> y_vect(y, y + sizeof(y)/sizeof(y[0]));
+    vector<double> z_vect(z, z + sizeof(z)/sizeof(y[0]));
 
     std::sort(x_vect.begin(), x_vect.begin() + median_window);
     std::sort(y_vect.begin(), y_vect.begin() + median_window);
+    std::sort(z_vect.begin(), z_vect.begin() + median_window);
 
-    Point3d medianPoint(x_vect.at((int) (median_window/2)), y_vect.at((int) (median_window/2)), 0);
+    Point3d medianPoint(x_vect.at((int) (median_window/2)), y_vect.at((int) (median_window/2)), z_vect.at((int) (median_window/2)));
 
     return medianPoint;
 
@@ -316,7 +311,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
             //Calculate the distance
 
-            Point2d trackerPos2d = (*itcolumn).getPositionEstimate();
+            Point3d trackerPos2d = (*itcolumn).getPositionEstimate();
 
             Point3d trackerPos;
 
@@ -325,6 +320,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             trackerPos.z = 0;
 
             Point3d detectionPos = (*itrow);
+            detectionPos.z = 0;
 
             double dist = norm(trackerPos-detectionPos);
             if(dist < associatingDistance)
@@ -367,6 +363,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             {
             personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
             personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
+            personList.at(assignment[i]).position.z = coordsInBaseFrame.at(i).z;
 
           //Bounding boxes...
               personList.at(assignment[i]).rect = rects.at(i);
@@ -377,11 +374,14 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             //If there isn't, create a new tracker for each one - IF THERE IS NO OTHER TRACKER IN A 1.5m radius
             bool existsInRadius = false;
 
+            Point3d coords = coordsInBaseFrame.at(i);
+            coords.z = 0;
+
             for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
             {
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
 
-                if(norm(coordsInBaseFrame.at(i)-testPoint) < associatingDistance)
+                if(norm(coords-testPoint) < associatingDistance)
                 {
                   existsInRadius = true;
                   break;
@@ -407,10 +407,13 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
         {
             bool existsInRadius = false;
 
+            Point3d coords = coordsInBaseFrame.at(i);
+            coords.z = 0;
+
             for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
             {
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
-                if(norm(coordsInBaseFrame.at(i)-testPoint) < associatingDistance)
+                if(norm(coords-testPoint) < associatingDistance)
                 {
                   existsInRadius = true;
                   break;

@@ -3,6 +3,10 @@
 #include "../include/tracker/detectionProcess.hpp"
 #include <ros/ros.h>
 #include "sensor_msgs/CameraInfo.h"
+#include "../include/tracker/filtersAndUtilities.hpp"
+#include <fstream>
+
+
 
 #define PERSON_HEIGHT 1.8
 
@@ -67,7 +71,7 @@ cameraModel::cameraModel(string configFile, string cameraStr)
 *  UPDATE: I wasn't... It was a bug on Gazebo. It's working awesomely well :)
 *
 */
-vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera)
+vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera, std::ofstream &results, vector<cv::Rect_<int> >rects)
 {
 
   //Transform the points to homogeneous coordinates
@@ -131,7 +135,23 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
        Point3d point;
        point.x = homogeneousP.at<float>(0, i)/homogeneousP.at<float>(2, i);
        point.y = homogeneousP.at<float>(1, i)/homogeneousP.at<float>(2, i);
-       point.z = 0;
+
+       Point2d bbCenter = getCenter(rects.at(i));
+
+       point.z = getZ(bbCenter, Point2d(point.x, point.y), worldLinkToCamera, this);
+/*
+       results << "---------------" << endl;
+       results << "Z: " << point.z << endl;
+       results << "bbox: " << rects.at(i);
+       results << "x,y coordinates: " << point << endl;
+       results << "bb center: " << bbCenter << endl;
+
+       if(point.z< 0.4 || point.z> 1.2)
+       {
+           results << "Z IS BAD!" << endl;
+       }
+
+       //point.z = 0;*/
        basePoints.push_back(point);
      }
 

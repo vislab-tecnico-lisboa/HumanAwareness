@@ -27,7 +27,7 @@ class PersonModel
     //Five last velocities (Fast Five. lol) - not used yet
     Point2d velocity[25];
     Point2d filteredVelocity;
-    void updateVelocityArray(Point2d detectedPosition);
+    void updateVelocityArray(Point3d detectedPosition);
 
     public:
 
@@ -43,18 +43,18 @@ class PersonModel
     //If this counter equals 5 we destroy this tracker.
     int noDetection;
 
-    Point2d position;
+    Point3d position;
 
-    Point2d positionHistory[100];
+    Point3d positionHistory[100];
     cv::Rect_<int> rectHistory[5];
     cv::Rect rect;
 
     PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window);
     Point3d medianFilter();
     ~PersonModel();
-    Point2d getPositionEstimate();
+    Point3d getPositionEstimate();
     void updateModel();
-    Point3d getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point2d estimation);
+    Point3d getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point3d estimation);
     Point2d velocityMedianFilter();
 };
 
