@@ -51,7 +51,7 @@ using namespace std;
 cv::Point2d person1;
 cv::Point2d person2;
 int frame = 1;
-ofstream results;
+//ofstream results;
 
 
 class Tracker{
@@ -229,7 +229,7 @@ class Tracker{
 
 //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
-      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, results, rects);
+      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, rects);
 
 
      //Before we associate the data we need to filter invalid detections
@@ -605,7 +605,7 @@ int main(int argc, char **argv)
   stringstream ss;
 
   //Simulation results file
-  results.open("/home/avelino/debug_avelino.txt");
+  //results.open("/home/avelino/debug_avelino.txt");
 
   ss << ros::package::getPath("pedestrian_detector");
   ss << "/camera_model/config.yaml";
@@ -614,7 +614,7 @@ int main(int argc, char **argv)
 
   ros::spin();
 
-  results.close();
+  //results.close();
 
   return 0;
 }

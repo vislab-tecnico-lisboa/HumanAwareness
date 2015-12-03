@@ -71,7 +71,7 @@ cameraModel::cameraModel(string configFile, string cameraStr)
 *  UPDATE: I wasn't... It was a bug on Gazebo. It's working awesomely well :)
 *
 */
-vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera, std::ofstream &results, vector<cv::Rect_<int> >rects)
+vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera, vector<cv::Rect_<int> >rects)
 {
 
   //Transform the points to homogeneous coordinates
@@ -139,19 +139,7 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
        Point2d bbCenter = getCenter(rects.at(i));
 
        point.z = getZ(bbCenter, Point2d(point.x, point.y), worldLinkToCamera, this);
-/*
-       results << "---------------" << endl;
-       results << "Z: " << point.z << endl;
-       results << "bbox: " << rects.at(i);
-       results << "x,y coordinates: " << point << endl;
-       results << "bb center: " << bbCenter << endl;
 
-       if(point.z< 0.4 || point.z> 1.2)
-       {
-           results << "Z IS BAD!" << endl;
-       }
-
-       //point.z = 0;*/
        basePoints.push_back(point);
      }
 
