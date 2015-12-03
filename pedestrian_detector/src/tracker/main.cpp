@@ -56,7 +56,7 @@ int frame = 1;
 
 class Tracker{
 
-  private:
+private:
 
     cameraModel *cameramodel;
     boost::shared_ptr<tf::TransformListener> listener;
@@ -64,6 +64,7 @@ class Tracker{
     ros::NodeHandle n;
     ros::Subscriber image_sub;
     bool personNotChosenFlag;
+    bool automatic;
     Point3d targetCoords;
     PersonList *personList;
     Point3d lastFixationPoint;
@@ -81,13 +82,16 @@ class Tracker{
     interactive_markers::InteractiveMarkerServer *marker_server;
     visualization_msgs::InteractiveMarker int_marker;
 
+    visualization_msgs::InteractiveMarker diceMarker;
+
+
     //Message
     ros::Publisher position_publisher;
 
 
     //Things to get results...
-//    ros::Subscriber person1Topic;
-//    ros::Subscriber person2Topic;
+    //    ros::Subscriber person1Topic;
+    //    ros::Subscriber person2Topic;
 
     std::string cameraFrameId;
     std::string fixed_frame_id;
@@ -108,10 +112,10 @@ class Tracker{
 
 
 
-  public:
+public:
 
     //Stuff to get results!
-/*    void person1PosCallback(const nav_msgs::OdometryConstPtr &odom)
+    /*    void person1PosCallback(const nav_msgs::OdometryConstPtr &odom)
     {
         person1.x = odom->pose.pose.position.x;
         person1.y = odom->pose.pose.position.y;
@@ -123,14 +127,40 @@ class Tracker{
         person2.y = odom->pose.pose.position.y;
     }*/
 
+    void processAutomaticFeedback(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
+    {
+        if(!automatic)
+        {
+            automatic = true;
+            diceMarker.description = "Deactivate Automatic Tracking";
+            diceMarker.controls.at(0).markers.at(0).color.r = 1;
+            diceMarker.controls.at(0).markers.at(0).color.g = 0;
+            diceMarker.controls.at(0).markers.at(0).color.b = 0;
+
+        }
+        else
+        {
+            automatic = false;
+            diceMarker.description = "Activate Automatic Tracking";
+            diceMarker.controls.at(0).markers.at(0).color.r = 0;
+            diceMarker.controls.at(0).markers.at(0).color.g = 1;
+            diceMarker.controls.at(0).markers.at(0).color.b = 0;
+            personNotChosenFlag = true;
+        }
+
+    }
+
     //Process the clicks on markers!
     void processFeedback(
-        const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
+            const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
     {
+        //If automatic tracking is activated we cant click on a specific person
+        if(automatic)
+            return;
 
         //If we click the marker for the first time it will choose that detection to track
         if(personNotChosenFlag)
-          {
+        {
             stringstream ss;
             ss << feedback->marker_name;
 
@@ -141,24 +171,24 @@ class Tracker{
             cout << "Target! Id = " << targetId << endl;
 
             personNotChosenFlag = false;
-          }
+        }
         else
-        //The second time we click on the marker we stop following that person. (Only click after some delay are counted...)
-          {
+            //The second time we click on the marker we stop following that person. (Only click after some delay are counted...)
+        {
             personNotChosenFlag = true;
             targetId = -1;
             move_robot_msgs::GazeGoal fixationGoal;
             fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
             fixationGoal.fixation_point.header.stamp=ros::Time::now();
-        fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
+            fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
             ac.sendGoal(fixationGoal);
             ROS_INFO("No target selected. Sending eyes to home position");
 
-          }
+        }
 
-      ROS_INFO_STREAM( feedback->marker_name << " is now at "
-          << feedback->pose.position.x << ", " << feedback->pose.position.y
-          << ", " << feedback->pose.position.z );
+        ROS_INFO_STREAM( feedback->marker_name << " is now at "
+                         << feedback->pose.position.x << ", " << feedback->pose.position.y
+                         << ", " << feedback->pose.position.z );
 
 
 
@@ -167,279 +197,317 @@ class Tracker{
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
-      last_image_header = detection->header;
-      //Get transforms
-      tf::StampedTransform transform;
+        last_image_header = detection->header;
+        //Get transforms
+        tf::StampedTransform transform;
 
-      ros::Time currentTime = ros::Time(0);
+        ros::Time currentTime = ros::Time(0);
 
-      try
-      {
+        try
+        {
 
-          listener->waitForTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
-          listener->lookupTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
-      }
-      catch(tf::TransformException ex)
-      {
-        ROS_WARN("%s",ex.what());
-        //ros::Duration(1.0).sleep();
-        return;
-      }
+            listener->waitForTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+            listener->lookupTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
+        }
+        catch(tf::TransformException ex)
+        {
+            ROS_WARN("%s",ex.what());
+            //ros::Duration(1.0).sleep();
+            return;
+        }
 
-      //Get rects from message
+        //Get rects from message
 
-      vector<cv::Rect_<int> > rects;
-
-
-      for(pedestrian_detector::DetectionList::_bbVector_type::const_iterator it = detection->bbVector.begin(); it != detection ->bbVector.end(); it++)
-      {
-        int x, y, width, height;
-        x = (*it).x;
-        y = (*it).y;
-        width = (*it).width;
-        height = (*it).height;
-        cv::Rect_<int> detect(x, y, width, height);
-        rects.push_back(detect);
-      }
-
-      Eigen::Affine3d eigen_transform;
-      tf::transformTFToEigen(transform, eigen_transform);
-
-      // convert matrix from Eigen to openCV
-      cv::Mat mapToCameraTransform;
-      cv::eigen2cv(eigen_transform.matrix(), mapToCameraTransform);
-
-      //invert(transform_opencv, mapToCameraTransform);
-
-      //Calculate the position from camera intrinsics and extrinsics
-
-      Mat feetImagePoints;
-
-      for(vector<cv::Rect_<int> >::iterator it = rects.begin(); it!= rects.end(); it++)
-      {
-      Mat feetMat(getFeet(*it));
-
-      transpose(feetMat, feetMat);
-
-      feetImagePoints.push_back(feetMat);
-      }
+        vector<cv::Rect_<int> > rects;
 
 
-      vector<cv::Point3d> coordsInBaseFrame;
+        for(pedestrian_detector::DetectionList::_bbVector_type::const_iterator it = detection->bbVector.begin(); it != detection ->bbVector.end(); it++)
+        {
+            int x, y, width, height;
+            x = (*it).x;
+            y = (*it).y;
+            width = (*it).width;
+            height = (*it).height;
+            cv::Rect_<int> detect(x, y, width, height);
+            rects.push_back(detect);
+        }
 
-//      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
+        Eigen::Affine3d eigen_transform;
+        tf::transformTFToEigen(transform, eigen_transform);
 
-      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, rects);
+        // convert matrix from Eigen to openCV
+        cv::Mat mapToCameraTransform;
+        cv::eigen2cv(eigen_transform.matrix(), mapToCameraTransform);
 
+        //invert(transform_opencv, mapToCameraTransform);
 
-     //Before we associate the data we need to filter invalid detections
-      detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
+        //Calculate the position from camera intrinsics and extrinsics
 
+        Mat feetImagePoints;
 
-      personList->associateData(coordsInBaseFrame, rects);
+        for(vector<cv::Rect_<int> >::iterator it = rects.begin(); it!= rects.end(); it++)
+        {
+            Mat feetMat(getFeet(*it));
 
+            transpose(feetMat, feetMat);
 
-      //Delete the trackers that need to be deleted...
-      for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
-      {
-          if(it->toBeDeleted)
-          {
-              if(it->id == targetId)
-              {
-                  personNotChosenFlag = true;
-                  it = personList->personList.erase(it);
-                  targetId = -1;
-
-                  //Send eyes to home position
-                  move_robot_msgs::GazeGoal fixationGoal;
-                  fixationGoal.fixation_point.header.stamp=ros::Time::now();
-                  fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
-                  fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
-                  ac.sendGoal(fixationGoal);
-                  ROS_INFO("Lost target. Sending eyes to home position");
-              }
-              else
-              {
-                it = personList->personList.erase(it);
-              }
-          }
-          else
-          {
-              it++;
-          }
-
-      }
+            feetImagePoints.push_back(feetMat);
+        }
 
 
+        vector<cv::Point3d> coordsInBaseFrame;
 
-      vector<PersonModel> list = personList->getValidTrackerPosition();
+        //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
-      //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
+        coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, rects);
 
-       /*
+
+        //Before we associate the data we need to filter invalid detections
+        detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
+
+
+        personList->associateData(coordsInBaseFrame, rects);
+
+
+        //Delete the trackers that need to be deleted...
+        for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
+        {
+            if(it->toBeDeleted)
+            {
+                if(it->id == targetId)
+                {
+                    personNotChosenFlag = true;
+                    it = personList->personList.erase(it);
+                    targetId = -1;
+
+                    //Send eyes to home position
+                    move_robot_msgs::GazeGoal fixationGoal;
+                    fixationGoal.fixation_point.header.stamp=ros::Time::now();
+                    fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
+                    fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
+                    ac.sendGoal(fixationGoal);
+                    ROS_INFO("Lost target. Sending eyes to home position");
+                }
+                else
+                {
+                    it = personList->personList.erase(it);
+                }
+            }
+            else
+            {
+                it++;
+            }
+
+        }
+
+
+
+        vector<PersonModel> list = personList->getValidTrackerPosition();
+
+        //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
+
+        /*
         *  TODO!
         *
         */
 
 
-      //SIMULATION ONLY
-      /*Write simulated persons positions to file. Frame | Id | x | y |*/
-      /*Person1 ID: -1, Person2 ID: -2*/
+        //SIMULATION ONLY
+        /*Write simulated persons positions to file. Frame | Id | x | y |*/
+        /*Person1 ID: -1, Person2 ID: -2*/
 
-//      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
-//      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
+        //      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
+        //      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
 
-      //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
-      //that have median different than -1000 on either coordinate
+        //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
+        //that have median different than -1000 on either coordinate
         marker_server->clear();
-    ros::Time now=ros::Time::now();
-      if(personNotChosenFlag)
-      {
+        marker_server->insert(diceMarker, boost::bind(&Tracker::processAutomaticFeedback, this, _1));
+        ros::Time now=ros::Time::now();
 
-        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+        //If in automatic mode
+
+        if(automatic)
+            if(personNotChosenFlag)
         {
-            stringstream description, name;
-            name << "person " << (*it).id;
-            description << "Detection " << (*it).id;
+            //If there are no persons, return
+            if(list.size() < 1)
+                return;
+
+            //If there is no person chosen, choose the closest one.
             int_marker.header.stamp=currentTime;
-            int_marker.name = name.str();
-            int_marker.description = description.str();
+            int_marker.header.frame_id=world_frame;
 
-            Point3d position = (*it).medianFilter();
+            double best = 100000000000000;
+            int personID;
 
-            int_marker.controls.at(0).markers.at(0).color.r = 0;
-            int_marker.controls.at(0).markers.at(0).color.g = 1;
-            int_marker.controls.at(0).markers.at(0).color.b = 0;
-
-
-          geometry_msgs::PointStamped personInMap;
-         try
-          {
-          geometry_msgs::PointStamped personInBase;
-          personInBase.header.frame_id = filtering_frame_id;
-          personInBase.header.stamp = last_image_header.stamp;
-          personInBase.point.x = position.x;
-          personInBase.point.y = position.y;
-          personInBase.point.z = 0;
-
-
-          listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
-          listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
-          }
-          catch(tf::TransformException ex)
-          {
-        ROS_WARN("%s",ex.what());
-        //ros::Duration(1.0).sleep();
-        return;
-          }
-
-            int_marker.pose.position.x = personInMap.point.x;
-            int_marker.pose.position.y = personInMap.point.y;
-
-//            results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
-
-            marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
-        }
-      }
-      else
-      {
-        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
-        {
-        int_marker.header.stamp=currentTime;
-        int_marker.header.frame_id=world_frame;
-
-
-
-
-        Point3d position = (*it).medianFilter();
-
-
-            if((*it).id == targetId)
+            for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
             {
-                //Start looking at that person. Even if we have to turn the base to avoid obstacles, we will still try to see
-              // our target
 
-              it->lockedOnce = true;
+                Point3d position = (*it).medianFilter();
 
-              int_marker.controls.at(0).markers.at(0).color.r = 1;
-              int_marker.controls.at(0).markers.at(0).color.g = 0;
-              int_marker.controls.at(0).markers.at(0).color.b = 0;
+                //WARNING!
+                //Assuming the position is relative to base_footprint. Avoiding tf's for computational purposes.
 
-              geometry_msgs::PointStamped personInMap;
-             try
-              {
-              geometry_msgs::PointStamped personInBase;
-              personInBase.header.frame_id = filtering_frame_id;
-              personInBase.header.stamp = currentTime;
-              personInBase.point.x = position.x;
-              personInBase.point.y = position.y;
-              personInBase.point.z = position.z;
+                double dist = cv::norm(position);
+                if(dist < best)
+                {
+                    best = dist;
+                    personID = it-> id;
+                }
+            }
 
-              listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
-              listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
-              }
-              catch(tf::TransformException ex)
-              {
-            ROS_WARN("%s",ex.what());
-            //ros::Duration(1.0).sleep();
-            return;
-              }
+            targetId = personID;
+            personNotChosenFlag = false;
+        }
+
+
+
+        if(personNotChosenFlag)
+        {
+
+            for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+            {
+                stringstream description, name;
+                name << "person " << (*it).id;
+                description << "Detection " << (*it).id;
+                int_marker.header.stamp=currentTime;
+                int_marker.name = name.str();
+                int_marker.description = description.str();
+
+                Point3d position = (*it).medianFilter();
+
+                int_marker.controls.at(0).markers.at(0).color.r = 0;
+                int_marker.controls.at(0).markers.at(0).color.g = 1;
+                int_marker.controls.at(0).markers.at(0).color.b = 0;
+
+
+                geometry_msgs::PointStamped personInMap;
+                try
+                {
+                    geometry_msgs::PointStamped personInBase;
+                    personInBase.header.frame_id = filtering_frame_id;
+                    personInBase.header.stamp = last_image_header.stamp;
+                    personInBase.point.x = position.x;
+                    personInBase.point.y = position.y;
+                    personInBase.point.z = 0;
+
+
+                    listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+                    listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
+                }
+                catch(tf::TransformException ex)
+                {
+                    ROS_WARN("%s",ex.what());
+                    //ros::Duration(1.0).sleep();
+                    return;
+                }
 
                 int_marker.pose.position.x = personInMap.point.x;
                 int_marker.pose.position.y = personInMap.point.y;
 
-              stringstream description, name;
-              name << "person " << (*it).id;
-              description << "Objective: Detection " << (*it).id;
+                //            results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
 
-              int_marker.name = name.str();
-              int_marker.description = description.str();
+                marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
+            }
+        }
+        else
+        {
+            int_marker.header.stamp=currentTime;
+            int_marker.header.frame_id=world_frame;
 
-              marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
+            for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+            {
 
-
-              //Now we send out the position
-              geometry_msgs::PointStamped final_position;
-
-              final_position.header.stamp = currentTime;
-              final_position.header.frame_id = filtering_frame_id;
-
-              final_position.point.x = position.x;
-              final_position.point.y = position.y;
-              final_position.point.z = 0;
-
-              position_publisher.publish(final_position);
-
-              double z = position.z;
-
-          // CONTROL GAZE
-              if(cv::norm(Point3d(position.x, position.y, z)-lastFixationPoint) > gaze_threshold)
-              {
-                move_robot_msgs::GazeGoal fixationGoal;
-                fixationGoal.fixation_point.header.stamp=currentTime;
-                fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
-                fixationGoal.fixation_point.point.x = position.x;
-                fixationGoal.fixation_point.point.y = position.y;
-                fixationGoal.fixation_point.point.z = z;
-                fixationGoal.fixation_point_error_tolerance = fixation_tolerance;
+                Point3d position = (*it).medianFilter();
 
 
+                if((*it).id == targetId)
+                {
+                    //Start looking at that person. Even if we have to turn the base to avoid obstacles, we will still try to see
+                    // our target
 
-                ac.sendGoal(fixationGoal);
-                ROS_INFO("Gaze Action server started, sending goal.");
+                    it->lockedOnce = true;
 
-        //bool finished_before_timeout = ac.waitForResult(ros::Duration(10));
+                    int_marker.controls.at(0).markers.at(0).color.r = 1;
+                    int_marker.controls.at(0).markers.at(0).color.g = 0;
+                    int_marker.controls.at(0).markers.at(0).color.b = 0;
+
+                    geometry_msgs::PointStamped personInMap;
+                    try
+                    {
+                        geometry_msgs::PointStamped personInBase;
+                        personInBase.header.frame_id = filtering_frame_id;
+                        personInBase.header.stamp = currentTime;
+                        personInBase.point.x = position.x;
+                        personInBase.point.y = position.y;
+                        personInBase.point.z = position.z;
+
+                        listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+                        listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
+                    }
+                    catch(tf::TransformException ex)
+                    {
+                        ROS_WARN("%s",ex.what());
+                        //ros::Duration(1.0).sleep();
+                        return;
+                    }
+
+                    int_marker.pose.position.x = personInMap.point.x;
+                    int_marker.pose.position.y = personInMap.point.y;
+
+                    stringstream description, name;
+                    name << "person " << (*it).id;
+                    description << "Objective: Detection " << (*it).id;
+
+                    int_marker.name = name.str();
+                    int_marker.description = description.str();
+
+                    marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
 
 
-                lastFixationPoint = Point3d(position.x, position.y, z);
+                    //Now we send out the position
+                    geometry_msgs::PointStamped final_position;
 
-              }
+                    final_position.header.stamp = currentTime;
+                    final_position.header.frame_id = filtering_frame_id;
+
+                    final_position.point.x = position.x;
+                    final_position.point.y = position.y;
+                    final_position.point.z = 0;
+
+                    position_publisher.publish(final_position);
+
+                    double z = position.z;
+
+                    // CONTROL GAZE
+                    if(cv::norm(Point3d(position.x, position.y, z)-lastFixationPoint) > gaze_threshold)
+                    {
+                        move_robot_msgs::GazeGoal fixationGoal;
+                        fixationGoal.fixation_point.header.stamp=currentTime;
+                        fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
+                        fixationGoal.fixation_point.point.x = position.x;
+                        fixationGoal.fixation_point.point.y = position.y;
+                        fixationGoal.fixation_point.point.z = z;
+                        fixationGoal.fixation_point_error_tolerance = fixation_tolerance;
+
+
+
+                        ac.sendGoal(fixationGoal);
+                        ROS_INFO("Gaze Action server started, sending goal.");
+
+                        //bool finished_before_timeout = ac.waitForResult(ros::Duration(10));
+
+
+                        lastFixationPoint = Point3d(position.x, position.y, z);
+
+                    }
 
 
 
 
-              //wait for the action to return
-/*              bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+                    //wait for the action to return
+                    /*              bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
 
               if (finished_before_timeout)
               {
@@ -450,55 +518,55 @@ class Tracker{
                   ROS_INFO("Gaze action did not finish before the time out.");
 */
 
-            }
-            else
-            {
+                }
+                else
+                {
 
-              int_marker.controls.at(0).markers.at(0).color.r = 0;
-              int_marker.controls.at(0).markers.at(0).color.g = 1;
-              int_marker.controls.at(0).markers.at(0).color.b = 0;
+                    int_marker.controls.at(0).markers.at(0).color.r = 0;
+                    int_marker.controls.at(0).markers.at(0).color.g = 1;
+                    int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-              Point3d position = (*it).medianFilter();
-              geometry_msgs::PointStamped personInMap;
+                    Point3d position = (*it).medianFilter();
+                    geometry_msgs::PointStamped personInMap;
 
-             try
-              {
-              geometry_msgs::PointStamped personInBase;
-              personInBase.header.frame_id = filtering_frame_id;
-              personInBase.header.stamp = currentTime;
-              personInBase.point.x = position.x;
-              personInBase.point.y = position.y;
-              personInBase.point.z = 0;
+                    try
+                    {
+                        geometry_msgs::PointStamped personInBase;
+                        personInBase.header.frame_id = filtering_frame_id;
+                        personInBase.header.stamp = currentTime;
+                        personInBase.point.x = position.x;
+                        personInBase.point.y = position.y;
+                        personInBase.point.z = 0;
 
 
-              listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10));
-              listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
-              }
-              catch(tf::TransformException ex)
-              {
-            ROS_WARN("%s",ex.what());
-            //ros::Duration(1.0).sleep();
-            return;
-              }
+                        listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10));
+                        listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
+                    }
+                    catch(tf::TransformException ex)
+                    {
+                        ROS_WARN("%s",ex.what());
+                        //ros::Duration(1.0).sleep();
+                        return;
+                    }
 
-                int_marker.pose.position.x = personInMap.point.x;
-                int_marker.pose.position.y = personInMap.point.y;
+                    int_marker.pose.position.x = personInMap.point.x;
+                    int_marker.pose.position.y = personInMap.point.y;
 
-              stringstream description, name;
+                    stringstream description, name;
 
-              name << "person " << (*it).id;
-              description << "Detection " << (*it).id;
+                    name << "person " << (*it).id;
+                    description << "Detection " << (*it).id;
 
-              int_marker.name = name.str();
-              int_marker.description = description.str();
+                    int_marker.name = name.str();
+                    int_marker.description = description.str();
 
-              marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
+                    marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
 
+                }
             }
         }
-      }
-      marker_server->applyChanges();
-      frame++;
+        marker_server->applyChanges();
+        frame++;
     }
     Tracker(string cameraConfig) : ac("gaze", true), nPriv("~"),
         listener(new tf::TransformListener(ros::Duration(2.0)))
@@ -510,7 +578,7 @@ class Tracker{
 
         nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
-        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/odom");
+        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/base_footprint");
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
         nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/map");
         nPriv.param<std::string>("world_frame", world_frame, "/map");
@@ -532,67 +600,114 @@ class Tracker{
 
         personList = new PersonList(median_window,numberOfFramesBeforeDestruction, numberOfFramesBeforeDestructionLocked, associatingDistance);
 
-      personNotChosenFlag = true;
+        personNotChosenFlag = true;
+        automatic = false;
 
-      //Initialize at infinity
-      lastFixationPoint = Point3d(1000, 1000, 1000);
+        //Initialize at infinity
+        lastFixationPoint = Point3d(1000, 1000, 1000);
 
-      cameramodel = new cameraModel(cameraConfig, cameraInfoTopic);
-      detectionfilter = new DetectionFilter(maximum_person_height, minimum_person_height, cameramodel);
+        cameramodel = new cameraModel(cameraConfig, cameraInfoTopic);
+        detectionfilter = new DetectionFilter(maximum_person_height, minimum_person_height, cameramodel);
 
-      ROS_ERROR("Subscribing detections");
-      image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
+        ROS_ERROR("Subscribing detections");
+        image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
 
-      ROS_ERROR("Subscribed");
-
-
-
-      //Stuff for results...
- //     person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
- //     person2Topic = n.subscribe("/person2/odom", 1, &Tracker::person2PosCallback, this);
+        ROS_ERROR("Subscribed");
 
 
-      //Prepare the marker
-      marker_server = new interactive_markers::InteractiveMarkerServer("tracker");
 
-      visualization_msgs::Marker person_marker;
+        //Stuff for results...
+        //     person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
+        //     person2Topic = n.subscribe("/person2/odom", 1, &Tracker::person2PosCallback, this);
 
-      person_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
-      person_marker.mesh_resource = "package://pedestrian_detector/meshes/animated_walking_man.mesh";
-      person_marker.scale.x = 1.2 / 7.0 * 1.8;  //0.3
-      person_marker.scale.y = 1.2 / 7.0 * 1.8; //0.3
-      person_marker.scale.z = 1.2 / 7.0 * 1.8;  //1
-      person_marker.color.r = 0;
-      person_marker.color.g = 1;
-      person_marker.color.b = 0;
-      person_marker.color.a = 1.0;
-      person_marker.pose.position.z = 0;
 
-      person_marker.pose.orientation.x = 1;
-      person_marker.pose.orientation.y = 0;
-      person_marker.pose.orientation.z = 0;
-      person_marker.pose.orientation.w = 1;
+        //Prepare the marker
+        marker_server = new interactive_markers::InteractiveMarkerServer("tracker");
 
-      visualization_msgs::InteractiveMarkerControl click_me;
-      click_me.always_visible = true;
-      click_me.markers.push_back(person_marker);
-      click_me.name = "click";
-      click_me.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
+        visualization_msgs::Marker person_marker;
 
-      int_marker.header.frame_id = markers_frame_id;
-      int_marker.scale = 1.5;
+        person_marker.type = visualization_msgs::Marker::MESH_RESOURCE;
+        person_marker.mesh_resource = "package://pedestrian_detector/meshes/animated_walking_man.mesh";
+        person_marker.scale.x = 1.2 / 7.0 * 1.8;  //0.3
+        person_marker.scale.y = 1.2 / 7.0 * 1.8; //0.3
+        person_marker.scale.z = 1.2 / 7.0 * 1.8;  //1
+        person_marker.color.r = 0;
+        person_marker.color.g = 1;
+        person_marker.color.b = 0;
+        person_marker.color.a = 1.0;
+        person_marker.pose.position.z = 0;
 
-      int_marker.controls.push_back(click_me);
+        person_marker.pose.orientation.x = 1;
+        person_marker.pose.orientation.y = 0;
+        person_marker.pose.orientation.z = 0;
+        person_marker.pose.orientation.w = 1;
 
-      position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
+        visualization_msgs::InteractiveMarkerControl click_me;
+        click_me.always_visible = true;
+        click_me.markers.push_back(person_marker);
+        click_me.name = "click";
+        click_me.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
+
+        int_marker.header.frame_id = markers_frame_id;
+        int_marker.scale = 1.5;
+
+        int_marker.controls.push_back(click_me);
+
+
+
+        visualization_msgs::Marker diceRoll;
+
+        diceRoll.header.frame_id = "/base_footprint";
+        diceRoll.header.stamp = ros::Time();
+        diceRoll.id = 1;
+        diceRoll.ns = "automatic";
+        diceRoll.type = visualization_msgs::Marker::MESH_RESOURCE;
+        diceRoll.mesh_resource = "package://pedestrian_detector/meshes/dice.stl";
+        diceRoll.mesh_use_embedded_materials = false;
+        diceRoll.color.r = 0;
+        diceRoll.color.g = 1;
+        diceRoll.color.b = 0;
+        diceRoll.color.a = 1;
+
+        diceRoll.scale.x = 1.2 / 7.0 * 1.8;  //0.3
+        diceRoll.scale.y = 1.2 / 7.0 * 1.8; //0.3
+        diceRoll.scale.z = 1.2 / 7.0 * 1.8;  //1
+        diceRoll.pose.position.z = 2;
+        diceRoll.pose.position.x = 0;
+        diceRoll.pose.position.y = 0;
+
+        diceRoll.pose.orientation.x = 1;
+        diceRoll.pose.orientation.y = 0;
+        diceRoll.pose.orientation.z = 0;
+        diceRoll.pose.orientation.w = 1;
+
+        visualization_msgs::InteractiveMarkerControl click_dice;
+
+        click_dice.always_visible = true;
+        click_dice.markers.push_back(diceRoll);
+        click_dice.name = "clickDice";
+        click_dice.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
+
+        diceMarker.header.frame_id = "/base_footprint";
+        diceMarker.scale = 1.5;
+
+        diceMarker.controls.push_back(click_dice);
+        diceMarker.pose.position.x = 0;
+        diceMarker.pose.position.y = 0;
+        diceMarker.pose.position.z = 0;
+
+        diceMarker.description = "Activate Automatic Tracking";
+
+
+        position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
     }
 
     ~Tracker()
     {
-      delete cameramodel;
-      delete marker_server;
-      delete personList;
-      delete detectionfilter;
+        delete cameramodel;
+        delete marker_server;
+        delete personList;
+        delete detectionfilter;
     }
 
 };
@@ -600,21 +715,21 @@ class Tracker{
 int main(int argc, char **argv)
 {
 
-  ros::init(argc, argv, "tracker");
+    ros::init(argc, argv, "tracker");
 
-  stringstream ss;
+    stringstream ss;
 
-  //Simulation results file
-  //results.open("/home/avelino/debug_avelino.txt");
+    //Simulation results file
+    //results.open("/home/avelino/debug_avelino.txt");
 
-  ss << ros::package::getPath("pedestrian_detector");
-  ss << "/camera_model/config.yaml";
+    ss << ros::package::getPath("pedestrian_detector");
+    ss << "/camera_model/config.yaml";
 
-  Tracker tracker(ss.str());
+    Tracker tracker(ss.str());
 
-  ros::spin();
+    ros::spin();
 
-  //results.close();
+    //results.close();
 
-  return 0;
+    return 0;
 }
