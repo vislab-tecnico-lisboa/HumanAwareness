@@ -1,12 +1,12 @@
 gaze_threshold: 0.2
 fixation_tolerance: 0.01
 median_window: 5
-number_of_frames_before_destruction: 25
+number_of_frames_before_destruction: 15
 number_of_frames_before_destruction_locked: 35
 associating_distance: 0.5
 camera: l_camera_vision_link
 maximum_person_height: 2.1
 minimum_person_height: 1.4
-filtering_frame_id: base_footprint
+filtering_frame_id: odom
 markers_frame_id: map
 fixed_frame_id: odom

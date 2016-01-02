@@ -22,17 +22,18 @@
 
 <!-- Run the tracker !-->
  <node pkg="pedestrian_detector" type="tracker" name="tracker" output="screen">
+    	<rosparam file="$(find pedestrian_detector)/config/tracker_params.yaml" command="load"/>
   </node>
 
 
 <!-- Run the follower !-->
- <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
-  </node>
+<!-- <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
+  </node> -->
 
 
   <!-- Play the bag file. Leave it in a loop !-->
 
-<node pkg="rosbag" type="play" name="player" output="screen" args="--clock -l $(find pedestrian_detector)/bags/central.bag"/>
+<node pkg="rosbag" type="play" name="player" output="screen" args="--clock -l $(find pedestrian_detector)/bags/fifth.bag"/>
 
       <!-- move_base using local eband planner -->
       <include file="$(find vizzy_navigation)/launch/move_base_eband_local.launch">

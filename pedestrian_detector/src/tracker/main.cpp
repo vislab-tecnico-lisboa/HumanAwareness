@@ -578,7 +578,7 @@ public:
 
         nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
-        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/base_footprint");
+        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/odom");
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
         nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/map");
         nPriv.param<std::string>("world_frame", world_frame, "/map");

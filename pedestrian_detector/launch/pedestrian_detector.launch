@@ -16,6 +16,7 @@
     <param name="camera" type="str" value="$(arg camera)"/>
   </node>
   <node pkg="pedestrian_detector" type="tracker" name="tracker" output="log">
+	<rosparam file="$(find pedestrian_detector)/config/tracker_params.yaml" command="load"/>
   </node>
   <group if="$(arg follower)">
   <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
