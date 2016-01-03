@@ -37,6 +37,8 @@ class PersonModel
 
     Point2d bbCenter;
 
+    Mat bvtHistogram;
+
     bool lockedOnce;
     bool deadReckoning;
     //Increment this each time there is no detection and reset it when there is a detection
@@ -44,12 +46,13 @@ class PersonModel
     int noDetection;
 
     Point3d position;
+    Mat getBvtHistogram();
 
     Point3d positionHistory[100];
     cv::Rect_<int> rectHistory[5];
     cv::Rect rect;
 
-    PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window);
+    PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram);
     Point3d medianFilter();
     ~PersonModel();
     Point3d getPositionEstimate();
@@ -68,8 +71,8 @@ public:
     int numberOfFramesBeforeDestruction;
     int numberOfFramesBeforeDestructionLocked;
     double associatingDistance;
-    void associateData(vector<cv::Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects);
-    void addPerson(Point3d pos, cv::Rect_<int> rect);
+    void associateData(vector<cv::Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects, vector<Mat> colorFeaturesList);
+    void addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram);
     std::vector<PersonModel> personList;
     void updateList();
 

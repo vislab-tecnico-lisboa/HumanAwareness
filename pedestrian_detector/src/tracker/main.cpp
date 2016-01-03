@@ -219,17 +219,27 @@ public:
         //Get rects from message
 
         vector<cv::Rect_<int> > rects;
+        vector<Mat> colorFeaturesList;
 
 
         for(pedestrian_detector::DetectionList::_bbVector_type::const_iterator it = detection->bbVector.begin(); it != detection ->bbVector.end(); it++)
         {
+
             int x, y, width, height;
             x = (*it).x;
             y = (*it).y;
             width = (*it).width;
             height = (*it).height;
-            cv::Rect_<int> detect(x, y, width, height);
+            cv::Rect_<int> detect(x, y, width, height);      
             rects.push_back(detect);
+        }
+
+        for(pedestrian_detector::DetectionList::_featuresVector_type::const_iterator it = detection->featuresVector.begin(); it != detection->featuresVector.end(); it++)
+        {
+            vector<float> features = it->features;
+            Mat bvtHistogram(features);
+
+            colorFeaturesList.push_back(bvtHistogram.clone());
         }
 
         Eigen::Affine3d eigen_transform;
@@ -266,7 +276,7 @@ public:
         detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
 
 
-        personList->associateData(coordsInBaseFrame, rects);
+        personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
 
 
         //Delete the trackers that need to be deleted...

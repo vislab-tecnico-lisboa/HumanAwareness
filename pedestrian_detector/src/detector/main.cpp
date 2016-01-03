@@ -36,6 +36,8 @@
 #include <pedestrian_detector/BoundingBox.h>
 #include <pedestrian_detector/Features.h>
 
+#include "../include/detector/colorFeatures.hpp"
+
 //Detection options: pedestrian
 //headandshoulders
 //full
@@ -48,6 +50,8 @@ int movAverageLength=10;
 float currentTime = 0, oldestTime = 0, timesSum = 0;
 std::deque<float> times (movAverageLength,0); //I keep the 10 most recent processing times, to compute a moving average
 int frameCounter = 0;
+
+std::vector<cv::Rect> partMasks;
 
 //ofstream myfile;
 
@@ -90,6 +94,7 @@ private:
 
 
         person_detector->runDetector(image);
+        Mat imageDisplay = image.clone();
 
 
 
@@ -106,7 +111,31 @@ private:
         if(detectorType.compare("pedestrian") == 0 || detectorType.compare("full") == 0)
         {
             for(it = person_detector->boundingBoxes->begin(); it != person_detector->boundingBoxes->end(); it++){
-                rectangle(image, *it, Scalar_<int>(0,255,0), 3);
+
+                Mat person = image(*it);
+                Mat resizedPerson;
+                //Resize it for 52x128
+
+                resize(person, resizedPerson, Size(52, 128));
+
+                Mat bvtHistogram;
+
+                extractBVT(resizedPerson, bvtHistogram, 10, partMasks);
+
+                bvtHistogram.convertTo(bvtHistogram, CV_32FC1);
+
+                //Most efficient way to convert a row Mat to std::vector, according to stackoverflow
+                const float* p = bvtHistogram.ptr<float>(0);
+
+                // Copy data to a vector.  Note that (p + mat.cols) points to the
+                // end of the row.
+                std::vector<float> vec(p, p + bvtHistogram.cols);
+
+                pedestrian_detector::Features colorFeatures;
+
+                colorFeatures.features = vec;
+
+                rectangle(imageDisplay, *it, Scalar_<int>(0,255,0), 3);
 
                 pedestrian_detector::BoundingBox bb;
                 bb.x = (*it).x;
@@ -114,6 +143,7 @@ private:
                 bb.width = (*it).width;
                 bb.height = (*it).height;
                 detectionList.bbVector.push_back(bb);
+                detectionList.featuresVector.push_back(colorFeatures);
             }
         }
 
@@ -132,7 +162,7 @@ private:
             //          cout<<"Processing time = "<<timesSum/float(movAverageLength)<<". FPS="<<float(movAverageLength)/timesSum<<std::endl;
             stringstream ss;
             ss << float(movAverageLength)/timesSum;
-            putText(image, ss.str(), Point(0, 30), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
+            putText(imageDisplay, ss.str(), Point(0, 30), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
         }
 
         //Number of detections, fps
@@ -143,14 +173,15 @@ private:
         {
             for(it = person_detector->headBoundingBoxes->begin(); it != person_detector->headBoundingBoxes->end(); it++)
             {
-                rectangle(image, *it, Scalar_<int>(0,0,255), 3);
+                rectangle(imageDisplay, *it, Scalar_<int>(0,0,255), 3);
             }
         }
 
         //Publish the resulting image for now. Later I might publish only the detections for another node to process
-
-        sensor_msgs::ImagePtr out_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+        sensor_msgs::ImagePtr out_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", imageDisplay).toImageMsg();
         image_pub.publish(out_msg);
+
+
 
         //Publish the detections (I will also publish the features associated to each detection)
         detectionPublisher.publish(detectionList);
@@ -201,7 +232,6 @@ int main(int argc, char** argv)
     ros::NodeHandle n;
 
 
-
     //Get package path. This way we dont need to worry about running the node in the folder of the configuration files
     stringstream ss;
     ss << ros::package::getPath("pedestrian_detector");
@@ -212,6 +242,34 @@ int main(int argc, char** argv)
     ss2 << "/configurationheadandshoulders.xml";
 
     //    myfile.open ("/home/avelino/fps_results.txt");
+    stringstream ss3;
+    ss3 << ros::package::getPath("pedestrian_detector");
+    ss3 << "/partMasks.yaml";
+
+    FileStorage fs(ss3.str(), FileStorage::READ);
+
+    std::vector<int> headVect;
+    std::vector<int> torsoVect;
+    std::vector<int> legsVect;
+    std::vector<int> feetVect;
+
+    fs["headMask"] >> headVect;
+    fs["torsoMask"] >> torsoVect;
+    fs["legsMask"] >> legsVect;
+    fs["feetMask"] >> feetVect;
+
+    cv::Rect headMask(headVect[0], headVect[1], headVect[2], headVect[3]);
+    cv::Rect torsoMask(torsoVect[0], torsoVect[1], torsoVect[2], torsoVect[3]);
+    cv::Rect legsMask(legsVect[0], legsVect[1], legsVect[2], legsVect[3]);
+    cv::Rect feetMask(feetVect[0], feetVect[1], feetVect[2], feetVect[3]);
+
+    fs.release();
+
+    partMasks.push_back(headMask);
+    partMasks.push_back(torsoMask);
+    partMasks.push_back(legsMask);
+    partMasks.push_back(feetMask);
+
 
     PedDetector detector(n, ss.str(), ss2.str());
 

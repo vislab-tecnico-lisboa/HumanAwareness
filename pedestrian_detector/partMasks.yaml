@@ -1,0 +1,5 @@
+%YAML:1.0
+headMask: [ 20, 6, 13, 16 ]
+torsoMask: [ 15, 24, 22, 38 ]
+legsMask: [ 17, 64, 18, 29 ]
+feetMask: [ 17, 95, 18, 33 ]

@@ -11,7 +11,10 @@
 * TODO: Kalman filtering and motion prediction?
 */
 
-
+Mat PersonModel::getBvtHistogram()
+{
+  return bvtHistogram;
+}
 
 
 void PersonModel::updateVelocityArray(Point3d detectedPosition)
@@ -93,7 +96,7 @@ void PersonModel::updateModel()
 
 }
 
-PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window)
+PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram)
 {
 
   this->median_window = median_window;
@@ -106,6 +109,8 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         velocity[i] = Point2d(0, 0);
 
   position = detectedPosition;
+
+  this->bvtHistogram = bvtHistogram;
 
 
   rect = bb;
@@ -264,16 +269,16 @@ void PersonList::updateList()
 
 }
 
-void PersonList::addPerson(Point3d pos, cv::Rect_<int> rect)
+void PersonList::addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram)
 {
 
-   PersonModel person(pos, rect, nPersons, median_window);
+   PersonModel person(pos, rect, nPersons, median_window, bvtHistogram);
    personList.push_back(person);
    nPersons++;
 
 }
 
-void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects)
+void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects, vector<Mat> colorFeaturesList)
 {
     //Create distance matrix.
     //Rows represent the detections and columns represent the trackers
@@ -300,7 +305,6 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
     int row = 0;
 
-
     //Each detection -> a row
     for(vector<Point3d>::iterator itrow = coordsInBaseFrame.begin(); itrow != coordsInBaseFrame.end(); itrow++, row++)
     {
@@ -312,6 +316,12 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             //Calculate the distance
 
             Point3d trackerPos2d = (*itcolumn).getPositionEstimate();
+            Mat trackerColorHist = (*itcolumn).getBvtHistogram();
+            Mat detectionColorHist = colorFeaturesList.at(row);
+
+
+            detectionColorHist.convertTo(detectionColorHist, CV_32F);
+            trackerColorHist.convertTo(trackerColorHist, CV_32F);
 
             Point3d trackerPos;
 
@@ -323,8 +333,17 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             detectionPos.z = 0;
 
             double dist = norm(trackerPos-detectionPos);
+
+            double colorDist;
+
+            colorDist = compareHist(detectionColorHist, trackerColorHist, CV_COMP_CORREL);
             if(dist < associatingDistance)
-              distMatrixIn[row+col*nDetections] = dist;
+            {
+                if(colorDist < 0.3)
+                  distMatrixIn[row+col*nDetections] = 1000; //Colors are too different. It cant be the same person...
+                else
+                    distMatrixIn[row+col*nDetections] = (1+dist)*pow(1.1-colorDist, 3);
+            }
             else
             {
                 double best = 1000;
@@ -337,7 +356,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                             best = distHist;
                 }
 
-                distMatrixIn[row+col*nDetections] = best;
+                distMatrixIn[row+col*nDetections] = (1+best)*pow(1.1-colorDist, 3);
             }
         }
     }
@@ -367,6 +386,9 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
           //Bounding boxes...
               personList.at(assignment[i]).rect = rects.at(i);
+
+          //Color histograms
+              personList.at(assignment[i]).bvtHistogram = colorFeaturesList.at(i);
             }
         }
         else
@@ -388,7 +410,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 }
             }
             if(!existsInRadius)
-            addPerson(coordsInBaseFrame.at(i), rects.at(i));
+            addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
         }
     }
 
@@ -420,7 +442,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 }
             }
             if(!existsInRadius)
-            addPerson(coordsInBaseFrame.at(i), rects.at(i));
+            addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
         }
 
     }
