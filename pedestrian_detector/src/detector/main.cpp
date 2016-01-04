@@ -183,10 +183,11 @@ private:
 
 
 
+
+
         //Publish the detections (I will also publish the features associated to each detection)
+        detectionList.im = *msg;
         detectionPublisher.publish(detectionList);
-
-
 
     }
 

@@ -34,9 +34,13 @@
 #include <sstream>
 #include <stack>
 #include <iostream>
+#include <string>
 
 //Stuff for results from simulation...
 #include <nav_msgs/Odometry.h>
+#include <cv_bridge/cv_bridge.h>
+#include <image_transport/image_transport.h>
+#include <sensor_msgs/image_encodings.h>
 #include <fstream>
 
 //Gaze control
@@ -88,6 +92,9 @@ private:
     //Message
     ros::Publisher position_publisher;
 
+    //Image for debug purposes
+    image_transport::ImageTransport *it;
+    image_transport::Publisher image_pub;
 
     //Things to get results...
     //    ros::Subscriber person1Topic;
@@ -197,9 +204,24 @@ public:
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
+
+        cv_bridge::CvImagePtr cv_ptr;
+
+        try
+        {
+          cv_ptr = cv_bridge::toCvCopy(detection->im, sensor_msgs::image_encodings::BGR8);
+        }
+        catch (cv_bridge::Exception& e)
+        {
+          ROS_ERROR("cv_bridge exception: %s", e.what());
+          return;
+        }
+
         last_image_header = detection->header;
         //Get transforms
         tf::StampedTransform transform;
+
+        Mat lastImage = cv_ptr->image;
 
         ros::Time currentTime = ros::Time(0);
 
@@ -577,6 +599,19 @@ public:
         }
         marker_server->applyChanges();
         frame++;
+
+        //Write rectangles on image with ids and publish
+
+        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+        {
+            rectangle(lastImage, it->rect, Scalar(0, 255, 0), 2);
+            ostringstream convert;
+            convert << it->id;
+            putText(lastImage, convert.str(), it->rect.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
+        }
+
+        sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", lastImage).toImageMsg();
+        image_pub.publish(msgImage);
     }
     Tracker(string cameraConfig) : ac("gaze", true), nPriv("~"),
         listener(new tf::TransformListener(ros::Duration(2.0)))
@@ -584,7 +619,10 @@ public:
         ROS_ERROR("Waiting for action server to start.");
         //ac.waitForServer();
 
-
+        //For debug purposes
+        it = new image_transport::ImageTransport(n);
+        image_pub = it->advertise("image_out_tracker", 1);
+        //*****************************************
 
         nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
