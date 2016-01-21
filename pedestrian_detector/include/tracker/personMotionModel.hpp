@@ -1,10 +1,15 @@
 #ifndef PERSONMOTIONMODEL_HPP
 #define PERSONMOTIONMODEL_HPP
 
+#define MMAETRACKING 1
+#define MEDIANTRACKING 0
+
 #include <opencv2/opencv.hpp>
 #include <vector>
+#include <deque>
 #include <ros/ros.h>
 #include <ros/package.h>
+#include "../include/tracker/mmae.hpp"
 
 
 using namespace cv;
@@ -24,15 +29,18 @@ class PersonModel
 
 
 
+
+
     //Five last velocities (Fast Five. lol) - not used yet
     Point2d velocity[25];
     Point2d filteredVelocity;
     void updateVelocityArray(Point3d detectedPosition);
+    int method;
 
     public:
 
     int id;
-
+    MMAEFilterBank *mmaeEstimator;
     bool toBeDeleted;
 
     Point2d bbCenter;
@@ -52,7 +60,8 @@ class PersonModel
     cv::Rect_<int> rectHistory[5];
     cv::Rect rect;
 
-    PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram);
+    PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram, int method=MMAETRACKING);
+
     Point3d medianFilter();
     ~PersonModel();
     Point3d getPositionEstimate();
@@ -72,11 +81,14 @@ public:
     int numberOfFramesBeforeDestructionLocked;
     double associatingDistance;
     void associateData(vector<cv::Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects, vector<Mat> colorFeaturesList);
-    void addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram);
+    void addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram, int method = MMAETRACKING);
     std::vector<PersonModel> personList;
+    std::deque<PersonModel> holdList;   //For Re-ID purposes
     void updateList();
 
-    PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance);
+    int method;
+
+    PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method=MMAETRACKING);
 
     //Returns a vector containing positions associated to each tracker, that are valid after the median filter
     std::vector<PersonModel> getValidTrackerPosition();

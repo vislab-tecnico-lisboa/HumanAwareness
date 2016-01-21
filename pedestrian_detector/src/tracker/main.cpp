@@ -22,6 +22,7 @@
 #include "../include/tracker/personMotionModel.hpp"
 #include "../include/tracker/filtersAndUtilities.hpp"
 
+
 //OpenCV Includes
 #include <opencv2/opencv.hpp>
 #include <opencv/cv.h>
@@ -613,8 +614,7 @@ public:
         sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", lastImage).toImageMsg();
         image_pub.publish(msgImage);
     }
-    Tracker(string cameraConfig) : ac("gaze", true), nPriv("~"),
-        listener(new tf::TransformListener(ros::Duration(2.0)))
+    Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~")
     {
         ROS_ERROR("Waiting for action server to start.");
         //ac.waitForServer();
