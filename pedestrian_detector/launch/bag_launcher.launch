@@ -33,7 +33,7 @@
 
   <!-- Play the bag file. Leave it in a loop !-->
 
-<node pkg="rosbag" type="play" name="player" output="screen" args="--clock -l $(find pedestrian_detector)/bags/fifth.bag"/>
+<node pkg="rosbag" type="play" name="player" output="screen" args="--clock -l $(find pedestrian_detector)/bags/sixth.bag"/>
 
       <!-- move_base using local eband planner -->
       <include file="$(find vizzy_navigation)/launch/move_base_eband_local.launch">

@@ -1,9 +1,12 @@
 #include "../include/tracker/mmae.hpp"
+#include <ros/ros.h>
+#include <ros/package.h>
 
-MMAEFilterBank::MMAEFilterBank(std::vector<KalmanFilter> filterBank, std::vector<std::vector <int> > modelToxMMAEindexes, bool commonState, bool preComputeA, Mat initialState, int type) : invAk(filterBank.size(), Mat()), sqrtDetAk(filterBank.size(), 0), betas(filterBank.size(), 0), probabilities(filterBank.size(), ((double) 1)/ filterBank.size())
+MMAEFilterBank::~MMAEFilterBank()
 {
-    this->filterBank = filterBank;
-    this->modelToxMMAEindexes = modelToxMMAEindexes;
+}
+MMAEFilterBank::MMAEFilterBank(std::vector<KalmanFilter> filterBank, std::vector<std::vector <int> > modelToxMMAEindexes, bool commonState, bool preComputeA, Mat initialState, int type) : invAk(filterBank.size(), Mat()), sqrtDetAk(filterBank.size(), 0), betas(filterBank.size(), 0), probabilities(filterBank.size(), ((double) 1)/ filterBank.size()), filterBank(filterBank), modelToxMMAEindexes(modelToxMMAEindexes)
+{
     this->preComputeA = preComputeA;
     this->commonState = commonState;
     this->type = type;
@@ -68,15 +71,19 @@ void MMAEFilterBank::predict(Mat control)
     else
     {
         int i = 0;
-        CV_Assert(filterBank.size() == invAk.size() && invAk.size() == sqrtDetAk.size());
+
+        int fbSize = filterBank.size();
+        int invAkSize = invAk.size();
+        int sqrtDetAkSize = sqrtDetAk.size();
+
+        CV_Assert(fbSize == invAkSize && invAkSize == sqrtDetAkSize);
 
         for(std::vector<KalmanFilter>::iterator itFilter = filterBank.begin(); itFilter != filterBank.end(); itFilter++, i++)
         {
            // cout << "Pminus:" << itFilter->errorCovPre << endl;
             itFilter->predict(control);
 
-
-            itFilter->errorCovPre = itFilter->errorCovPre+Mat::eye(itFilter->errorCovPre.rows, itFilter->errorCovPre.cols, itFilter->errorCovPre.type())*0.01;
+            itFilter->errorCovPre = itFilter->errorCovPre+Mat::eye(itFilter->errorCovPre.rows, itFilter->errorCovPre.cols, itFilter->errorCovPre.type())*0.003;
 
            // cout << "Pminus after:" << itFilter->errorCovPre << endl;
             //Aux vars
@@ -89,7 +96,7 @@ void MMAEFilterBank::predict(Mat control)
             invert(Ak, invAk.at(i));
             double akdet = determinant(Ak);
             sqrtDetAk.at(i) = sqrt(akdet);
-            betas.at(i) = 1.0/(2*3.1415*sqrtDetAk.at(i));
+            betas.at(i) = 1.0/(2*CV_PI*sqrtDetAk.at(i));
 
 
         }
@@ -117,8 +124,9 @@ void MMAEFilterBank::correct(Mat &measurement)
                 measurement.convertTo(measurement, type);
             }
 
-            itFilter->correct(measurement);
+
             Mat residue = measurement-itFilter->measurementMatrix*itFilter->statePre;
+            residue.convertTo(residue, CV_64F);
             Mat trResidue;
             transpose(residue, trResidue);
             Mat q = trResidue*invAk.at(i)*residue;
@@ -126,6 +134,8 @@ void MMAEFilterBank::correct(Mat &measurement)
             Mat expTerm = ((-1.0/2.0))*q;
 
             cv::exp(expTerm, expTerm);
+
+            itFilter->correct(measurement);
 
             //VERIFICAR SE O EXPTERM DA UM ESCALAR OU SE HOUVE ALGUM ERRO!
 
@@ -152,14 +162,28 @@ void MMAEFilterBank::correct(Mat &measurement)
         if(sumOfAll > pow(10, -170))
         {
             CV_Assert(probabilities.size() == densities.size());
+            double sumProbs = 0;
             int j = 0;
             for(std::vector<double>::iterator itProb = probabilities.begin(); itProb != probabilities.end();
                 itProb++, j++)
             {
-
                 (*itProb) = densities.at(j)*(*itProb)/sumOfAll;
 
+                if(*itProb < 0.01)
+                {
+                    *itProb = 0.01;
+                }
+
+                sumProbs += *itProb;
             }
+
+            for(std::vector<double>::iterator itProb = probabilities.begin(); itProb != probabilities.end();
+                itProb++, j++)
+            {
+                (*itProb) = (*itProb)/sumProbs;
+            }
+
+
         }
     }
 
@@ -195,7 +219,7 @@ void MMAEFilterBank::correct(Mat &measurement)
 
     if(commonState)
     {
-        linkXMMAEtoFilterStates();
+//        linkXMMAEtoFilterStates();
     }
 
 }

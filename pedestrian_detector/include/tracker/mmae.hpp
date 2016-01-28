@@ -38,6 +38,7 @@ public:
 
 
     MMAEFilterBank(std::vector<KalmanFilter> filterBank, std::vector<std::vector <int> > modelToxMMAEindexes, bool commonState = true, bool preComputeA = false, Mat initialState=Mat(), int type = CV_64F);
+    ~MMAEFilterBank();
     void predict(Mat control = Mat());
     void correct(Mat &measurement);
 

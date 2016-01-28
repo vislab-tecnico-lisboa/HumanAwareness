@@ -62,7 +62,11 @@ Point3d PersonModel::getPositionEstimate()
     {
       Point3d median = medianFilter(); //To get the Z for gaze... damn, this code is awfull. I'm dumb
       Point3d estimate(mmaeEstimator->xMMAE.at<double>(0, 0), mmaeEstimator->xMMAE.at<double>(3, 0), median.z);
+//      ROS_ERROR_STREAM("STATE: " << mmaeEstimator->xMMAE);
+      ROS_ERROR_STREAM("Returning estimate. Probs: " << mmaeEstimator->probabilities.at(0) << ", " << mmaeEstimator->probabilities.at(1) << ", " << mmaeEstimator->probabilities.at(2));
+
       return estimate;
+
     }
     return medianFilter();
 }
@@ -91,12 +95,10 @@ void PersonModel::updateModel()
     position.y = -1000;
     position.z = 0.95;
 
-
     for(int i=0; i < 4; i++)
         rectHistory[4-i] = rectHistory[4-(i+1)];
 
     rectHistory[0] = rect;
-
     //velocity in m/ns
 
 //    filteredVelocity = velocityMedianFilter();
@@ -104,17 +106,17 @@ void PersonModel::updateModel()
     if(method == MMAETRACKING)
     {
         Mat measurement;
-
-        if(positionHistory[0].x == -1000 || positionHistory[0].y == -100)
+        if(positionHistory[0].x == -1000 || positionHistory[0].y == -1000)
         {
             measurement = Mat();
         }
         else
         {
-            measurement = Mat(positionHistory[0].x, positionHistory[0].y, CV_64F);
+            measurement = Mat(2, 1, CV_64F);
+            measurement.at<double>(0, 0) = positionHistory[0].x;
+            measurement.at<double>(1, 0) = positionHistory[0].y;
         }
             mmaeEstimator->correct(measurement);
-
     }
 
 
@@ -124,77 +126,15 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
 {
     this->method = method;
 
-    mmaeEstimator = NULL;
-
     if(method == MEDIANTRACKING)
     {
-        this->median_window = median_window;
-        toBeDeleted = false;
 
-        //  positionHistory = new Point2d[median_window];
+        mmaeEstimator = NULL;
 
-
-        for(int i=0; i < 25; i++)
-            velocity[i] = Point2d(0, 0);
-
-        position = detectedPosition;
-
-        this->bvtHistogram = bvtHistogram;
-
-
-        rect = bb;
-        rectHistory[0] = bb;
-
-        positionHistory[0] = detectedPosition;
-
-
-        for(int i=1; i < median_window; i++)
-        {
-            positionHistory[i].x =-1000;
-            positionHistory[i].y = -1000;
-            positionHistory[i].z = 0.95;
-        }
-
-
-        lockedOnce = false;
-
-        this->id = id;
-        noDetection = 0;
-
-        delta_t = 0.1;
-        lastUpdate = ros::Time::now();
-
-        deadReckoning = false;
     }
     else if(method==MMAETRACKING)
     {
-        std::vector<KalmanFilter> kalmanBank;
-
-        lockedOnce = false;
-
-        this->id = id;
-        noDetection = 0;
-
-        delta_t = 1.0/20.0;
-        lastUpdate = ros::Time::now();
-
-        deadReckoning = false;
-
-        position = detectedPosition;
-
-        this->bvtHistogram = bvtHistogram;
-
-        positionHistory[0] = detectedPosition;
-
-        /*This will be useless. I will reproject the bounding boxes on the image based on the estimated*/
-        /*position and the person height*/
-        rect = bb;
-        rectHistory[0] = bb;
-        toBeDeleted = false;
-
-        //Initialize Kalman Bank ------------------------------------------------
-
-        static const double samplingRate = 20.0;
+        static const double samplingRate = 15.0;
         static const double T = 1.0/samplingRate;
 
 //Constant position filter
@@ -207,13 +147,13 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantPosition.measurementMatrix = (Mat_<double>(2, 2) << 1, 0, 0, 1);
         //Q
         constantPosition.processNoiseCov = (Mat_<double>(2, 2) << pow(T, 2), 0, 0, pow(T, 2));  //Q*sigma
-        constantPosition.processNoiseCov  = constantPosition.processNoiseCov*0.01;
+        constantPosition.processNoiseCov  = constantPosition.processNoiseCov*70;
         //R
         constantPosition.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*0.25; //R*sigma
+        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*5; //R*sigma
 
         //P0
-        constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*5;
+        constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*50;
 
 //Constant velocity filter
 
@@ -225,13 +165,13 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 0, 1, 0);
         //Q
         constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, pow(T,3)/2, 0, 0, pow(T,3)/2, pow(T,2), 0, 0, 0, 0, pow(T,4)/4, pow(T,3)/2, 0, 0, pow(T,3)/2, pow(T,2));
-        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*0.1;  //Q*sigma
+        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*150;  //Q*sigma
         //R
         constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*0.25; //R*sigma
+        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*5; //R*sigma
 
         //P0
-        constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*5;
+        constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*50;
 
 //Constant acceleration filter
 
@@ -243,16 +183,16 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0);
         //Q
         constantAcceleration.processNoiseCov = (Mat_<double>(6, 6) << pow(T, 5)/20, pow(T, 4)/8, pow(T, 3)/6, 0, 0, 0, pow(T, 4)/8, pow(T, 3)/3, pow(T, 2)/2, 0, 0, 0, pow(T, 3)/6, pow(T, 2)/2, T, 0, 0, 0, 0, 0, 0, pow(T, 5)/20, pow(T, 4)/8, pow(T, 3)/3, 0, 0, 0, pow(T, 4)/8, pow(T, 3)/3, pow(T, 2)/2, 0, 0, 0, pow(T, 3)/6, pow(T, 2)/2, T);
-        constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*0.1;  //Q*sima
+        constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*2;  //Q*sigma
         //R
         constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*0.25; //R*sigma
+        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*5.2; //R*sigma
 
         //P0
-        constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*5;
+        constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*50;
 
 // Put them all in the bank
-
+        std::vector<KalmanFilter> kalmanBank;
         kalmanBank.push_back(constantPosition);
         kalmanBank.push_back(constantVelocity);
         kalmanBank.push_back(constantAcceleration);
@@ -277,11 +217,52 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
 
 
         double states[] = {detectedPosition.x, 0, 0, detectedPosition.y, 0, 0};
+//        double states[] = {0, 0, 0, 0, 0, 0};
         Mat initialStates = Mat(6, 1, CV_64F, states).clone();
 
 //Build the Bank!
         mmaeEstimator = new MMAEFilterBank(kalmanBank, indexList, true, false, initialStates, CV_64F);
     }
+
+
+    this->median_window = median_window;
+    toBeDeleted = false;
+
+
+    //  positionHistory = new Point2d[median_window];
+
+
+    for(int i=0; i < 25; i++)
+        velocity[i] = Point2d(0, 0);
+
+    position = detectedPosition;
+
+    this->bvtHistogram = bvtHistogram;
+
+
+    rect = bb;
+    rectHistory[0] = bb;
+
+    positionHistory[0] = detectedPosition;
+
+
+    for(int i=1; i < median_window; i++)
+    {
+        positionHistory[i].x =-1000;
+        positionHistory[i].y = -1000;
+        positionHistory[i].z = 0.95;
+    }
+
+
+    lockedOnce = false;
+
+    this->id = id;
+    noDetection = 0;
+
+    delta_t = 0.1;
+    lastUpdate = ros::Time::now();
+
+    deadReckoning = false;
 }
 
 Point3d PersonModel::getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point3d estimation)
@@ -366,15 +347,6 @@ Point2d PersonModel::velocityMedianFilter()
 
 }
 
-PersonModel::~PersonModel()
-{
-    //    delete [] positionHistory;
-    if (mmaeEstimator != NULL)
-    {
-        delete mmaeEstimator;
-    }
-}
-
 PersonList::PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method)
 {
     //This will never get reseted. That will make sure that we have a new id for every new detection
@@ -385,6 +357,15 @@ PersonList::PersonList(int median_window, int numberOfFramesBeforeDestruction, i
     this->median_window = median_window;
     this->method = method;
 
+}
+
+PersonList::~PersonList()
+{
+    for(std::vector<PersonModel>::iterator it = personList.begin(); it!=personList.end(); it++)
+    {
+        if(it->mmaeEstimator != NULL)
+        delete it->mmaeEstimator;
+    }
 }
 
 void PersonList::updateList()
@@ -407,10 +388,8 @@ void PersonList::updateList()
         else
         {
             (*it).noDetection++;
-            //Dead reckoning - We can't see it but we will assume it will maitain the same velocity
+            //Dead reckoning
             (*it).deadReckoning = true;
-            (*it).position = (*it).getPositionEstimate();
-
         }
         (*it).updateModel();
 
@@ -426,7 +405,6 @@ void PersonList::updateList()
 
 void PersonList::addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram, int method)
 {
-
     PersonModel person(pos, rect, nPersons, median_window, bvtHistogram, method);
     personList.push_back(person);
     nPersons++;
@@ -492,7 +470,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 double colorDist;
 
                 colorDist = compareHist(detectionColorHist, trackerColorHist, CV_COMP_CORREL);
-                if(dist < associatingDistance)
+                if(dist < 3)
                 {
                     if(colorDist < 0.3)
                         distMatrixIn[row+col*nDetections] = 1000; //Colors are too different. It cant be the same person...
@@ -533,7 +511,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             if(assignment[i] != -1)
             {
                 //
-                if(distMatrixIn[i+((int)assignment[i])*nDetections] < associatingDistance)
+                if(distMatrixIn[i+((int)assignment[i])*nDetections] < 3)
                 {
                     personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
                     personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
@@ -565,7 +543,9 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                     }
                 }
                 if(!existsInRadius)
-                    addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
+                {
+                    addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
+                }
             }
         }
 
@@ -597,7 +577,9 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 }
             }
             if(!existsInRadius)
-                addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
+            {
+                addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
+            }
         }
 
     }
@@ -614,11 +596,22 @@ std::vector<PersonModel> PersonList::getValidTrackerPosition()
 
     for(std::vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
     {
+        if(method == MEDIANTRACKING)
+        {
         Point3d med;
         med = (*it).medianFilter();
 
         if(med.x != -1000 and med.y != -1000)
             validTrackers.push_back(*it);
+        }
+        else
+        {
+            Point3d estimate = it->getPositionEstimate();
+            if(estimate.x != -1000 && estimate.y != -1000)
+            {
+                validTrackers.push_back(*it);
+            }
+        }
     }
 
     return validTrackers;

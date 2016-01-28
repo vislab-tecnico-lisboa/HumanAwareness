@@ -301,7 +301,6 @@ public:
 
         personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
 
-
         //Delete the trackers that need to be deleted...
         for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
         {
@@ -328,12 +327,11 @@ public:
             }
             else
             {
+                //results << frame << " " << (*it).id << " " << it->positionHistory[0].x << " " << it->positionHistory[0].y << endl;
                 it++;
             }
 
         }
-
-
 
         vector<PersonModel> list = personList->getValidTrackerPosition();
 
@@ -377,7 +375,7 @@ public:
             for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
             {
 
-                Point3d position = (*it).medianFilter();
+                Point3d position = (*it).getPositionEstimate();
 
                 //WARNING!
                 //Assuming the position is relative to base_footprint. Avoiding tf's for computational purposes.
@@ -408,7 +406,7 @@ public:
                 int_marker.name = name.str();
                 int_marker.description = description.str();
 
-                Point3d position = (*it).medianFilter();
+                Point3d position = (*it).getPositionEstimate();
 
                 int_marker.controls.at(0).markers.at(0).color.r = 0;
                 int_marker.controls.at(0).markers.at(0).color.g = 1;
@@ -439,7 +437,7 @@ public:
                 int_marker.pose.position.x = personInMap.point.x;
                 int_marker.pose.position.y = personInMap.point.y;
 
-                //            results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
+                //results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
 
                 marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
             }
@@ -452,7 +450,7 @@ public:
             for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
             {
 
-                Point3d position = (*it).medianFilter();
+                Point3d position = (*it).getPositionEstimate();
 
 
                 if((*it).id == targetId)
@@ -559,7 +557,7 @@ public:
                     int_marker.controls.at(0).markers.at(0).color.g = 1;
                     int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-                    Point3d position = (*it).medianFilter();
+                    Point3d position = (*it).getPositionEstimate();
                     geometry_msgs::PointStamped personInMap;
 
                     try
@@ -605,10 +603,73 @@ public:
 
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
-            rectangle(lastImage, it->rect, Scalar(0, 255, 0), 2);
-            ostringstream convert;
-            convert << it->id;
-            putText(lastImage, convert.str(), it->rect.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
+
+            //Get feet position
+            Point3d head = it->getPositionEstimate();
+
+            Point3d feet = head;
+            feet.z = 0;
+
+            //Project them into the image
+            Point2d feetOnImage;
+            Point2d headOnImage;
+
+            /*Code*/
+            Mat headMat = Mat::ones(4, 1, CV_32F);
+            headMat.at<float>(0,0) = head.x;
+            headMat.at<float>(1,0) = head.y;
+            headMat.at<float>(2,0) = head.z*2;
+
+            Mat feetMat = Mat::ones(4, 1, CV_32F);
+            feetMat.at<float>(0,0) = feet.x;
+            feetMat.at<float>(1,0) = feet.y;
+            feetMat.at<float>(2,0) = feet.z;
+
+            Mat intrinsics = cameramodel->getK();
+            intrinsics.convertTo(intrinsics, CV_32F);
+
+            Mat RtMat = mapToCameraTransform(Range(0, 3), Range(0, 4));
+            RtMat.convertTo(RtMat, CV_32F);
+
+            Mat feetOnImageMat = intrinsics*RtMat*feetMat;
+            Mat headOnImageMat = intrinsics*RtMat*headMat;
+
+            feetOnImage.x = feetOnImageMat.at<float>(0,0)/feetOnImageMat.at<float>(2,0);
+            feetOnImage.y = feetOnImageMat.at<float>(1,0)/feetOnImageMat.at<float>(2,0);
+
+            headOnImage.x = headOnImageMat.at<float>(0,0)/headOnImageMat.at<float>(2,0);
+            headOnImage.y = headOnImageMat.at<float>(1,0)/headOnImageMat.at<float>(2,0);
+
+            //Draw the rectangle from the point
+
+            int h = feetOnImage.y-headOnImage.y;
+            int width = h*52/128;
+
+            int topLeftX = headOnImage.x - width/2;
+            int topLeftY = headOnImage.y;
+
+            cv::Rect_<int> trackedBB(topLeftX, topLeftY, width, h);
+            if(h > 0)
+            {
+
+                int state;
+
+                if(it->mmaeEstimator->probabilities.at(0)>0.80)
+                    state=0;
+                else
+                    state=1;
+
+                rectangle(lastImage, trackedBB, Scalar(0, 255, 0), 2);
+                ostringstream convert;
+                convert << it->id;
+
+                if(state == 0)
+                    convert << " - Stopped";
+                else if(state == 1)
+                    convert << " - Moving";
+
+                putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
+            }
         }
 
         sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", lastImage).toImageMsg();
@@ -646,7 +707,7 @@ public:
          */
         nPriv.param("minimum_person_height", minimum_person_height, 0.55);
 
-        personList = new PersonList(median_window,numberOfFramesBeforeDestruction, numberOfFramesBeforeDestructionLocked, associatingDistance);
+        personList = new PersonList(median_window,numberOfFramesBeforeDestruction, numberOfFramesBeforeDestructionLocked, associatingDistance, MMAETRACKING);
 
         personNotChosenFlag = true;
         automatic = false;

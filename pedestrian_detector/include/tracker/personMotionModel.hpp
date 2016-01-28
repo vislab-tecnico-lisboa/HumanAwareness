@@ -28,7 +28,7 @@ class PersonModel
     int median_window;
 
 
-
+    Rect_<int> projectBoundingBox();
 
 
     //Five last velocities (Fast Five. lol) - not used yet
@@ -63,7 +63,6 @@ class PersonModel
     PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram, int method=MMAETRACKING);
 
     Point3d medianFilter();
-    ~PersonModel();
     Point3d getPositionEstimate();
     void updateModel();
     Point3d getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point3d estimation);
@@ -89,7 +88,7 @@ public:
     int method;
 
     PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method=MMAETRACKING);
-
+    ~PersonList();
     //Returns a vector containing positions associated to each tracker, that are valid after the median filter
     std::vector<PersonModel> getValidTrackerPosition();
 
