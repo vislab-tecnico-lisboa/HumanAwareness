@@ -652,21 +652,22 @@ public:
             if(h > 0)
             {
 
-                int state;
+                int state;        
 
-                if(it->mmaeEstimator->probabilities.at(0)>0.80)
-                    state=0;
-                else
-                    state=1;
+                std::vector<double>::iterator result = std::max_element(it->mmaeEstimator->probabilities.begin(), it->mmaeEstimator->probabilities.end());
+
+                state = std::distance(it->mmaeEstimator->probabilities.begin(), result);
 
                 rectangle(lastImage, trackedBB, Scalar(0, 255, 0), 2);
                 ostringstream convert;
                 convert << it->id;
 
                 if(state == 0)
-                    convert << " - Stopped";
+                    convert << " - Const. Pos";
                 else if(state == 1)
-                    convert << " - Moving";
+                    convert << " - Const Vel.";
+                else if(state == 2)
+                    convert << " - Accel.";
 
                 putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
             }

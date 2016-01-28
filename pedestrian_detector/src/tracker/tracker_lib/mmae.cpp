@@ -169,10 +169,7 @@ void MMAEFilterBank::correct(Mat &measurement)
             {
                 (*itProb) = densities.at(j)*(*itProb)/sumOfAll;
 
-                if(*itProb < 0.01)
-                {
-                    *itProb = 0.01;
-                }
+                *itProb+=0.01;
 
                 sumProbs += *itProb;
             }

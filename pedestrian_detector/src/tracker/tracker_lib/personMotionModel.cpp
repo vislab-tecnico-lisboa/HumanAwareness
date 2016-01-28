@@ -150,7 +150,7 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantPosition.processNoiseCov  = constantPosition.processNoiseCov*70;
         //R
         constantPosition.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*5; //R*sigma
+        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*6; //R*sigma
 
         //P0
         constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*50;
@@ -165,10 +165,10 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 0, 1, 0);
         //Q
         constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, pow(T,3)/2, 0, 0, pow(T,3)/2, pow(T,2), 0, 0, 0, 0, pow(T,4)/4, pow(T,3)/2, 0, 0, pow(T,3)/2, pow(T,2));
-        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*150;  //Q*sigma
+        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*70;  //Q*sigma
         //R
         constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*5; //R*sigma
+        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*6; //R*sigma
 
         //P0
         constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*50;
@@ -186,7 +186,7 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*2;  //Q*sigma
         //R
         constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*5.2; //R*sigma
+        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*6; //R*sigma
 
         //P0
         constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*50;
