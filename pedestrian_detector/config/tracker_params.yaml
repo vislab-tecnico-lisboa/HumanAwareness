@@ -6,7 +6,7 @@ number_of_frames_before_destruction_locked: 300
 associating_distance: 0.8
 camera: l_camera_vision_link
 maximum_person_height: 2.1
-minimum_person_height: 1.4
+minimum_person_height: 0.8
 filtering_frame_id: odom
 markers_frame_id: map
 fixed_frame_id: odom

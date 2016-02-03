@@ -534,7 +534,9 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                 for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
                 {
-                    Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
+                    Point3d posEstimate = it->getPositionEstimate();
+
+                    Point3d testPoint(posEstimate.x, posEstimate.y, 0);
 
                     if(norm(coords-testPoint) < associatingDistance)
                     {

@@ -56,7 +56,7 @@ using namespace std;
 cv::Point2d person1;
 cv::Point2d person2;
 int frame = 1;
-//ofstream results;
+ofstream results;
 
 
 class Tracker{
@@ -335,6 +335,30 @@ public:
 
         vector<PersonModel> list = personList->getValidTrackerPosition();
 
+        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+        {
+
+            geometry_msgs::PointStamped personInBase;
+            geometry_msgs::PointStamped personInBaseFootprint;
+            personInBase.header.frame_id = filtering_frame_id;
+            personInBase.header.stamp = currentTime;
+            personInBase.point.x = it->positionHistory[0].x;
+            personInBase.point.y = it->positionHistory[0].y;
+            personInBase.point.z = it->positionHistory[0].z;
+
+            try{
+                listener->waitForTransform("base_footprint", currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+                listener->transformPoint("base_footprint", currentTime, personInBase, fixed_frame_id, personInBaseFootprint);
+            }catch(tf::TransformException ex)
+            {
+                ROS_WARN("%s",ex.what());
+                //ros::Duration(1.0).sleep();
+                return;
+            }
+
+            results << it->id << " " << personInBaseFootprint.point.x << " " << personInBaseFootprint.point.z*2 << endl;
+        }
+
         //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
 
         /*
@@ -424,7 +448,7 @@ public:
                     personInBase.point.z = 0;
 
 
-                    listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+                    listener->waitForTransform(markers_frame_id, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
                     listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
                 }
                 catch(tf::TransformException ex)
@@ -830,7 +854,7 @@ int main(int argc, char **argv)
     stringstream ss;
 
     //Simulation results file
-    //results.open("/home/avelino/debug_avelino.txt");
+    results.open("/home/avelino/grafico.txt");
 
     ss << ros::package::getPath("pedestrian_detector");
     ss << "/camera_model/config.yaml";
@@ -839,7 +863,7 @@ int main(int argc, char **argv)
 
     ros::spin();
 
-    //results.close();
+    results.close();
 
     return 0;
 }

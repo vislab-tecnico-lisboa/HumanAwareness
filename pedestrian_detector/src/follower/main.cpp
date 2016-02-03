@@ -134,7 +134,7 @@ public:
 
         nPriv.param<std::string>("world_frame", world_frame, "world");
         nPriv.param<std::string>("robot_frame", robot_frame, "robot");
-	nPriv.param<std::string>("fixed_frame", fixed_frame_id, "odom");
+        nPriv.param<std::string>("fixed_frame", fixed_frame_id, "odom");
         nPriv.param<double>("minimum_distance", minimum_distance, 2);
         nPriv.param<double>("planner_activation_distance", planner_activation_distance, 1.7);
         nPriv.param("minimum_planner_distance", minimum_planner_distance, 1.7);

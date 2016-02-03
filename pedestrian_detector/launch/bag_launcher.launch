@@ -15,7 +15,7 @@
   <arg name="image_in" default="/vizzy/l_camera/image_rect_color" />
   <arg name="image_out" default="pedestrian_detector_image" />
   <node pkg="pedestrian_detector" type="detector" name="detector" output="screen">
-  		<param name="image_transport" value="compressed" />
+  		<param name="image_transport" value="raw" />
 		<remap from="image_in" to="$(arg image_in)"/>
 		<remap from="image_out" to="$(arg image_out)"/>
   </node>
@@ -33,7 +33,7 @@
 
   <!-- Play the bag file. Leave it in a loop !-->
 
-<node pkg="rosbag" type="play" name="player" output="screen" args="--clock -l $(find pedestrian_detector)/bags/fifth.bag"/>
+<node pkg="rosbag" type="play" name="player" output="screen" args="--clock -l $(find pedestrian_detector)/bags/calibration.bag"/>
 
       <!-- move_base using local eband planner -->
       <include file="$(find vizzy_navigation)/launch/move_base_eband_local.launch">
