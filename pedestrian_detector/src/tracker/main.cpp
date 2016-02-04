@@ -288,7 +288,9 @@ public:
         }
 
 
+
         vector<cv::Point3d> coordsInBaseFrame;
+
 
         //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
@@ -676,22 +678,31 @@ public:
             if(h > 0)
             {
 
-                int state;        
+                //Bar plot of probabilities
 
-                std::vector<double>::iterator result = std::max_element(it->mmaeEstimator->probabilities.begin(), it->mmaeEstimator->probabilities.end());
+                int step = trackedBB.width/3;
+                int maxBarSize = trackedBB.height*4/5;
+                const static Scalar cores[3] = {Scalar(24, 54, 231), Scalar(239, 232, 31), Scalar(255, 0, 0)};
 
-                state = std::distance(it->mmaeEstimator->probabilities.begin(), result);
+                int ind = 0;
+                Point2d barBase(trackedBB.tl().x, trackedBB.br().y); //Bottom left corner of the bb
+                for(std::vector<double>::iterator pr = it->mmaeEstimator->probabilities.begin(); pr != it->mmaeEstimator->probabilities.end(); pr++)
+                {
+                    Point2d tl = barBase-Point2d(0, maxBarSize*(*pr));
+                    rectangle(lastImage, tl, barBase + Point2d(step, 0), cores[ind], CV_FILLED);
+
+                    if(ind < 2)
+                        ind++;
+                    else
+                        ind = 0;
+
+                    barBase = barBase + Point2d(step, 0);
+                }
+
 
                 rectangle(lastImage, trackedBB, Scalar(0, 255, 0), 2);
                 ostringstream convert;
                 convert << it->id;
-
-                if(state == 0)
-                    convert << " - Const. Pos";
-                else if(state == 1)
-                    convert << " - Const Vel.";
-                else if(state == 2)
-                    convert << " - Accel.";
 
                 putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
             }

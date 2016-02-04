@@ -33,6 +33,7 @@ private:
     };
 
     geometry_msgs::PointStamped personMapPosition;
+
     double distanceToPerson;
 
     State currentState;

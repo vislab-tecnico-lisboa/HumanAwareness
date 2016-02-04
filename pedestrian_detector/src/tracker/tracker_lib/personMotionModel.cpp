@@ -84,6 +84,8 @@ void PersonModel::updateModel()
     delta_t = sampleTime.toSec();
     lastUpdate = now;
 
+    ROS_ERROR_STREAM("delta_t: " << delta_t);
+
     for(int i=0; i < median_window-1; i++)
         positionHistory[median_window-1-i] = positionHistory[median_window-1-(i+1)];
 
@@ -102,6 +104,8 @@ void PersonModel::updateModel()
     //velocity in m/ns
 
 //    filteredVelocity = velocityMedianFilter();
+
+
 
     if(method == MMAETRACKING)
     {
@@ -134,8 +138,9 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
     }
     else if(method==MMAETRACKING)
     {
-        static const double samplingRate = 15.0;
-        static const double T = 1.0/samplingRate;
+        static const double samplingRate = 100.0;
+        T = 1.0/samplingRate;
+        delta_t = T;  //Initialize delta t for first predict
 
 //Constant position filter
 
@@ -259,7 +264,6 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
     this->id = id;
     noDetection = 0;
 
-    delta_t = 0.1;
     lastUpdate = ros::Time::now();
 
     deadReckoning = false;
@@ -274,6 +278,8 @@ Point3d PersonModel::getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Poin
         return nearest;
 
     double distance=1000000;
+
+
 
     for(vector<cv::Point3d>::iterator it = coordsInBaseFrame.begin(); it != coordsInBaseFrame.end(); it++)
     {
@@ -377,6 +383,10 @@ void PersonList::updateList()
 
         if(method == MMAETRACKING)
         {
+            //Predict the right ammount of times to simulate a constant sampling period
+            int times = it->delta_t/it->T;
+
+            for(int lol = 0; lol < times; lol++)
             it->mmaeEstimator->predict();
         }
 

@@ -22,9 +22,6 @@ class PersonModel
 
     //Sampling time - not used yet
     ros::Time lastUpdate;
-
-    double delta_t;
-
     int median_window;
 
 
@@ -41,6 +38,8 @@ class PersonModel
 
     int id;
     MMAEFilterBank *mmaeEstimator;
+    double delta_t;
+    double T;
     bool toBeDeleted;
 
     Point2d bbCenter;
