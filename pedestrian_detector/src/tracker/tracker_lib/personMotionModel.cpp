@@ -63,8 +63,6 @@ Point3d PersonModel::getPositionEstimate()
       Point3d median = medianFilter(); //To get the Z for gaze... damn, this code is awfull. I'm dumb
       Point3d estimate(mmaeEstimator->xMMAE.at<double>(0, 0), mmaeEstimator->xMMAE.at<double>(3, 0), median.z);
 //      ROS_ERROR_STREAM("STATE: " << mmaeEstimator->xMMAE);
-      ROS_ERROR_STREAM("Returning estimate. Probs: " << mmaeEstimator->probabilities.at(0) << ", " << mmaeEstimator->probabilities.at(1) << ", " << mmaeEstimator->probabilities.at(2));
-
       return estimate;
 
     }
@@ -84,7 +82,6 @@ void PersonModel::updateModel()
     delta_t = sampleTime.toSec();
     lastUpdate = now;
 
-    ROS_ERROR_STREAM("delta_t: " << delta_t);
 
     for(int i=0; i < median_window-1; i++)
         positionHistory[median_window-1-i] = positionHistory[median_window-1-(i+1)];
@@ -385,7 +382,6 @@ void PersonList::updateList()
         {
             //Predict the right ammount of times to simulate a constant sampling period
             int times = it->delta_t/it->T;
-
             for(int lol = 0; lol < times; lol++)
             it->mmaeEstimator->predict();
         }
