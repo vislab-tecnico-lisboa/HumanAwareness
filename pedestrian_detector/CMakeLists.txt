@@ -98,6 +98,9 @@ add_executable(viewer src/viewer/viewer.cpp)
 target_link_libraries(viewer ${catkin_LIBRARIES})
 
 
+add_executable(tracker_test src/tracker/tracker.cpp)
+target_link_libraries(tracker_test ${catkin_LIBRARIES})
+add_dependencies(tracker_test pedestrian_detector_generate_messages_cpp)
 
 ##########################################
 ##Copy needed files to the bin directory##
