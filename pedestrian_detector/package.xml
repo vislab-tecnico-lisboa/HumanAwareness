@@ -58,6 +58,7 @@
   <build_depend>interactive_markers</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
   <build_depend>move_robot</build_depend>
+  <build_depend>bfl</build_depend>
   <build_depend>cmake_modules</build_depend>
   <run_depend>cmake_modules</run_depend>
   <run_depend>interactive_markers</run_depend>
@@ -76,6 +77,7 @@
   <run_depend>move_base_msgs</run_depend>
   <run_depend>actionlib</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>
+  <run_depend>bfl</run_depend>
   <run_depend>move_robot</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->

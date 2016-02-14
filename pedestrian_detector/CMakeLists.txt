@@ -11,6 +11,13 @@ file(GLOB auto_tracker_folder_source src/auto_tracker/*.cpp)
 cmake_minimum_required(VERSION 2.8.3)
 project(pedestrian_detector)
 
+find_package(PkgConfig)
+pkg_check_modules(BFL REQUIRED orocos-bfl)
+
+include_directories(${BFL_INCLUDE_DIRS})
+link_directories(${BFL_LIBRARY_DIRS})
+
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -23,6 +30,7 @@ find_package(catkin REQUIRED COMPONENTS
   interactive_markers
 )
 
+find_package(Boost REQUIRED COMPONENTS thread)
 find_package(Eigen)
 find_package(OpenCV REQUIRED)
 
@@ -57,7 +65,7 @@ catkin_package(
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE}") #Default build mode is release mode
 
 include_directories(include)
-include_directories(${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
+include_directories(${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
 source_group("Detector Source Files" FILES ${detector_folder_source})
 source_group("Detector Header Files" FILES ${detector_folder_header})
@@ -74,30 +82,25 @@ add_library(tracker_lib ${tracker_lib_folder_header} ${tracker_lib_folder_source
 target_link_libraries(tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(tracker_lib pedestrian_detector_generate_messages_cpp)
 
-
-
 add_executable(tracker ${tracker_folder_header} ${tracker_folder_source})
 target_link_libraries(tracker tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(tracker pedestrian_detector_generate_messages_cpp)
-
 
 add_executable(auto_tracker ${tracker_folder_header} ${auto_tracker_folder_source})
 target_link_libraries(auto_tracker tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(auto_tracker pedestrian_detector_generate_messages_cpp)
 
-
-
 add_executable(follower ${follower_folder_header} ${follower_folder_source})
 target_link_libraries(follower ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(follower pedestrian_detector_generate_messages_cpp)
-
-
-
 
 add_executable(viewer src/viewer/viewer.cpp)
 target_link_libraries(viewer ${catkin_LIBRARIES})
 
 
+add_executable(tracker_test src/tracker/tracker_test/tracker.cpp src/tracker/tracker_test/nonlinearanalyticconditionalgaussianodo.cpp src/tracker/tracker_test/tracker_node.cpp)
+target_link_libraries(tracker_test ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${BFL_LIBRARIES})
+add_dependencies(tracker_test pedestrian_detector_generate_messages_cpp)
 
 ##########################################
 ##Copy needed files to the bin directory##
