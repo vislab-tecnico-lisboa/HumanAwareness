@@ -46,7 +46,7 @@ using namespace ros;
 namespace estimation
 {
 // constructor
-OdomEstimation::OdomEstimation():
+PedestrianTracking::PedestrianTracking():
     prior_(NULL),
     filter_(NULL),
     filter_initialized_(false),
@@ -87,7 +87,7 @@ OdomEstimation::OdomEstimation():
 
 
 // destructor
-OdomEstimation::~OdomEstimation(){
+PedestrianTracking::~PedestrianTracking(){
     if (filter_) delete filter_;
     if (prior_)  delete prior_;
     delete odom_meas_model_;
@@ -100,7 +100,7 @@ OdomEstimation::~OdomEstimation(){
 
 
 // initialize prior density of filter
-void OdomEstimation::initialize(const Transform& prior, const Time& time)
+void PedestrianTracking::initialize(const Transform& prior, const Time& time)
 {
     // set prior of filter
     ColumnVector prior_Mu(6);
@@ -125,15 +125,12 @@ void OdomEstimation::initialize(const Transform& prior, const Time& time)
     filter_initialized_ = true;
 }
 
-
-
-
-
 // update filter
-bool OdomEstimation::update(bool odom_active, bool imu_active, bool gps_active, bool vo_active, const Time&  filter_time, bool& diagnostics_res)
+bool PedestrianTracking::update(bool odom_active, bool pedestrian_active, const Time&  filter_time, bool& diagnostics_res)
 {
     // only update filter when it is initialized
-    if (!filter_initialized_){
+    if (!filter_initialized_)
+    {
         ROS_INFO("Cannot update filter when filter was not initialized first.");
         return false;
     }
@@ -141,7 +138,8 @@ bool OdomEstimation::update(bool odom_active, bool imu_active, bool gps_active, 
     // only update filter for time later than current filter time
     double dt = (filter_time - filter_time_old_).toSec();
     if (dt == 0) return false;
-    if (dt <  0){
+    if (dt <  0)
+    {
         ROS_INFO("Will not update robot pose with time %f sec in the past.", dt);
         return false;
     }
@@ -158,13 +156,16 @@ bool OdomEstimation::update(bool odom_active, bool imu_active, bool gps_active, 
     // process odom measurement
     // ------------------------
     ROS_DEBUG("Process odom meas");
-    if (odom_active){
-        if (!transformer_.canTransform(base_footprint_frame_,"wheelodom", filter_time)){
+    if (odom_active)
+    {
+        if (!transformer_.canTransform(base_footprint_frame_,"wheelodom", filter_time))
+        {
             ROS_ERROR("filter time older than odom message buffer");
             return false;
         }
         transformer_.lookupTransform("wheelodom", base_footprint_frame_, filter_time, odom_meas_);
-        if (odom_initialized_){
+        if (odom_initialized_)
+        {
             // convert absolute odom measurements to relative odom measurements in horizontal plane
             Transform odom_rel_frame =  Transform(tf::createQuaternionFromYaw(filter_estimate_old_vec_(6)),
                                                   filter_estimate_old_.getOrigin()) * odom_meas_old_.inverse() * odom_meas_;
@@ -179,7 +180,8 @@ bool OdomEstimation::update(bool odom_active, bool imu_active, bool gps_active, 
             filter_->Update(odom_meas_model_, odom_rel);
             diagnostics_odom_rot_rel_ = odom_rel(6);
         }
-        else{
+        else
+        {
             odom_initialized_ = true;
             diagnostics_odom_rot_rel_ = 0;
         }
@@ -191,7 +193,7 @@ bool OdomEstimation::update(bool odom_active, bool imu_active, bool gps_active, 
 
     // process pedestrian measurement
     // -----------------------
-    if (imu_active)
+    if (pedestrian_active)
     {
         if (!transformer_.canTransform(base_footprint_frame_,"imu", filter_time))
         {
@@ -227,24 +229,25 @@ bool OdomEstimation::update(bool odom_active, bool imu_active, bool gps_active, 
     filter_estimate_old_vec_ = filter_->PostGet()->ExpectedValueGet();
     tf::Quaternion q;
     q.setRPY(filter_estimate_old_vec_(4), filter_estimate_old_vec_(5), filter_estimate_old_vec_(6));
-    filter_estimate_old_ = Transform(q,
-                                     Vector3(filter_estimate_old_vec_(1), filter_estimate_old_vec_(2), filter_estimate_old_vec_(3)));
+    filter_estimate_old_ = Transform(q, Vector3(filter_estimate_old_vec_(1), filter_estimate_old_vec_(2), filter_estimate_old_vec_(3)));
     filter_time_old_ = filter_time;
     addMeasurement(StampedTransform(filter_estimate_old_, filter_time, output_frame_, base_footprint_frame_));
 
     // diagnostics
     diagnostics_res = true;
-    if (odom_active && imu_active){
+    if (odom_active && pedestrian_active)
+    {
         double diagnostics = fabs(diagnostics_odom_rot_rel_ - diagnostics_imu_rot_rel_)/dt;
-        if (diagnostics > 0.3 && dt > 0.01){
+        if (diagnostics > 0.3 && dt > 0.01)
+        {
             diagnostics_res = false;
         }
     }
 
     return true;
-};
+}
 
-void OdomEstimation::addMeasurement(const StampedTransform& meas)
+void PedestrianTracking::addMeasurement(const StampedTransform& meas)
 {
     ROS_DEBUG("AddMeasurement from %s to %s:  (%f, %f, %f)  (%f, %f, %f, %f)",
               meas.frame_id_.c_str(), meas.child_frame_id_.c_str(),
@@ -254,11 +257,13 @@ void OdomEstimation::addMeasurement(const StampedTransform& meas)
     transformer_.setTransform( meas );
 }
 
-void OdomEstimation::addMeasurement(const StampedTransform& meas, const MatrixWrapper::SymmetricMatrix& covar)
+void PedestrianTracking::addMeasurement(const StampedTransform& meas, const MatrixWrapper::SymmetricMatrix& covar)
 {
     // check covariance
-    for (unsigned int i=0; i<covar.rows(); i++){
-        if (covar(i+1,i+1) == 0){
+    for (unsigned int i=0; i<covar.rows(); i++)
+    {
+        if (covar(i+1,i+1) == 0)
+        {
             ROS_ERROR("Covariance specified for measurement on topic %s is zero", meas.child_frame_id_.c_str());
             return;
         }
@@ -268,39 +273,40 @@ void OdomEstimation::addMeasurement(const StampedTransform& meas, const MatrixWr
     if (meas.child_frame_id_ == "wheelodom") odom_covariance_ = covar;
     else if (meas.child_frame_id_ == "imu")  pedestrian_covariance_  = covar;
     else ROS_ERROR("Adding a measurement for an unknown sensor %s", meas.child_frame_id_.c_str());
-};
+}
 
 
 // get latest filter posterior as vector
-void OdomEstimation::getEstimate(MatrixWrapper::ColumnVector& estimate)
+void PedestrianTracking::getEstimate(MatrixWrapper::ColumnVector& estimate)
 {
     estimate = filter_estimate_old_vec_;
-};
+}
 
 // get filter posterior at time 'time' as Transform
-void OdomEstimation::getEstimate(Time time, Transform& estimate)
+void PedestrianTracking::getEstimate(Time time, Transform& estimate)
 {
     StampedTransform tmp;
-    if (!transformer_.canTransform(base_footprint_frame_,output_frame_, time)){
+    if (!transformer_.canTransform(base_footprint_frame_,output_frame_, time))
+    {
         ROS_ERROR("Cannot get transform at time %f", time.toSec());
         return;
     }
     transformer_.lookupTransform(output_frame_, base_footprint_frame_, time, tmp);
     estimate = tmp;
-};
+}
 
 // get filter posterior at time 'time' as Stamped Transform
-void OdomEstimation::getEstimate(Time time, StampedTransform& estimate)
+void PedestrianTracking::getEstimate(Time time, StampedTransform& estimate)
 {
     if (!transformer_.canTransform(output_frame_, base_footprint_frame_, time)){
         ROS_ERROR("Cannot get transform at time %f", time.toSec());
         return;
     }
     transformer_.lookupTransform(output_frame_, base_footprint_frame_, time, estimate);
-};
+}
 
 // get most recent filter posterior as PoseWithCovarianceStamped
-void OdomEstimation::getEstimate(geometry_msgs::PoseWithCovarianceStamped& estimate)
+void PedestrianTracking::getEstimate(geometry_msgs::PoseWithCovarianceStamped& estimate)
 {
     // pose
     StampedTransform tmp;
@@ -320,39 +326,41 @@ void OdomEstimation::getEstimate(geometry_msgs::PoseWithCovarianceStamped& estim
     for (unsigned int i=0; i<6; i++)
         for (unsigned int j=0; j<6; j++)
             estimate.pose.covariance[6*i+j] = covar(i+1,j+1);
-};
+}
 
 // correct for angle overflow
-void OdomEstimation::angleOverflowCorrect(double& a, double ref)
+void PedestrianTracking::angleOverflowCorrect(double& a, double ref)
 {
     while ((a-ref) >  M_PI) a -= 2*M_PI;
     while ((a-ref) < -M_PI) a += 2*M_PI;
-};
+}
 
 // decompose Transform into x,y,z,Rx,Ry,Rz
-void OdomEstimation::decomposeTransform(const StampedTransform& trans,
-                                        double& x, double& y, double&z, double&Rx, double& Ry, double& Rz){
+void PedestrianTracking::decomposeTransform(const StampedTransform& trans, double& x, double& y, double&z, double&Rx, double& Ry, double& Rz)
+{
     x = trans.getOrigin().x();
     y = trans.getOrigin().y();
     z = trans.getOrigin().z();
     trans.getBasis().getEulerYPR(Rz, Ry, Rx);
-};
+}
 
 // decompose Transform into x,y,z,Rx,Ry,Rz
-void OdomEstimation::decomposeTransform(const Transform& trans,
-                                        double& x, double& y, double&z, double&Rx, double& Ry, double& Rz){
+void PedestrianTracking::decomposeTransform(const Transform& trans, double& x, double& y, double&z, double&Rx, double& Ry, double& Rz)
+{
     x = trans.getOrigin().x();
     y = trans.getOrigin().y();
     z = trans.getOrigin().z();
     trans.getBasis().getEulerYPR(Rz, Ry, Rx);
-};
+}
 
-void OdomEstimation::setOutputFrame(const std::string& output_frame){
+void PedestrianTracking::setOutputFrame(const std::string& output_frame)
+{
     output_frame_ = output_frame;
-};
+}
 
-void OdomEstimation::setBaseFootprintFrame(const std::string& base_frame){
+void PedestrianTracking::setBaseFootprintFrame(const std::string& base_frame)
+{
     base_footprint_frame_ = base_frame;
-};
+}
 
 }; // namespace

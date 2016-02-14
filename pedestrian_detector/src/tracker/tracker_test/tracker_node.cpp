@@ -42,16 +42,14 @@ using namespace std;
 using namespace ros;
 using namespace tf;
 
-
 static const double EPS = 1e-5;
-
 
 //#define __EKF_DEBUG_FILE__
 
 namespace estimation
 {
-  // constructor
-  PedestrianTrackingNode::PedestrianTrackingNode()
+// constructor
+PedestrianTrackingNode::PedestrianTrackingNode()
     : odom_active_(false),
       pedestrian_active_(false),
       odom_initializing_(false),
@@ -61,7 +59,7 @@ namespace estimation
       odom_callback_counter_(0),
       pedestrian_callback_counter_(0),
       ekf_sent_counter_(0)
-  {
+{
     ros::NodeHandle nh_private("~");
     ros::NodeHandle nh;
 
@@ -97,15 +95,15 @@ namespace estimation
 
     // subscribe to odom messages
     if (odom_used_){
-      ROS_DEBUG("Odom sensor can be used");
-      odom_sub_ = nh.subscribe("odom", 10, &PedestrianTrackingNode::odomCallback, this);
+        ROS_DEBUG("Odom sensor can be used");
+        odom_sub_ = nh.subscribe("odom", 10, &PedestrianTrackingNode::odomCallback, this);
     }
     else ROS_DEBUG("Odom sensor will NOT be used");
 
     // subscribe to imu messages
     if (pedestrian_used_){
-      ROS_DEBUG("Imu sensor can be used");
-      pedestrian_sub_ = nh.subscribe("pedestrian_data", 10,  &PedestrianTrackingNode::pedestrianCallback, this);
+        ROS_DEBUG("Imu sensor can be used");
+        pedestrian_sub_ = nh.subscribe("pedestrian_data", 10,  &PedestrianTrackingNode::pedestrianCallback, this);
     }
     else ROS_DEBUG("Imu sensor will NOT be used");
 
@@ -116,36 +114,29 @@ namespace estimation
     //state_srv_ = nh_private.advertiseService("get_status", &PedestrianTrackingNode::getStatus, this);
 
     if (debug_){
-      // open files for debugging
-      odom_file_.open("/tmp/odom_file.txt");
-      pedestrian_file_.open("/tmp/imu_file.txt");
-      corr_file_.open("/tmp/corr_file.txt");
+        // open files for debugging
+        odom_file_.open("/tmp/odom_file.txt");
+        pedestrian_file_.open("/tmp/imu_file.txt");
+        corr_file_.open("/tmp/corr_file.txt");
 
 
     }
-  };
+}
 
-
-
-
-  // destructor
-  PedestrianTrackingNode::~PedestrianTrackingNode(){
+// destructor
+PedestrianTrackingNode::~PedestrianTrackingNode(){
 
     if (debug_){
-      // close files for debugging
-      odom_file_.close();
-      pedestrian_file_.close();
-      corr_file_.close();
+        // close files for debugging
+        odom_file_.close();
+        pedestrian_file_.close();
+        corr_file_.close();
     }
-  };
+}
 
-
-
-
-
-  // callback function for odom data
-  void PedestrianTrackingNode::odomCallback(const OdomConstPtr& odom)
-  {
+// callback function for odom data
+void PedestrianTrackingNode::odomCallback(const OdomConstPtr& odom)
+{
     odom_callback_counter_++;
 
     ROS_DEBUG("Odom callback at time %f ", ros::Time::now().toSec());
@@ -156,43 +147,45 @@ namespace estimation
     odom_time_  = Time::now();
     Quaternion q;
     tf::quaternionMsgToTF(odom->pose.pose.orientation, q);
+
     odom_meas_  = Transform(q, Vector3(odom->pose.pose.position.x, odom->pose.pose.position.y, 0));
     for (unsigned int i=0; i<6; i++)
-      for (unsigned int j=0; j<6; j++)
-    //    odom_covariance_(i+1, j+1) = odom->pose.covariance[6*i+j];
+        for (unsigned int j=0; j<6; j++)
+            odom_covariance_(i+1, j+1) = odom->pose.covariance[6*i+j];
 
-    //my_filter_.addMeasurement(StampedTransform(odom_meas_.inverse(), odom_stamp_, base_footprint_frame_, "wheelodom"), odom_covariance_);
+    my_filter_.addMeasurement(StampedTransform(odom_meas_.inverse(), odom_stamp_, base_footprint_frame_, "wheelodom"), odom_covariance_);
 
     // activate odom
-    if (!odom_active_) {
-      if (!odom_initializing_){
-    odom_initializing_ = true;
-    odom_init_stamp_ = odom_stamp_;
-    ROS_INFO("Initializing Odom sensor");
-      }
-      if ( filter_stamp_ >= odom_init_stamp_){
-    odom_active_ = true;
-    odom_initializing_ = false;
-    ROS_INFO("Odom sensor activated");
-      }
-      else ROS_DEBUG("Waiting to activate Odom, because Odom measurements are still %f sec in the future.",
-            (odom_init_stamp_ - filter_stamp_).toSec());
+    if (!odom_active_)
+    {
+        if (!odom_initializing_)
+        {
+            odom_initializing_ = true;
+            odom_init_stamp_ = odom_stamp_;
+            ROS_INFO("Initializing Odom sensor");
+        }
+        if ( filter_stamp_ >= odom_init_stamp_)
+        {
+            odom_active_ = true;
+            odom_initializing_ = false;
+            ROS_INFO("Odom sensor activated");
+        }
+        else ROS_DEBUG("Waiting to activate Odom, because Odom measurements are still %f sec in the future.",
+                       (odom_init_stamp_ - filter_stamp_).toSec());
     }
 
-    if (debug_){
-      // write to file
-      double tmp, yaw;
-      odom_meas_.getBasis().getEulerYPR(yaw, tmp, tmp);
-      odom_file_<< fixed <<setprecision(5) << ros::Time::now().toSec() << " " << odom_meas_.getOrigin().x() << " " << odom_meas_.getOrigin().y() << "  " << yaw << "  " << endl;
+    if (debug_)
+    {
+        // write to file
+        double tmp, yaw;
+        odom_meas_.getBasis().getEulerYPR(yaw, tmp, tmp);
+        odom_file_<< fixed <<setprecision(5) << ros::Time::now().toSec() << " " << odom_meas_.getOrigin().x() << " " << odom_meas_.getOrigin().y() << "  " << yaw << "  " << endl;
     }
-  };
+}
 
-
-
-
-  // callback function for imu data
-  void PedestrianTrackingNode::pedestrianCallback(const PedestrianConstPtr& pedestrian_msg)
-  {
+// callback function for imu data
+void PedestrianTrackingNode::pedestrianCallback(const PedestrianConstPtr& pedestrian_msg)
+{
     pedestrian_callback_counter_++;
 
     assert(pedestrian_used_);
@@ -256,18 +249,18 @@ namespace estimation
       imu_meas_.getBasis().getEulerYPR(yaw, tmp, tmp);
       imu_file_ <<fixed<<setprecision(5)<<ros::Time::now().toSec()<<" "<< yaw << endl;
     }*/
-  };
+}
 
 
-  // filter loop
-  void PedestrianTrackingNode::spin(const ros::TimerEvent& e)
-  {
+// filter loop
+void PedestrianTrackingNode::spin(const ros::TimerEvent& e)
+{
     ROS_DEBUG("Spin function at time %f", ros::Time::now().toSec());
 
     // check for timing problems
     if ( (odom_initializing_ || odom_active_) && (pedestrian_initializing_ || pedestrian_active_) ){
-      double diff = fabs( Duration(odom_stamp_ - imu_stamp_).toSec() );
-      if (diff > 1.0) ROS_ERROR("Timestamps of odometry and imu are %f seconds apart.", diff);
+        double diff = fabs( Duration(odom_stamp_ - imu_stamp_).toSec() );
+        if (diff > 1.0) ROS_ERROR("Timestamps of odometry and imu are %f seconds apart.", diff);
     }
 
     // initial value for filter stamp; keep this stamp when no sensors are active
@@ -275,70 +268,76 @@ namespace estimation
 
     // check which sensors are still active
     if ((odom_active_ || odom_initializing_) &&
-        (Time::now() - odom_time_).toSec() > timeout_){
-      odom_active_ = false; odom_initializing_ = false;
-      ROS_INFO("Odom sensor not active any more");
+            (Time::now() - odom_time_).toSec() > timeout_){
+        odom_active_ = false; odom_initializing_ = false;
+        ROS_INFO("Odom sensor not active any more");
     }
     if ((pedestrian_active_ || pedestrian_initializing_) &&
-        (Time::now() - pedestrian_time_).toSec() > timeout_){
-      pedestrian_active_ = false;  pedestrian_initializing_ = false;
-      ROS_INFO("Pedestrian sensor not active any more");
+            (Time::now() - pedestrian_time_).toSec() > timeout_){
+        pedestrian_active_ = false;  pedestrian_initializing_ = false;
+        ROS_INFO("Pedestrian sensor not active any more");
     }
 
     // only update filter when one of the sensors is active
-    /*if (odom_active_ || pedestrian_active_ ){
+    if (odom_active_ || pedestrian_active_ )
+    {
 
-      // update filter at time where all sensor measurements are available
-      if (odom_active_)  filter_stamp_ = min(filter_stamp_, odom_stamp_);
-      if (pedestrian_active_)   filter_stamp_ = min(filter_stamp_, pedestrian_stamp_);
+        // update filter at time where all sensor measurements are available
+        if (odom_active_)  filter_stamp_ = min(filter_stamp_, odom_stamp_);
+        if (pedestrian_active_)   filter_stamp_ = min(filter_stamp_, pedestrian_stamp_);
 
-      // update filter
-      if ( my_filter_.isInitialized() )  {
-        bool diagnostics = true;
-        if (my_filter_.update(odom_active_, imu_active_,gps_active_, vo_active_,  filter_stamp_, diagnostics)){
+        // update filter
+        if ( my_filter_.isInitialized() )
+        {
+            bool diagnostics = true;
+            if (my_filter_.update(odom_active_, pedestrian_active_, filter_stamp_, diagnostics))
+            {
 
-          // output most recent estimate and relative covariance
-          my_filter_.getEstimate(output_);
-          pose_pub_.publish(output_);
-          ekf_sent_counter_++;
+                // output most recent estimate and relative covariance
+                my_filter_.getEstimate(output_);
+                pose_pub_.publish(output_);
+                ekf_sent_counter_++;
 
-          // broadcast most recent estimate to TransformArray
-          StampedTransform tmp;
-          my_filter_.getEstimate(ros::Time(), tmp);
-          if(!vo_active_ && !gps_active_)
-            tmp.getOrigin().setZ(0.0);
-          odom_broadcaster_.sendTransform(StampedTransform(tmp, tmp.stamp_, output_frame_, base_footprint_frame_));
+                // broadcast most recent estimate to TransformArray
+                StampedTransform tmp;
+                my_filter_.getEstimate(ros::Time(), tmp);
+                /*if(!vo_active_ && !gps_active_)
+                    tmp.getOrigin().setZ(0.0);
+                odom_broadcaster_.sendTransform(StampedTransform(tmp, tmp.stamp_, output_frame_, base_footprint_frame_));*/
 
-          if (debug_){
-            // write to file
-            ColumnVector estimate;
-            my_filter_.getEstimate(estimate);
-            corr_file_ << fixed << setprecision(5)<<ros::Time::now().toSec()<<" ";
+                if (debug_)
+                {
+                    // write to file
+                    MatrixWrapper::ColumnVector estimate;
+                    my_filter_.getEstimate(estimate);
+                    corr_file_ << fixed << setprecision(5)<<ros::Time::now().toSec()<<" ";
 
-            for (unsigned int i=1; i<=6; i++)
-            corr_file_ << estimate(i) << " ";
-            corr_file_ << endl;
-          }
+                    for (unsigned int i=1; i<=6; i++)
+                        corr_file_ << estimate(i) << " ";
+                    corr_file_ << endl;
+                }
+            }
+            if (self_diagnose_ && !diagnostics)
+                ROS_WARN("Robot pose ekf diagnostics discovered a potential problem");
         }
-        if (self_diagnose_ && !diagnostics)
-          ROS_WARN("Robot pose ekf diagnostics discovered a potential problem");
-      }
 
 
-      // initialize filer with odometry frame
-      if (imu_active_ && gps_active_ && !my_filter_.isInitialized()) {
-    Quaternion q = imu_meas_.getRotation();
-        Vector3 p = gps_meas_.getOrigin();
-        Transform init_meas_ = Transform(q, p);
-        my_filter_.initialize(init_meas_, gps_stamp_);
-        ROS_INFO("Kalman filter initialized with gps and imu measurement");
-      }
-      else if ( odom_active_  && !gps_used_ && !my_filter_.isInitialized()){
-        my_filter_.initialize(odom_meas_, odom_stamp_);
-        ROS_INFO("Kalman filter initialized with odom measurement");
-      }*/
+        // initialize filer with odometry frame
+        /*if (pedestrian_active_ && !my_filter_.isInitialized())
+        {
+            Quaternion q = imu_meas_.getRotation();
+            Vector3 p = gps_meas_.getOrigin();
+            Transform init_meas_ = Transform(q, p);
+            my_filter_.initialize(init_meas_, gps_stamp_);
+            ROS_INFO("Kalman filter initialized with gps and imu measurement");
+        }
+        else if ( odom_active_  && !my_filter_.isInitialized())
+        {
+            my_filter_.initialize(odom_meas_, odom_stamp_);
+            ROS_INFO("Kalman filter initialized with odom measurement");
+        }//*/
     }
-  };
+}
 
 
 /*bool PedestrianTrackingNode::getStatus(robot_pose_ekf::GetStatus::Request& req, robot_pose_ekf::GetStatus::Response& resp)
@@ -377,6 +376,7 @@ namespace estimation
 }; // namespace
 
 */
+}
 
 
 
@@ -387,13 +387,13 @@ namespace estimation
 using namespace estimation;
 int main(int argc, char **argv)
 {
-  // Initialize ROS
-  ros::init(argc, argv, "robot_pose_ekf");
+    // Initialize ROS
+    ros::init(argc, argv, "robot_pose_ekf");
 
-  // create filter class
-  PedestrianTrackingNode my_filter_node;
+    // create filter class
+    PedestrianTrackingNode my_filter_node;
 
-  ros::spin();
+    ros::spin();
 
-  return 0;
+    return 0;
 }

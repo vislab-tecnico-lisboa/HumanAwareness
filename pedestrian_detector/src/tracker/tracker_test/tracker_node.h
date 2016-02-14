@@ -102,7 +102,7 @@ private:
   ros::ServiceServer state_srv_;
 
   // ekf filter
-  //OdomEstimation my_filter_;
+  PedestrianTracking my_filter_;
 
   // estimated robot pose message to send
   geometry_msgs::PoseWithCovarianceStamped  output_;

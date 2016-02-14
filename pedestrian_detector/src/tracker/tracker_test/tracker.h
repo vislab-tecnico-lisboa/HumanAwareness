@@ -57,14 +57,14 @@
 namespace estimation
 {
 
-class OdomEstimation
+class PedestrianTracking
 {
 public:
   /// constructor
-  OdomEstimation();
+  PedestrianTracking();
 
   /// destructor
-  virtual ~OdomEstimation();
+  virtual ~PedestrianTracking();
 
   /** update the extended Kalman filter
    * \param odom_active specifies if the odometry sensor is active or not
@@ -75,7 +75,7 @@ public:
    * \param diagnostics_res returns false if the diagnostics found that the sensor measurements are inconsistent
    * returns true on successfull update
    */
-  bool update(bool odom_active, bool imu_active, bool gps_active, bool vo_active, const ros::Time& filter_time, bool& diagnostics_res);
+  bool update(bool odom_active, bool pedestrian_active, const ros::Time& filter_time, bool& diagnostics_res);
 
   /** initialize the extended Kalman filter
    * \param prior the prior robot pose
