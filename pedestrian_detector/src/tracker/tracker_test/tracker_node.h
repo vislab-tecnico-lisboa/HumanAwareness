@@ -1,5 +1,3 @@
-#ifndef TRACKER_H
-#define TRACKER_H
 /*********************************************************************
 * Software License Agreement (BSD License)
 *
@@ -35,15 +33,15 @@
 
 /* Author: Wim Meeussen */
 
-#ifndef __ODOM_ESTIMATION_NODE__
-#define __ODOM_ESTIMATION_NODE__
+#ifndef TRACKER_NODE_H
+#define TRACKER_NODE_H
 
 // ros stuff
 #include <ros/ros.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <tf/transform_broadcaster.h>
-//#include "odom_estimation.h"
+#include "tracker.h"
 //#include <robot_pose_ekf/GetStatus.h>
 
 // messages
@@ -123,7 +121,7 @@ private:
   bool odom_used_, pedestrian_used_;
   bool odom_initializing_, pedestrian_initializing_;
   double timeout_;
-  //MatrixWrapper::SymmetricMatrix odom_covariance_, pedestrian_covariance_;
+  MatrixWrapper::SymmetricMatrix odom_covariance_, pedestrian_covariance_;
   bool debug_, self_diagnose_;
   std::string output_frame_, base_footprint_frame_, tf_prefix_;
 
@@ -137,5 +135,4 @@ private:
 
 }; // namespace
 
-#endif
-#endif // TRACKER_H
+#endif // TRACKER_NODE_H

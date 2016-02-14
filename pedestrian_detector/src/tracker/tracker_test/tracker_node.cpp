@@ -34,7 +34,7 @@
 
 /* Author: Wim Meeussen */
 
-#include "tracker.h"
+#include "tracker_node.h"
 
 
 //using namespace MatrixWrapper;
@@ -56,8 +56,8 @@ namespace estimation
       pedestrian_active_(false),
       odom_initializing_(false),
       pedestrian_initializing_(false),
-      //odom_covariance_(6),
-      //pedestrian_covariance_(3),
+      odom_covariance_(6),
+      pedestrian_covariance_(3),
       odom_callback_counter_(0),
       pedestrian_callback_counter_(0),
       ekf_sent_counter_(0)
