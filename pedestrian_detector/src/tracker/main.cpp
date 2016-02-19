@@ -535,17 +535,16 @@ public:
 
                     position_publisher.publish(final_position);
 
-                    double z = position.z;
 
                     // CONTROL GAZE
-                    if(cv::norm(Point3d(position.x, position.y, z)-lastFixationPoint) > gaze_threshold)
+                    if(cv::norm(Point3d(position.x, position.y, it->personHeight/2)-lastFixationPoint) > gaze_threshold)
                     {
                         move_robot_msgs::GazeGoal fixationGoal;
                         fixationGoal.fixation_point.header.stamp=currentTime;
                         fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
                         fixationGoal.fixation_point.point.x = position.x;
                         fixationGoal.fixation_point.point.y = position.y;
-                        fixationGoal.fixation_point.point.z = z;
+                        fixationGoal.fixation_point.point.z = it->personHeight;
                         fixationGoal.fixation_point_error_tolerance = fixation_tolerance;
 
 
@@ -556,7 +555,7 @@ public:
                         //bool finished_before_timeout = ac.waitForResult(ros::Duration(10));
 
 
-                        lastFixationPoint = Point3d(position.x, position.y, z);
+                        lastFixationPoint = Point3d(position.x, position.y, it->personHeight/2);
 
                     }
 
@@ -644,7 +643,7 @@ public:
             Mat headMat = Mat::ones(4, 1, CV_32F);
             headMat.at<float>(0,0) = head.x;
             headMat.at<float>(1,0) = head.y;
-            headMat.at<float>(2,0) = head.z*2;
+            headMat.at<float>(2,0) = head.z;
 
             Mat feetMat = Mat::ones(4, 1, CV_32F);
             feetMat.at<float>(0,0) = feet.x;
@@ -702,7 +701,7 @@ public:
 
                 rectangle(lastImage, trackedBB, Scalar(0, 255, 0), 2);
                 ostringstream convert;
-                convert << it->id;
+                convert << "id: " << it->id << " | height: " << head.z;
 
                 putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
             }
@@ -865,7 +864,7 @@ int main(int argc, char **argv)
     stringstream ss;
 
     //Simulation results file
-    results.open("/home/avelino/grafico.txt");
+    results.open("/home/avelino/altura_z.txt");
 
     ss << ros::package::getPath("pedestrian_detector");
     ss << "/camera_model/config.yaml";

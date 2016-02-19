@@ -38,6 +38,13 @@ class PersonModel
 
     int id;
     MMAEFilterBank *mmaeEstimator;
+    //KALMAN de uma variavel ahahahahahaha
+    double personHeight;
+    double heightP;
+    double heightQ;
+    double heightR;
+    double heightK;
+    //************************************
     double delta_t;
     double T;
     bool toBeDeleted;

@@ -60,8 +60,7 @@ Point3d PersonModel::getPositionEstimate()
     return medianFilter();
     else if(method == MMAETRACKING)
     {
-      Point3d median = medianFilter(); //To get the Z for gaze... damn, this code is awfull. I'm dumb
-      Point3d estimate(mmaeEstimator->xMMAE.at<double>(0, 0), mmaeEstimator->xMMAE.at<double>(3, 0), median.z);
+      Point3d estimate(mmaeEstimator->xMMAE.at<double>(0, 0), mmaeEstimator->xMMAE.at<double>(3, 0), personHeight);
 //      ROS_ERROR_STREAM("STATE: " << mmaeEstimator->xMMAE);
       return estimate;
 
@@ -88,7 +87,6 @@ void PersonModel::updateModel()
 
     positionHistory[0] = position;
 
- //   updateVelocityArray(position);
 
     position.x = -1000;
     position.y = -1000;
@@ -98,11 +96,6 @@ void PersonModel::updateModel()
         rectHistory[4-i] = rectHistory[4-(i+1)];
 
     rectHistory[0] = rect;
-    //velocity in m/ns
-
-//    filteredVelocity = velocityMedianFilter();
-
-
 
     if(method == MMAETRACKING)
     {
@@ -118,6 +111,11 @@ void PersonModel::updateModel()
             measurement.at<double>(1, 0) = positionHistory[0].y;
         }
             mmaeEstimator->correct(measurement);
+
+            //Correct the person height.
+            heightK = heightP/(heightP+heightR);
+            personHeight += heightK*(positionHistory[0].z*2-personHeight);
+            heightP = (1-heightK)*heightP;
     }
 
 
@@ -149,10 +147,10 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantPosition.measurementMatrix = (Mat_<double>(2, 2) << 1, 0, 0, 1);
         //Q
         constantPosition.processNoiseCov = (Mat_<double>(2, 2) << pow(T, 2), 0, 0, pow(T, 2));  //Q*sigma
-        constantPosition.processNoiseCov  = constantPosition.processNoiseCov*70;
+        constantPosition.processNoiseCov  = constantPosition.processNoiseCov*0.1;
         //R
         constantPosition.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*6; //R*sigma
+        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*0.01; //R*sigma
 
         //P0
         constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*50;
@@ -167,10 +165,10 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 0, 1, 0);
         //Q
         constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, pow(T,3)/2, 0, 0, pow(T,3)/2, pow(T,2), 0, 0, 0, 0, pow(T,4)/4, pow(T,3)/2, 0, 0, pow(T,3)/2, pow(T,2));
-        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*70;  //Q*sigma
+        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*0.1;  //Q*sigma
         //R
         constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*6; //R*sigma
+        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*0.01; //R*sigma
 
         //P0
         constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*50;
@@ -185,10 +183,10 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0);
         //Q
         constantAcceleration.processNoiseCov = (Mat_<double>(6, 6) << pow(T, 5)/20, pow(T, 4)/8, pow(T, 3)/6, 0, 0, 0, pow(T, 4)/8, pow(T, 3)/3, pow(T, 2)/2, 0, 0, 0, pow(T, 3)/6, pow(T, 2)/2, T, 0, 0, 0, 0, 0, 0, pow(T, 5)/20, pow(T, 4)/8, pow(T, 3)/3, 0, 0, 0, pow(T, 4)/8, pow(T, 3)/3, pow(T, 2)/2, 0, 0, 0, pow(T, 3)/6, pow(T, 2)/2, T);
-        constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*2;  //Q*sigma
+        constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*0.1;  //Q*sigma
         //R
         constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*6; //R*sigma
+        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*0.01; //R*sigma
 
         //P0
         constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*50;
@@ -238,6 +236,15 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         velocity[i] = Point2d(0, 0);
 
     position = detectedPosition;
+
+    /*Kalman for position*/
+    personHeight = detectedPosition.z*2;
+    heightP = 0.1;
+    heightQ = 0;
+    heightR = 0.0146;
+
+    /*Im not creating a class for 4 variables...*/
+
 
     this->bvtHistogram = bvtHistogram;
 
@@ -384,6 +391,10 @@ void PersonList::updateList()
             int times = it->delta_t/it->T;
             for(int lol = 0; lol < times; lol++)
             it->mmaeEstimator->predict();
+
+            //Predict the height covariance P_minus. No need to predict the size. We assume
+            //its a constant model
+            it->heightP += it->heightQ; //
         }
 
         if((*it).position.x != -1000 && (*it).position.y != -1000)

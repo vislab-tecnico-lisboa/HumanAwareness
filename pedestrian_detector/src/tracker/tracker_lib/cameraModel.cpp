@@ -139,9 +139,6 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
        Point2d bbCenter = getCenter(rects.at(i));
 
        point.z = getZ(bbCenter, Point2d(point.x, point.y), worldLinkToCamera, this);
-
-       ROS_ERROR_STREAM("altura: " << 2*point.z);
-
        basePoints.push_back(point);
      }
 
