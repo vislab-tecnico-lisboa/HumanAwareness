@@ -22,10 +22,97 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
  //pdf of the height
     double innovation = heightP+heightR;
 
-    double p_colors = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
-    double p_height = 1.0/(sqrt(2*CV_PI)*sqrt(innovation))*exp(-(height-personHeight)/(2*innovation));
+    double p_colors = 1-compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
+    double p_height = (1.0/(sqrt(2*CV_PI)*sqrt(innovation)))*exp(-pow((height-personHeight), 2)/(2*innovation));
 
 
+    //Get the pdfs from the mmae
+    Mat measurement = Mat(2, 1, CV_64F);
+    measurement.at<double>(0, 0) = detectedPosition.x;
+    measurement.at<double>(1, 0) = detectedPosition.y;
+
+    double density;
+    //Constant position
+
+    Mat residue = measurement-mmaeEstimator->filterBank.at(0).measurementMatrix*mmaeEstimator->filterBank.at(0).statePre;
+    residue.convertTo(residue, CV_64F);
+    Mat trResidue;
+    transpose(residue, trResidue);
+    Mat q = trResidue*mmaeEstimator->invAk.at(0)*residue;
+    q.convertTo(q, CV_64F);
+    Mat expTerm = ((-1.0/2.0))*q;
+    cv::exp(expTerm, expTerm);
+
+    CV_Assert(expTerm.rows == 1 && expTerm.cols == 1);
+
+    if(expTerm.type() == CV_32F)
+    {
+      density = mmaeEstimator->betas.at(0)*static_cast<double>(expTerm.at<float>(0, 0));
+    }
+    else if(expTerm.type() == CV_64F)
+    {
+      density = mmaeEstimator->betas.at(0)*expTerm.at<double>(0, 0);
+    }
+
+    double p_const_pos = density*mmaeEstimator->probabilities.at(0);
+
+
+    //Constant velocity
+
+    residue = measurement-mmaeEstimator->filterBank.at(1).measurementMatrix*mmaeEstimator->filterBank.at(1).statePre;
+    residue.convertTo(residue, CV_64F);
+    transpose(residue, trResidue);
+    q = trResidue*mmaeEstimator->invAk.at(1)*residue;
+    q.convertTo(q, CV_64F);
+    expTerm = ((-1.0/2.0))*q;
+    cv::exp(expTerm, expTerm);
+
+    CV_Assert(expTerm.rows == 1 && expTerm.cols == 1);
+
+    if(expTerm.type() == CV_32F)
+    {
+      density = mmaeEstimator->betas.at(1)*static_cast<double>(expTerm.at<float>(0, 0));
+    }
+    else if(expTerm.type() == CV_64F)
+    {
+      density = mmaeEstimator->betas.at(1)*expTerm.at<double>(0, 0);
+    }
+
+    double p_const_vel = density*mmaeEstimator->probabilities.at(1);
+
+
+    //Constant Acceleration
+
+    residue = measurement-mmaeEstimator->filterBank.at(2).measurementMatrix*mmaeEstimator->filterBank.at(2).statePre;
+    residue.convertTo(residue, CV_64F);
+    transpose(residue, trResidue);
+    q = trResidue*mmaeEstimator->invAk.at(2)*residue;
+    q.convertTo(q, CV_64F);
+    expTerm = ((-1.0/2.0))*q;
+    cv::exp(expTerm, expTerm);
+
+    CV_Assert(expTerm.rows == 1 && expTerm.cols == 1);
+
+    if(expTerm.type() == CV_32F)
+    {
+      density = mmaeEstimator->betas.at(2)*static_cast<double>(expTerm.at<float>(0, 0));
+    }
+    else if(expTerm.type() == CV_64F)
+    {
+      density = mmaeEstimator->betas.at(2)*expTerm.at<double>(0, 0);
+    }
+
+    double p_const_accel = density*mmaeEstimator->probabilities.at(2);
+
+    ROS_ERROR_STREAM("Pcolors: " << p_colors);
+    ROS_ERROR_STREAM("p_height: " << p_height);
+    ROS_ERROR_STREAM("log(kalms): " << log10(p_const_pos+p_const_vel+p_const_accel));
+    ROS_ERROR_STREAM("Comboio: " << (log(p_colors)+log10(p_height)+log10(p_const_pos+p_const_vel+p_const_accel)));
+    ROS_ERROR_STREAM("p_const_pos: " << p_const_pos);
+    ROS_ERROR_STREAM("p_const_vel: " << p_const_vel);
+    ROS_ERROR_STREAM("p_const_accel: " << p_const_accel);
+
+    return (200-(p_colors)*p_height);
 
 }
 
@@ -493,6 +580,9 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 trackerPos.z = 0;
 
                 Point3d detectionPos = (*itrow);
+
+                double height = detectionPos.z*2;
+
                 detectionPos.z = 0;
 
                 double dist = norm(trackerPos-detectionPos);
@@ -505,7 +595,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                     if(colorDist > 0.8)
                         distMatrixIn[row+col*nDetections] = 1000; //Colors are too different. It cant be the same person...
                     else
-                        distMatrixIn[row+col*nDetections] = (1+dist)*pow(1.1+colorDist, 3);
+                        distMatrixIn[row+col*nDetections] = itcolumn->getScoreForAssociation(height, detectionPos, detectionColorHist, trackerColorHist);
                 }
                 else
                 {
@@ -519,14 +609,12 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                                 best = distHist;
                     }
 
-                    distMatrixIn[row+col*nDetections] = (1+best)*pow(1.1-colorDist, 3);
+                    distMatrixIn[row+col*nDetections] = itcolumn->getScoreForAssociation(height, detectionPos, detectionColorHist, trackerColorHist);
                 }
             }
         }
 
-
         assignmentoptimal(assignment, cost, distMatrixIn, nDetections, nTrackers);
-
 
         //assignment vector positions represents the detections and the value in each position represents the assigned tracker
         //if there is no possible association, then the value is -1
@@ -540,8 +628,12 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             //If there is an associated tracker and the distance is less than 2 meters we update the position
             if(assignment[i] != -1)
             {
-                //
-                if(distMatrixIn[i+((int)assignment[i])*nDetections] < 3)
+
+                Point3d detPos(coordsInBaseFrame.at(i).x, coordsInBaseFrame.at(i).y, 0);
+
+                Point3d trackPos = personList.at(assignment[i]).getPositionEstimate();
+                trackPos.z = 0;
+                if(norm(detPos-trackPos) < 2)
                 {
                     personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
                     personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
@@ -553,6 +645,34 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                     //Color histograms
                     personList.at(assignment[i]).bvtHistogram = colorFeaturesList.at(i);
+                }
+                else
+                {
+
+                    //If there isn't, create a new tracker for each one - IF THERE IS NO OTHER TRACKER IN A 1.5m radius
+                    bool existsInRadius = false;
+
+                    Point3d coords = coordsInBaseFrame.at(i);
+                    coords.z = 0;
+
+                    for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
+                    {
+                        Point3d posEstimate = it->getPositionEstimate();
+
+                        Point3d testPoint(posEstimate.x, posEstimate.y, 0);
+
+                        if(norm(coords-testPoint) < 3)
+                        {
+                            ROS_ERROR("NOT CREATING: Exists in radius");
+                            existsInRadius = true;
+                            break;
+                        }
+                    }
+                    if(!existsInRadius)
+                    {
+                        ROS_ERROR("Creating without -1");
+                        addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
+                    }
                 }
             }
             else
@@ -571,12 +691,14 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                     if(norm(coords-testPoint) < associatingDistance)
                     {
+                        ROS_ERROR("NOT CREATING: Exists in radius");
                         existsInRadius = true;
                         break;
                     }
                 }
                 if(!existsInRadius)
                 {
+                    ROS_ERROR("Creating");
                     addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
                 }
             }
@@ -605,12 +727,14 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0);
                 if(norm(coords-testPoint) < associatingDistance)
                 {
+                    ROS_ERROR("NOT CREATING: Existis in radius");
                     existsInRadius = true;
                     break;
                 }
             }
             if(!existsInRadius)
             {
+                ROS_ERROR("Creating");
                 addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
             }
         }
@@ -620,6 +744,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
     //wich have no detections associated will be updated with a -1000, -1000 detection
 
     updateList();
+
 }
 
 std::vector<PersonModel> PersonList::getValidTrackerPosition()

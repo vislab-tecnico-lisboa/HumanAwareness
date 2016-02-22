@@ -205,7 +205,6 @@ public:
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
-
         cv_bridge::CvImagePtr cv_ptr;
 
         try
@@ -225,11 +224,10 @@ public:
         Mat lastImage = cv_ptr->image;
 
         ros::Time currentTime = ros::Time(0);
-
         try
         {
 
-            listener->waitForTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+            listener->waitForTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(1) );
             listener->lookupTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
         }
         catch(tf::TransformException ex)
@@ -238,6 +236,7 @@ public:
             //ros::Duration(1.0).sleep();
             return;
         }
+
 
         //Get rects from message
 
@@ -257,6 +256,7 @@ public:
             rects.push_back(detect);
         }
 
+
         for(pedestrian_detector::DetectionList::_featuresVector_type::const_iterator it = detection->featuresVector.begin(); it != detection->featuresVector.end(); it++)
         {
             vector<float> features = it->features;
@@ -264,6 +264,7 @@ public:
 
             colorFeaturesList.push_back(bvtHistogram.clone());
         }
+
 
         Eigen::Affine3d eigen_transform;
         tf::transformTFToEigen(transform, eigen_transform);
@@ -296,10 +297,8 @@ public:
 
         coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, rects);
 
-
         //Before we associate the data we need to filter invalid detections
         detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
-
 
         personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
 
@@ -334,9 +333,7 @@ public:
             }
 
         }
-
         vector<PersonModel> list = personList->getValidTrackerPosition();
-
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
 
@@ -360,6 +357,7 @@ public:
 
             results << it->id << " " << personInBaseFootprint.point.x << " " << personInBaseFootprint.point.z*2 << endl;
         }
+
 
         //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
 
@@ -701,7 +699,7 @@ public:
 
                 rectangle(lastImage, trackedBB, Scalar(0, 255, 0), 2);
                 ostringstream convert;
-                convert << "id: " << it->id << " | height: " << head.z;
+                convert << "id: " << it->id;
 
                 putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
             }
@@ -712,7 +710,7 @@ public:
     }
     Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~")
     {
-        ROS_ERROR("Waiting for action server to start.");
+        ROS_INFO("Waiting for action server to start.");
         //ac.waitForServer();
 
         //For debug purposes
@@ -753,10 +751,10 @@ public:
         cameramodel = new cameraModel(cameraConfig, cameraInfoTopic);
         detectionfilter = new DetectionFilter(maximum_person_height, minimum_person_height, cameramodel);
 
-        ROS_ERROR("Subscribing detections");
+        ROS_INFO("Subscribing detections");
         image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
 
-        ROS_ERROR("Subscribed");
+        ROS_INFO("Subscribed");
 
 
 
