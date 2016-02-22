@@ -73,6 +73,7 @@ class PersonModel
     void updateModel();
     Point3d getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point3d estimation);
     Point2d velocityMedianFilter();
+    double getScoreForAssociation(double height, Point3d detectedPosition, Mat detectionColorHist, Mat trackerColorHist);
 };
 
 class PersonList

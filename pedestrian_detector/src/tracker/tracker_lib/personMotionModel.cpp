@@ -1,6 +1,7 @@
 #include "../include/tracker/personMotionModel.hpp"
 #include <algorithm>
 #include <vector>
+#include <math.h>
 #include "../include/HungarianFunctions.hpp"
 
 /*
@@ -14,6 +15,18 @@
 Mat PersonModel::getBvtHistogram()
 {
     return bvtHistogram;
+}
+
+double PersonModel::getScoreForAssociation(double height, Point3d detectedPosition, Mat detectionColorHist, Mat trackerColorHist)
+{
+ //pdf of the height
+    double innovation = heightP+heightR;
+
+    double p_colors = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
+    double p_height = 1.0/(sqrt(2*CV_PI)*sqrt(innovation))*exp(-(height-personHeight)/(2*innovation));
+
+
+
 }
 
 
@@ -243,7 +256,7 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
     heightQ = 0;
     heightR = 0.0146;
 
-    /*Im not creating a class for 4 variables...*/
+    /*Im not creating a class for 5 variables...*/
 
 
     this->bvtHistogram = bvtHistogram;
@@ -486,13 +499,13 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                 double colorDist;
 
-                colorDist = compareHist(detectionColorHist, trackerColorHist, CV_COMP_CORREL);
+                colorDist = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
                 if(dist < 3)
                 {
-                    if(colorDist < 0.3)
+                    if(colorDist > 0.8)
                         distMatrixIn[row+col*nDetections] = 1000; //Colors are too different. It cant be the same person...
                     else
-                        distMatrixIn[row+col*nDetections] = (1+dist)*pow(1.1-colorDist, 3);
+                        distMatrixIn[row+col*nDetections] = (1+dist)*pow(1.1+colorDist, 3);
                 }
                 else
                 {
@@ -533,6 +546,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                     personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
                     personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
                     personList.at(assignment[i]).position.z = coordsInBaseFrame.at(i).z;
+
 
                     //Bounding boxes...
                     personList.at(assignment[i]).rect = rects.at(i);
