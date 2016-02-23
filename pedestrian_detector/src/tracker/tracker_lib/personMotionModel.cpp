@@ -112,8 +112,9 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
     ROS_ERROR_STREAM("p_const_vel: " << p_const_vel);
     ROS_ERROR_STREAM("p_const_accel: " << p_const_accel);
 
-    return (200-(p_colors)*p_height);
-
+    return (500-(log(p_colors)+log(p_height)+log(p_const_pos+p_const_vel+p_const_accel)));
+    //return 500-p_colors*p_height*(p_const_pos+p_const_vel+p_const_accel);
+    //return 500-p_colors;
 }
 
 
