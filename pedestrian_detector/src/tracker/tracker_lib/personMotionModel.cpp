@@ -104,14 +104,6 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
 
     double p_const_accel = density*mmaeEstimator->probabilities.at(2);
 
-    ROS_ERROR_STREAM("Pcolors: " << p_colors);
-    ROS_ERROR_STREAM("p_height: " << p_height);
-    ROS_ERROR_STREAM("log(kalms): " << log10(p_const_pos+p_const_vel+p_const_accel));
-    ROS_ERROR_STREAM("Comboio: " << (log(p_colors)+log10(p_height)+log10(p_const_pos+p_const_vel+p_const_accel)));
-    ROS_ERROR_STREAM("p_const_pos: " << p_const_pos);
-    ROS_ERROR_STREAM("p_const_vel: " << p_const_vel);
-    ROS_ERROR_STREAM("p_const_accel: " << p_const_accel);
-
     return (500-(log(p_colors)+log(p_height)+log(p_const_pos+p_const_vel+p_const_accel)));
     //return 500-p_colors*p_height*(p_const_pos+p_const_vel+p_const_accel);
     //return 500-p_colors;
