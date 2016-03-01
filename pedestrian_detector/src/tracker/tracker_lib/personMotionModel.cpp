@@ -31,80 +31,36 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
     measurement.at<double>(0, 0) = detectedPosition.x;
     measurement.at<double>(1, 0) = detectedPosition.y;
 
-    double density;
-    //Constant position
+    double density = 0;
+    int l = 0;
+    double p_models = 0;
 
-    Mat residue = measurement-mmaeEstimator->filterBank.at(0).measurementMatrix*mmaeEstimator->filterBank.at(0).statePre;
-    residue.convertTo(residue, CV_64F);
-    Mat trResidue;
-    transpose(residue, trResidue);
-    Mat q = trResidue*mmaeEstimator->invAk.at(0)*residue;
-    q.convertTo(q, CV_64F);
-    Mat expTerm = ((-1.0/2.0))*q;
-    cv::exp(expTerm, expTerm);
-
-    CV_Assert(expTerm.rows == 1 && expTerm.cols == 1);
-
-    if(expTerm.type() == CV_32F)
+    for(std::vector<KalmanFilter>::iterator it = mmaeEstimator->filterBank.begin(); it != mmaeEstimator->filterBank.end(); it++, l++)
     {
-      density = mmaeEstimator->betas.at(0)*static_cast<double>(expTerm.at<float>(0, 0));
-    }
-    else if(expTerm.type() == CV_64F)
-    {
-      density = mmaeEstimator->betas.at(0)*expTerm.at<double>(0, 0);
-    }
+        Mat residue = measurement-mmaeEstimator->filterBank.at(l).measurementMatrix*mmaeEstimator->filterBank.at(l).statePre;
+        residue.convertTo(residue, CV_64F);
+        Mat trResidue;
+        transpose(residue, trResidue);
+        Mat q = trResidue*mmaeEstimator->invAk.at(l)*residue;
+        q.convertTo(q, CV_64F);
+        Mat expTerm = ((-1.0/2.0))*q;
+        cv::exp(expTerm, expTerm);
 
-    double p_const_pos = density*mmaeEstimator->probabilities.at(0);
+        CV_Assert(expTerm.rows == 1 && expTerm.cols == 1);
 
+        if(expTerm.type() == CV_32F)
+        {
+          density = mmaeEstimator->betas.at(l)*static_cast<double>(expTerm.at<float>(0, 0));
+        }
+        else if(expTerm.type() == CV_64F)
+        {
+          density = mmaeEstimator->betas.at(l)*expTerm.at<double>(0, 0);
+        }
 
-    //Constant velocity
-
-    residue = measurement-mmaeEstimator->filterBank.at(1).measurementMatrix*mmaeEstimator->filterBank.at(1).statePre;
-    residue.convertTo(residue, CV_64F);
-    transpose(residue, trResidue);
-    q = trResidue*mmaeEstimator->invAk.at(1)*residue;
-    q.convertTo(q, CV_64F);
-    expTerm = ((-1.0/2.0))*q;
-    cv::exp(expTerm, expTerm);
-
-    CV_Assert(expTerm.rows == 1 && expTerm.cols == 1);
-
-    if(expTerm.type() == CV_32F)
-    {
-      density = mmaeEstimator->betas.at(1)*static_cast<double>(expTerm.at<float>(0, 0));
-    }
-    else if(expTerm.type() == CV_64F)
-    {
-      density = mmaeEstimator->betas.at(1)*expTerm.at<double>(0, 0);
+        p_models += density*mmaeEstimator->probabilities.at(l);
     }
 
-    double p_const_vel = density*mmaeEstimator->probabilities.at(1);
-
-
-    //Constant Acceleration
-
-    residue = measurement-mmaeEstimator->filterBank.at(2).measurementMatrix*mmaeEstimator->filterBank.at(2).statePre;
-    residue.convertTo(residue, CV_64F);
-    transpose(residue, trResidue);
-    q = trResidue*mmaeEstimator->invAk.at(2)*residue;
-    q.convertTo(q, CV_64F);
-    expTerm = ((-1.0/2.0))*q;
-    cv::exp(expTerm, expTerm);
-
-    CV_Assert(expTerm.rows == 1 && expTerm.cols == 1);
-
-    if(expTerm.type() == CV_32F)
-    {
-      density = mmaeEstimator->betas.at(2)*static_cast<double>(expTerm.at<float>(0, 0));
-    }
-    else if(expTerm.type() == CV_64F)
-    {
-      density = mmaeEstimator->betas.at(2)*expTerm.at<double>(0, 0);
-    }
-
-    double p_const_accel = density*mmaeEstimator->probabilities.at(2);
-
-    return (500-(log(p_colors)+log(p_height)+log(p_const_pos+p_const_vel+p_const_accel)));
+    return (500-(log(p_colors)+log(p_height)+log(p_models)));
     //return 500-p_colors*p_height*(p_const_pos+p_const_vel+p_const_accel);
     //return 500-p_colors;
 }
@@ -153,7 +109,7 @@ Point3d PersonModel::getPositionEstimate()
     return medianFilter();
     else if(method == MMAETRACKING)
     {
-      Point3d estimate(mmaeEstimator->xMMAE.at<double>(0, 0), mmaeEstimator->xMMAE.at<double>(3, 0), personHeight);
+        Point3d estimate(mmaeEstimator->xMMAE.at<double>(mmaeEstimator->modelToxMMAEindexes.at(0).at(0), 0), mmaeEstimator->xMMAE.at<double>(mmaeEstimator->modelToxMMAEindexes.at(0).at(1), 0), personHeight);
 //      ROS_ERROR_STREAM("STATE: " << mmaeEstimator->xMMAE);
       return estimate;
 
@@ -288,30 +244,38 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         std::vector<KalmanFilter> kalmanBank;
         kalmanBank.push_back(constantPosition);
         kalmanBank.push_back(constantVelocity);
-        kalmanBank.push_back(constantAcceleration);
+//        kalmanBank.push_back(constantAcceleration);
 
 // Link each of these filters states to the ponderated state
 
         //State [i] from models corresponds to State indexes[i] in xMMAEx
-        int indexes1[] = {0, 3};
+
+/*      With 3 models
+ *      int indexes1[] = {0, 3};
         int indexes2[] = {0, 1, 3, 4};
-        int indexes3[] = {0, 1, 2, 3, 4, 5};
+        int indexes3[] = {0, 1, 2, 3, 4, 5};*/
+
+        int indexes1[] = {0, 2};
+        int indexes2[] = {0, 1, 2, 3};
 
         std::vector<int> indexes1_(indexes1, indexes1+sizeof(indexes1)/sizeof(int));
         std::vector<int> indexes2_(indexes2, indexes2+sizeof(indexes2)/sizeof(int));
-        std::vector<int> indexes3_(indexes3, indexes3+sizeof(indexes3)/sizeof(int));
+//        std::vector<int> indexes3_(indexes3, indexes3+sizeof(indexes3)/sizeof(int));
 
         std::vector<std::vector<int> > indexList;
         indexList.push_back(indexes1_);
         indexList.push_back(indexes2_);
-        indexList.push_back(indexes3_);
+//        indexList.push_back(indexes3_);
 
 //Guess the initial states - a good guess for the position is the measurement we just got!
 
-
+/*      For 3 models
         double states[] = {detectedPosition.x, 0, 0, detectedPosition.y, 0, 0};
 //        double states[] = {0, 0, 0, 0, 0, 0};
-        Mat initialStates = Mat(6, 1, CV_64F, states).clone();
+        Mat initialStates = Mat(6, 1, CV_64F, states).clone();*/
+
+        double states[] = {detectedPosition.x, 0, detectedPosition.y, 0};
+        Mat initialStates = Mat(4, 1, CV_64F, states).clone();
 
 //Build the Bank!
         mmaeEstimator = new MMAEFilterBank(kalmanBank, indexList, true, false, initialStates, CV_64F);

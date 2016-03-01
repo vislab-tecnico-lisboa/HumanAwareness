@@ -287,7 +287,7 @@ public:
             switch(currentState)
             {
             case STOPPED:
-                ROS_ERROR("STOPPED!");
+                //ROS_ERROR("STOPPED!");
 
                 //Next state
                 if(distanceToPerson > planner_activation_distance && hold == false)
@@ -334,7 +334,7 @@ public:
 
                 break;
             case PLANNER:
-                ROS_ERROR("PLANNER");
+                //ROS_ERROR("PLANNER");
 
                 if(distanceToPerson >= minimum_planner_distance && hold == false)
                 {
@@ -383,7 +383,7 @@ public:
 
                 break;
             case LOCALCONTROLLER:
-                ROS_ERROR("LOCALCONTROLLER");
+                //ROS_ERROR("LOCALCONTROLLER");
 
                 if(distanceToPerson >= minimum_distance && distanceToPerson < planner_activation_distance && hold == false)
                 {
