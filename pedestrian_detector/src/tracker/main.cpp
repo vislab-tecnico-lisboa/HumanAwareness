@@ -225,11 +225,9 @@ public:
 
         ros::Time currentTime = ros::Time(0);
 
-<<<<<<< HEAD
-        //ROS_ERROR_STREAM("Getting transform at 228");
-=======
+
         ROS_ERROR_STREAM("Getting transform at 228");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
+
         try
         {
 
@@ -242,11 +240,8 @@ public:
             //ros::Duration(1.0).sleep();
             return;
         }
-<<<<<<< HEAD
         //ROS_ERROR_STREAM("Got 228");
-=======
         ROS_ERROR_STREAM("Got 228");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
 
 
         //Get rects from message
@@ -306,28 +301,17 @@ public:
 
         //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
-<<<<<<< HEAD
-        //ROS_ERROR_STREAM("Computing points on world frame");
-        coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, rects);
-        //ROS_ERROR_STREAM("Computed");
-=======
+
         ROS_ERROR_STREAM("Computing points on world frame");
         coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, rects);
         ROS_ERROR_STREAM("Computed");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
 
         //Before we associate the data we need to filter invalid detections
         detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
 
-<<<<<<< HEAD
         //ROS_ERROR_STREAM("Associating data");
         personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
         //ROS_ERROR_STREAM("Done");
-=======
-        ROS_ERROR_STREAM("Associating data");
-        personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
-        ROS_ERROR_STREAM("Done");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
 
         //Delete the trackers that need to be deleted...
         for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
@@ -461,11 +445,8 @@ public:
 
 
                 geometry_msgs::PointStamped personInMap;
-<<<<<<< HEAD
                 //ROS_ERROR_STREAM("Getting transform at 448");
-=======
-                ROS_ERROR_STREAM("Getting transform at 448");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
+
                 try
                 {
                     geometry_msgs::PointStamped personInBase;
@@ -486,11 +467,7 @@ public:
                     return;
                 }
 
-<<<<<<< HEAD
-                //ROS_ERROR_STREAM("Got 448");
-=======
                 ROS_ERROR_STREAM("Got 448");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
 
                 int_marker.pose.position.x = personInMap.point.x;
                 int_marker.pose.position.y = personInMap.point.y;
@@ -523,11 +500,9 @@ public:
                     int_marker.controls.at(0).markers.at(0).color.b = 0;
 
                     geometry_msgs::PointStamped personInMap;
-<<<<<<< HEAD
-                    //ROS_ERROR_STREAM("Getting transform at 504");
-=======
+
                     ROS_ERROR_STREAM("Getting transform at 504");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
+
                     try
                     {
                         geometry_msgs::PointStamped personInBase;
@@ -546,11 +521,8 @@ public:
                         //ros::Duration(1.0).sleep();
                         return;
                     }
-<<<<<<< HEAD
-                    //ROS_ERROR_STREAM("Got 504");
-=======
+
                     ROS_ERROR_STREAM("Got 504");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
 
                     int_marker.pose.position.x = personInMap.point.x;
                     int_marker.pose.position.y = personInMap.point.y;
@@ -627,11 +599,7 @@ public:
                     Point3d position = (*it).getPositionEstimate();
                     geometry_msgs::PointStamped personInMap;
 
-<<<<<<< HEAD
-                    //ROS_ERROR_STREAM("Getting transform at 600");
-=======
                     ROS_ERROR_STREAM("Getting transform at 600");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
                     try
                     {
                         geometry_msgs::PointStamped personInBase;
@@ -652,11 +620,6 @@ public:
                         return;
                     }
 
-<<<<<<< HEAD
-                    //ROS_ERROR_STREAM("Got 600");
-=======
-                    ROS_ERROR_STREAM("Got 600");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
 
                     int_marker.pose.position.x = personInMap.point.x;
                     int_marker.pose.position.y = personInMap.point.y;
@@ -728,11 +691,6 @@ public:
 
             cv::Rect_<int> trackedBB(topLeftX, topLeftY, width, h);
 
-<<<<<<< HEAD
-            //ROS_ERROR_STREAM("Plotting results");
-=======
-            ROS_ERROR_STREAM("Plotting results");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
             if(h > 0)
             {
 
@@ -777,11 +735,7 @@ public:
         sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", lastImage).toImageMsg();
         image_pub.publish(msgImage);
 
-<<<<<<< HEAD
-        //ROS_ERROR_STREAM("End of callback");
-=======
-        ROS_ERROR_STREAM("End of callback");
->>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
+
     }
     Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~")
     {
