@@ -167,10 +167,15 @@ void MMAEFilterBank::correct(Mat &measurement)
             for(std::vector<double>::iterator itProb = probabilities.begin(); itProb != probabilities.end();
                 itProb++, j++)
             {
+		
                 (*itProb) = densities.at(j)*(*itProb)/sumOfAll;
-
+   		
+		if(j == 2)
+                {
+		  *itProb = 0;
+		  continue;
+                }
                 *itProb+=0.01;
-
                 sumProbs += *itProb;
             }
 

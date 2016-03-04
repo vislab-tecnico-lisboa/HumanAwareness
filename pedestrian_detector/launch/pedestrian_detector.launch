@@ -15,11 +15,11 @@
     <param name="detector_type" type="str" value="$(arg detector_type)"/>
     <param name="camera" type="str" value="$(arg camera)"/>
   </node>
-  <node pkg="pedestrian_detector" type="tracker" name="tracker" output="log">
+  <node pkg="pedestrian_detector" type="tracker" name="tracker" output="screen">
 	<rosparam file="$(find pedestrian_detector)/config/tracker_params.yaml" command="load"/>
   </node>
   <group if="$(arg follower)">
-  <node pkg="pedestrian_detector" type="follower" name="follower" output="screen">
+  <node pkg="pedestrian_detector" type="follower" name="follower" output="log">
 	<remap from="twist_topic" to="/vizzy/twist2nav2d"/>
 	<rosparam file="$(find pedestrian_detector)/config/follower_params.yaml" command="load"/>
   </node>
