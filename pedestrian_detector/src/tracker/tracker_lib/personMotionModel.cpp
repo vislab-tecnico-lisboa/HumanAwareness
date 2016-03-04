@@ -34,7 +34,11 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
     double density = 0;
     int l = 0;
     double p_models = 0;
+<<<<<<< HEAD
 /*
+=======
+
+>>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
     for(std::vector<KalmanFilter>::iterator it = mmaeEstimator->filterBank.begin(); it != mmaeEstimator->filterBank.end(); it++, l++)
     {
         Mat residue = measurement-mmaeEstimator->filterBank.at(l).measurementMatrix*mmaeEstimator->filterBank.at(l).statePre;
@@ -56,11 +60,19 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
         {
           density = mmaeEstimator->betas.at(l)*expTerm.at<double>(0, 0);
         }
+<<<<<<< HEAD
 
         p_models += density*mmaeEstimator->probabilities.at(l);
     }*/
 
     //return (500-(log(p_colors)+log(p_height)+log(p_models)));
+=======
+
+        p_models += density*mmaeEstimator->probabilities.at(l);
+    }
+
+    return (500-(log(p_colors)+log(p_height)+log(p_models)));
+>>>>>>> 73308a3dc60915bc8f30e9b400e6916e72240b96
     //return 500-p_colors*p_height*(p_const_pos+p_const_vel+p_const_accel);
     return 500-p_colors+(norm(detectedPosition-getPositionEstimate()));
 }
