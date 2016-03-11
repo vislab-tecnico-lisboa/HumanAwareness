@@ -9,7 +9,7 @@
   <arg name="camera" default="l_camera" />
   <arg name="follower" default="true" />
   
-  <node pkg="pedestrian_detector" type="detector" name="detector" output="log">
+  <node pkg="pedestrian_detector" type="detector" name="detector" output="screen">
     <remap from="image_in" to="$(arg image_in)"/>
     <remap from="image_out" to="$(arg image_out)"/>
     <param name="detector_type" type="str" value="$(arg detector_type)"/>

@@ -5,12 +5,22 @@
 MMAEFilterBank::~MMAEFilterBank()
 {
 }
-MMAEFilterBank::MMAEFilterBank(std::vector<KalmanFilter> filterBank, std::vector<std::vector <int> > modelToxMMAEindexes, bool commonState, bool preComputeA, Mat initialState, int type) : invAk(filterBank.size(), Mat()), sqrtDetAk(filterBank.size(), 0), betas(filterBank.size(), 0), probabilities(filterBank.size(), ((double) 1)/ filterBank.size()), filterBank(filterBank), modelToxMMAEindexes(modelToxMMAEindexes)
+MMAEFilterBank::MMAEFilterBank(std::vector<KalmanFilter> & filterBank,
+                               std::vector<std::vector <int> > & modelToxMMAEindexes,
+                               bool commonState_,
+                               bool preComputeA_,
+                               Mat initialState,
+                               int type_) :
+    filterBank(filterBank),
+    modelToxMMAEindexes(modelToxMMAEindexes),
+    invAk(filterBank.size(), Mat()),
+    sqrtDetAk(filterBank.size(), 0),
+    betas(filterBank.size(), 0),
+    probabilities(filterBank.size(), ((double) 1)/ filterBank.size()),
+    preComputeA(preComputeA_),
+    commonState(commonState_),
+    type(type_)
 {
-    this->preComputeA = preComputeA;
-    this->commonState = commonState;
-    this->type = type;
-
     int xMMAEsize = 0;
 
     CV_Assert(filterBank.size() == modelToxMMAEindexes.size()); //Check if we have a map for each filter
@@ -22,12 +32,12 @@ MMAEFilterBank::MMAEFilterBank(std::vector<KalmanFilter> filterBank, std::vector
     {
         CV_Assert(it->statePost.rows == (int) modelToxMMAEindexes.at(counter).size());
 
-      if(it->statePost.rows > xMMAEsize)
-          xMMAEsize = it->statePost.rows;
+        if(it->statePost.rows > xMMAEsize)
+            xMMAEsize = it->statePost.rows;
     }
 
     if(initialState.empty())
-      xMMAE = Mat::zeros(xMMAEsize, 1, type);
+        xMMAE = Mat::zeros(xMMAEsize, 1, type);
     else
     {
         CV_Assert(initialState.rows == xMMAEsize && initialState.cols == 1);
@@ -80,12 +90,12 @@ void MMAEFilterBank::predict(Mat control)
 
         for(std::vector<KalmanFilter>::iterator itFilter = filterBank.begin(); itFilter != filterBank.end(); itFilter++, i++)
         {
-           // cout << "Pminus:" << itFilter->errorCovPre << endl;
+            // cout << "Pminus:" << itFilter->errorCovPre << endl;
             itFilter->predict(control);
 
             itFilter->errorCovPre = itFilter->errorCovPre+Mat::eye(itFilter->errorCovPre.rows, itFilter->errorCovPre.cols, itFilter->errorCovPre.type())*0.003;
 
-           // cout << "Pminus after:" << itFilter->errorCovPre << endl;
+            // cout << "Pminus after:" << itFilter->errorCovPre << endl;
             //Aux vars
             Mat H = itFilter->measurementMatrix;
             Mat Pminus = itFilter->errorCovPre;
@@ -144,11 +154,11 @@ void MMAEFilterBank::correct(Mat &measurement)
 
             if(expTerm.type() == CV_32F)
             {
-              density = betas.at(i)*static_cast<double>(expTerm.at<float>(0, 0));
+                density = betas.at(i)*static_cast<double>(expTerm.at<float>(0, 0));
             }
             else if(expTerm.type() == CV_64F)
             {
-              density = betas.at(i)*expTerm.at<double>(0, 0);
+                density = betas.at(i)*expTerm.at<double>(0, 0);
             }
 
 
@@ -167,13 +177,13 @@ void MMAEFilterBank::correct(Mat &measurement)
             for(std::vector<double>::iterator itProb = probabilities.begin(); itProb != probabilities.end();
                 itProb++, j++)
             {
-		
+
                 (*itProb) = densities.at(j)*(*itProb)/sumOfAll;
-   		
-		if(j == 2)
+
+                if(j == 2)
                 {
-		  *itProb = 0;
-		  continue;
+                    *itProb = 0;
+                    continue;
                 }
                 *itProb+=0.01;
                 sumProbs += *itProb;
@@ -215,13 +225,13 @@ void MMAEFilterBank::correct(Mat &measurement)
     xMMAE = xMMAE_tmp;
 
 
-   //
+    //
     //We we want to use the same state vector for all filters, and that state vector is the ponderated vector
     //just replace statePost with the ponderated vector in each filter
 
     if(commonState)
     {
-//        linkXMMAEtoFilterStates();
+        //        linkXMMAEtoFilterStates();
     }
 
 }

@@ -20,7 +20,7 @@ Mat PersonModel::getBvtHistogram()
 double PersonModel::getScoreForAssociation(double height, Point3d detectedPosition, Mat detectionColorHist, Mat trackerColorHist)
 {
  //pdf of the height
-    double innovation = heightP+heightR;
+    //double innovation = heightP+heightR;
 
     double p_colors = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
     //double p_height = (1.0/(sqrt(2*CV_PI)*sqrt(innovation)))*exp(-pow((height-personHeight), 2)/(2*innovation));
@@ -634,14 +634,14 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                         if(norm(coords-testPoint) < 1.5)
                         {
-                            ROS_ERROR("NOT CREATING: Exists in radius");
+                            ROS_DEBUG("NOT CREATING: Exists in radius");
                             existsInRadius = true;
                             break;
                         }
                     }
                     if(!existsInRadius)
                     {
-                        ROS_ERROR("Creating without -1");
+                        ROS_DEBUG("Creating without -1");
                         addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
                     }
                 }
@@ -662,14 +662,14 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                     if(norm(coords-testPoint) < associatingDistance)
                     {
-                        ROS_ERROR("NOT CREATING: Exists in radius");
+                        ROS_DEBUG("NOT CREATING: Exists in radius");
                         existsInRadius = true;
                         break;
                     }
                 }
                 if(!existsInRadius)
                 {
-                    ROS_ERROR("Creating");
+                    ROS_DEBUG("Creating");
                     addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
                 }
             }
@@ -698,14 +698,14 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0.0);
                 if(norm(coords-testPoint) < associatingDistance)
                 {
-                    ROS_ERROR("NOT CREATING: Existis in radius");
+                    ROS_DEBUG("NOT CREATING: Existis in radius");
                     existsInRadius = true;
                     break;
                 }
             }
             if(!existsInRadius)
             {
-                ROS_ERROR("Creating");
+                ROS_DEBUG("Creating");
                 addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
             }
         }

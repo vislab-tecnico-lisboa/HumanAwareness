@@ -15,13 +15,11 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <interactive_markers/interactive_marker_server.h>
 
-
 //Our includes
 #include "../include/tracker/detectionProcess.hpp"
 #include "../include/tracker/cameraModel.hpp"
 #include "../include/tracker/personMotionModel.hpp"
 #include "../include/tracker/filtersAndUtilities.hpp"
-
 
 //OpenCV Includes
 #include <opencv2/opencv.hpp>
@@ -120,11 +118,13 @@ private:
 
     bool sendHome()
     {
-    	move_robot_msgs::GazeGoal fixationGoal;
+        move_robot_msgs::GazeGoal fixationGoal;
         fixationGoal.fixation_point.header.stamp=ros::Time::now();
         fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
         fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
         ac.sendGoal(fixationGoal);
+
+        return true;
     }
 
 public:
@@ -161,7 +161,7 @@ public:
             diceMarker.controls.at(0).markers.at(0).color.g = 1;
             diceMarker.controls.at(0).markers.at(0).color.b = 0;
             personNotChosenFlag = true;
-	    sendHome();
+            sendHome();
         }
 
     }
@@ -193,7 +193,7 @@ public:
         {
             personNotChosenFlag = true;
             targetId = -1;
-	    sendHome();
+            sendHome();
 
             ROS_INFO("No target selected. Sending eyes to home position");
         }
@@ -209,12 +209,12 @@ public:
 
         try
         {
-          cv_ptr = cv_bridge::toCvCopy(detection->im, sensor_msgs::image_encodings::BGR8);
+            cv_ptr = cv_bridge::toCvCopy(detection->im, sensor_msgs::image_encodings::BGR8);
         }
         catch (cv_bridge::Exception& e)
         {
-          ROS_ERROR("cv_bridge exception: %s", e.what());
-          return;
+            ROS_ERROR("cv_bridge exception: %s", e.what());
+            return;
         }
 
         last_image_header = detection->header;
@@ -258,7 +258,7 @@ public:
             y = (*it).y;
             width = (*it).width;
             height = (*it).height;
-            cv::Rect_<int> detect(x, y, width, height);      
+            cv::Rect_<int> detect(x, y, width, height);
             rects.push_back(detect);
         }
 
@@ -341,7 +341,7 @@ public:
 
         }
         vector<PersonModel> list = personList->getValidTrackerPosition();
-/*        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+        /*        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
 
             geometry_msgs::PointStamped personInBase;
@@ -385,43 +385,42 @@ public:
         //that have median different than -1000 on either coordinate
         marker_server->clear();
         marker_server->insert(diceMarker, boost::bind(&Tracker::processAutomaticFeedback, this, _1));
-        ros::Time now=ros::Time::now();
+        //ros::Time now=ros::Time::now();
 
         //If in automatic mode
-
         if(automatic)
             if(personNotChosenFlag)
-        {
-            //If there are no persons, return
-            if(list.size() < 1)
-                return;
-
-            //If there is no person chosen, choose the closest one.
-            int_marker.header.stamp=currentTime;
-            int_marker.header.frame_id=world_frame;
-
-            double best = 100000000000000;
-            int personID;
-
-            for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
             {
+                //If there are no persons, return
+                if(list.size() < 1)
+                    return;
 
-                Point3d position = (*it).getPositionEstimate();
+                //If there is no person chosen, choose the closest one.
+                int_marker.header.stamp=currentTime;
+                int_marker.header.frame_id=world_frame;
 
-                //WARNING!
-                //Assuming the position is relative to base_footprint. Avoiding tf's for computational purposes.
+                double best = 100000000000000;
+                int personID=-1;
 
-                double dist = cv::norm(position);
-                if(dist < best)
+                for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
                 {
-                    best = dist;
-                    personID = it-> id;
-                }
-            }
 
-            targetId = personID;
-            personNotChosenFlag = false;
-        }
+                    Point3d position = (*it).getPositionEstimate();
+
+                    //WARNING!
+                    //Assuming the position is relative to base_footprint. Avoiding tf's for computational purposes.
+
+                    double dist = cv::norm(position);
+                    if(dist < best)
+                    {
+                        best = dist;
+                        personID = it-> id;
+                    }
+                }
+
+                targetId = personID;
+                personNotChosenFlag = false;
+            }
 
 
 
@@ -446,7 +445,7 @@ public:
 
                 geometry_msgs::PointStamped personInMap;
                 //ROS_ERROR_STREAM("Getting transform at 448");
-		geometry_msgs::PointStamped personInBase;
+                geometry_msgs::PointStamped personInBase;
 
                 try
                 {
@@ -501,7 +500,7 @@ public:
                     geometry_msgs::PointStamped personInMap;
 
                     //ROS_ERROR_STREAM("Getting transform at 504");
-		    geometry_msgs::PointStamped personInBase;
+                    geometry_msgs::PointStamped personInBase;
                     try
                     {
 
@@ -563,7 +562,8 @@ public:
                         ac.sendGoal(fixationGoal);
                         ROS_INFO("Gaze Action server started, sending goal.");
 
-                        bool finished_before_timeout = ac.waitForResult(ros::Duration(2));
+                        //bool finished_before_timeout =
+                        ac.waitForResult(ros::Duration(2));
 
 
                         lastFixationPoint = Point3d(position.x, position.y, it->personHeight/2);
@@ -571,7 +571,7 @@ public:
                     }
 
 
-			position_publisher.publish(final_position);
+                    position_publisher.publish(final_position);
 
                     //wait for the action to return
                     /*              bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));

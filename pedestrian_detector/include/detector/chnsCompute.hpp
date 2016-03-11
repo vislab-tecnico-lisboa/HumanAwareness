@@ -35,15 +35,15 @@
 using namespace std;
 
 enum ColorSpace {
-	gray = 0,
-	rgb,
-	luv,
-	hsv,
-	orig = 1
+    gray = 0,
+    rgb,
+    luv,
+    hsv,
+    orig = 1
 };
 
 enum PadWith {
-	padvalue = 0,
+    padvalue = 0,
     replicate,
     symmetric,
     circular
@@ -53,28 +53,33 @@ enum PadWith {
  * Auxiliary function for the convTri
  */
 void convTriAux(float *M, float *&S, int misalign, int height, int width,
-		int chnTrans, float r, int s = 1
-		);
+                int chnTrans, float r, int s = 1
+        );
 
 /*
  * Class wrapping up an image
  */
-class imgWrap {
+class imgWrap
+{
 public:
-	float *image;
+    float *image;
 
-	int width;
-	int height;
-	int channels;
-	int misalign;
+    int width;
+    int height;
+    int channels;
+    int misalign;
 
-	imgWrap(float *img, int w, int h, int c, int mis) :
-		image(img), width(w), height(h), channels(c), misalign(mis) { };
-		
-	~imgWrap(){
-	  wrFree(image-misalign);
-	};
+    imgWrap(float *img, int w, int h, int c, int mis) :
+        image(img),
+        width(w),
+        height(h),
+        channels(c),
+        misalign(mis) {}
 
+    ~imgWrap()
+    {
+        wrFree(image-misalign);
+    }
 };
 
 
@@ -83,49 +88,49 @@ public:
  */
 class pChns {
 public:
-	class Color { 			//parameters for color space:
-	public:
-		bool enabled; 		// [1] if true enable color channels
-		int colorSpace; 	// [luv] choices are: 'gray' - 0, 'rgb' - 1, 'luv' - 2, 'hsv' - 3, 'orig' - 1
-	};
+    class Color { 			//parameters for color space:
+    public:
+        bool enabled; 		// [1] if true enable color channels
+        int colorSpace; 	// [luv] choices are: 'gray' - 0, 'rgb' - 1, 'luv' - 2, 'hsv' - 3, 'orig' - 1
+    };
 
-	class GradMag { 	//parameters for gradient magnitude:
-	public:
-		bool enabled; 	// [1] if true enable gradient magnitude channel
-		int colorChn; 	// [0] if>0 color channel to use for grad computation
-		int normRad; 	// [5] normalization radius for gradient
-		float normConst; // [.005] normalization constant for gradient
-	};
+    class GradMag { 	//parameters for gradient magnitude:
+    public:
+        bool enabled; 	// [1] if true enable gradient magnitude channel
+        int colorChn; 	// [0] if>0 color channel to use for grad computation
+        int normRad; 	// [5] normalization radius for gradient
+        float normConst; // [.005] normalization constant for gradient
+    };
 
-	class GradHist { 	// parameters for gradient histograms:
-	public:
-		bool enabled; 	// [1] if true enable gradient histogram channels
-		int binSize; 	// [1] spatial bin size (if > 1 chns will be smaller)
-		int nOrients; 	// [6] number of orientation channels
-		bool softBin; 	// [0] if true use "soft" bilinear spatial binning
-		bool useHog; 	// [0] if true perform 4-way hog normalization/clipping
-		float clipHog;	// [.2] value at which to clip hog histogram bins
-	};
+    class GradHist { 	// parameters for gradient histograms:
+    public:
+        bool enabled; 	// [1] if true enable gradient histogram channels
+        int binSize; 	// [1] spatial bin size (if > 1 chns will be smaller)
+        int nOrients; 	// [6] number of orientation channels
+        bool softBin; 	// [0] if true use "soft" bilinear spatial binning
+        bool useHog; 	// [0] if true perform 4-way hog normalization/clipping
+        float clipHog;	// [.2] value at which to clip hog histogram bins
+    };
 
-	class Custom { 		// parameters for custom channels (optional struct array):
-	public:
-		bool enabled; 	// [1] if true enable custom channel type
-		string name;	// ['REQ'] custom channel type name
-		string hFunc;	// ['REQ'] function handle for computing custom channels
-		void *pFunc;	// [{}] additional params for chns=hFunc(I,pFunc{:})
-		int padWith;	// [0] how channel should be padded (e.g. 0,'replicate')
-	};
+    class Custom { 		// parameters for custom channels (optional struct array):
+    public:
+        bool enabled; 	// [1] if true enable custom channel type
+        string name;	// ['REQ'] custom channel type name
+        string hFunc;	// ['REQ'] function handle for computing custom channels
+        void *pFunc;	// [{}] additional params for chns=hFunc(I,pFunc{:})
+        int padWith;	// [0] how channel should be padded (e.g. 0,'replicate')
+    };
 
-	pChns::Color* pColor;
-	pChns::GradMag* pGradMag;
-	pChns::GradHist* pGradHist;
-	pChns::Custom* pCustom;
-	bool complete;			// [] if true does not check/set default vals in pChns
+    pChns::Color* pColor;
+    pChns::GradMag* pGradMag;
+    pChns::GradHist* pGradHist;
+    pChns::Custom* pCustom;
+    bool complete;			// [] if true does not check/set default vals in pChns
 
 
 
-	pChns();
-	~pChns();
+    pChns();
+    ~pChns();
 };
 
 /*
@@ -133,30 +138,30 @@ public:
  */
 class infoOut {
 public:
-	bool enableColor;
-	bool enableGradMag;
-	bool enableGradHist;
+    bool enableColor;
+    bool enableGradMag;
+    bool enableGradHist;
 
-	int nTypes;
+    int nTypes;
 
-	pChns *input;
+    pChns *input;
 
-	int width;
-	int height;
+    int width;
+    int height;
 
-	int widthH;
-	int heightH;
+    int widthH;
+    int heightH;
 
-	imgWrap **data;
-	imgWrap *I;
-	imgWrap *M;
-	imgWrap *H;
+    imgWrap **data;
+    imgWrap *I;
+    imgWrap *M;
+    imgWrap *H;
 
-	//TODO : Insert Custom void* here;
+    //TODO : Insert Custom void* here;
 
-	infoOut(pChns *input, int width, int height,  int _chn, int _chnTrans,
-			int _widthH, int _heightH, float *_I, float *_M, float *_H, int misalign
-			);
+    infoOut(pChns *input, int width, int height,  int _chn, int _chnTrans,
+            int _widthH, int _heightH, float *_I, float *_M, float *_H, int misalign
+            );
 };
 
 /*

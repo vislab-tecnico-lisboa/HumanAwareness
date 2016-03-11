@@ -20,30 +20,9 @@
 #include <stack>
 #include <ros/package.h>
 #include <sstream>
+#include "common.h"
 
 using namespace std;
-
-std::stack<clock_t> tictoc_stack;
-
-void tic() {
-    tictoc_stack.push(clock());
-}
-
-void toc() {
-    std::cout << "Time elapsed: "
-              << ((double)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC
-              << std::endl;
-    tictoc_stack.pop();
-}
-
-float tocMatteo() {
-    float currentTime=((double)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC;
-    //std::cout << "Time elapsed: "
-    //         << ((double)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC
-    //          << std::endl;
-    tictoc_stack.pop();
-    return currentTime;
-}
 
 
 /*/ Defining our parser error handler (not defined by library)
@@ -145,7 +124,8 @@ void helperXMLParser::print(){
 }
 
 
-pedestrianDetector::pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType){
+pedestrianDetector::pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType)
+{
 
     /*Detector initialization*/
 
@@ -299,7 +279,7 @@ void pedestrianDetector::runDetector(Mat img_original){
     /*
    * Calculate Pyramids
    */
-    pyrOutput *pOutput = chnsPyramid(img, pInput);
+    pyrOutput *pOutput = chnsPyramid(img, pInput); // DEFICIENTE
 
     /*
    * Free img memory
@@ -316,13 +296,13 @@ void pedestrianDetector::runDetector(Mat img_original){
 
     if(detectorType.compare("pedestrian") == 0 || detectorType.compare("full") == 0)
     {
-    rects = sctRun(pOutput, sctInput);
+        rects = sctRun(pOutput, sctInput);
     }
 
     if(detectorType.compare("headandshoulders") == 0 || detectorType.compare("full") == 0)
     {
-    sctInputHeads->verticalSuperPadding=12;
-    rectsHeads = sctRun(pOutput, sctInputHeads);
+        sctInputHeads->verticalSuperPadding=12;
+        rectsHeads = sctRun(pOutput, sctInputHeads);
     }
 
     delete pOutput;
