@@ -22,18 +22,18 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
  //pdf of the height
     double innovation = heightP+heightR;
 
-    double p_colors = 1-compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
-    double p_height = (1.0/(sqrt(2*CV_PI)*sqrt(innovation)))*exp(-pow((height-personHeight), 2)/(2*innovation));
+    double p_colors = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
+    //double p_height = (1.0/(sqrt(2*CV_PI)*sqrt(innovation)))*exp(-pow((height-personHeight), 2)/(2*innovation));
 
 
     //Get the pdfs from the mmae
     Mat measurement = Mat(2, 1, CV_64F);
     measurement.at<double>(0, 0) = detectedPosition.x;
     measurement.at<double>(1, 0) = detectedPosition.y;
-
+/*
     double density = 0;
     int l = 0;
-    double p_models = 0;
+    double p_models = 0;*/
 /*
 
     for(std::vector<KalmanFilter>::iterator it = mmaeEstimator->filterBank.begin(); it != mmaeEstimator->filterBank.end(); it++, l++)
@@ -62,7 +62,7 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
 
     //return (500-(log(p_colors)+log(p_height)+log(p_models)));
     //return 500-p_colors*p_height*(p_const_pos+p_const_vel+p_const_accel);
-    return 500-p_colors+(norm(detectedPosition-getPositionEstimate()));
+    return p_colors;
 }
 
 
@@ -596,12 +596,15 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             //If there is an associated tracker and the distance is less than 2 meters we update the position
             if(assignment[i] != -1)
             {
-
+       
                 Point3d detPos(coordsInBaseFrame.at(i).x, coordsInBaseFrame.at(i).y, 0);
-
                 Point3d trackPos = personList.at(assignment[i]).getPositionEstimate();
+                Mat trackerColorHist = personList.at(assignment[i]).getBvtHistogram();
+                Mat detectionColorHist = colorFeaturesList.at(i);
+                double colorDist = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
                 trackPos.z = 0.0;
-                if(norm(detPos-trackPos) < 2.0)
+
+                if(norm(detPos-trackPos) < 2.0 && colorDist < 0.7)
                 {
                     personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
                     personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
@@ -611,8 +614,8 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                     //Bounding boxes...
                     personList.at(assignment[i]).rect = rects.at(i);
 
-                    //Color histograms
-                    personList.at(assignment[i]).bvtHistogram = colorFeaturesList.at(i);
+                    //Color histograms I'm not going to update it now lol
+                    personList.at(assignment[i]).bvtHistogram = personList.at(assignment[i]).bvtHistogram*0.8+0.2*colorFeaturesList.at(i);
                 }
                 else
                 {

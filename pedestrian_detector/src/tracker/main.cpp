@@ -226,7 +226,7 @@ public:
         ros::Time currentTime = ros::Time(0);
 
 
-        ROS_ERROR_STREAM("Getting transform at 228");
+        //ROS_ERROR_STREAM("Getting transform at 228");
 
         try
         {
@@ -241,7 +241,7 @@ public:
             return;
         }
         //ROS_ERROR_STREAM("Got 228");
-        ROS_ERROR_STREAM("Got 228");
+        //ROS_ERROR_STREAM("Got 228");
 
 
         //Get rects from message
@@ -302,9 +302,9 @@ public:
         //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
 
 
-        ROS_ERROR_STREAM("Computing points on world frame");
+        //ROS_ERROR_STREAM("Computing points on world frame");
         coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, rects);
-        ROS_ERROR_STREAM("Computed");
+        //ROS_ERROR_STREAM("Computed");
 
         //Before we associate the data we need to filter invalid detections
         detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
@@ -446,10 +446,11 @@ public:
 
                 geometry_msgs::PointStamped personInMap;
                 //ROS_ERROR_STREAM("Getting transform at 448");
+		geometry_msgs::PointStamped personInBase;
 
                 try
                 {
-                    geometry_msgs::PointStamped personInBase;
+                    
                     personInBase.header.frame_id = filtering_frame_id;
                     personInBase.header.stamp = last_image_header.stamp;
                     personInBase.point.x = position.x;
@@ -467,7 +468,7 @@ public:
                     return;
                 }
 
-                ROS_ERROR_STREAM("Got 448");
+                //ROS_ERROR_STREAM("Got 448");
 
                 int_marker.pose.position.x = personInMap.point.x;
                 int_marker.pose.position.y = personInMap.point.y;
@@ -482,11 +483,9 @@ public:
             int_marker.header.stamp=currentTime;
             int_marker.header.frame_id=world_frame;
 
-            for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+            for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); ++it)
             {
-
                 Point3d position = (*it).getPositionEstimate();
-
 
                 if((*it).id == targetId)
                 {
@@ -501,11 +500,11 @@ public:
 
                     geometry_msgs::PointStamped personInMap;
 
-                    ROS_ERROR_STREAM("Getting transform at 504");
-
+                    //ROS_ERROR_STREAM("Getting transform at 504");
+		    geometry_msgs::PointStamped personInBase;
                     try
                     {
-                        geometry_msgs::PointStamped personInBase;
+
                         personInBase.header.frame_id = filtering_frame_id;
                         personInBase.header.stamp = currentTime;
                         personInBase.point.x = position.x;
@@ -522,7 +521,7 @@ public:
                         return;
                     }
 
-                    ROS_ERROR_STREAM("Got 504");
+                    //ROS_ERROR_STREAM("Got 504");
 
                     int_marker.pose.position.x = personInMap.point.x;
                     int_marker.pose.position.y = personInMap.point.y;
@@ -547,11 +546,9 @@ public:
                     final_position.point.y = position.y;
                     final_position.point.z = 0;
 
-                    position_publisher.publish(final_position);
-
-
+                    
                     // CONTROL GAZE
-                    if(cv::norm(Point3d(position.x, position.y, it->personHeight/2)-lastFixationPoint) > gaze_threshold)
+                    if(personInBase.point.x > 0.5)
                     {
                         move_robot_msgs::GazeGoal fixationGoal;
                         fixationGoal.fixation_point.header.stamp=currentTime;
@@ -574,7 +571,7 @@ public:
                     }
 
 
-
+			position_publisher.publish(final_position);
 
                     //wait for the action to return
                     /*              bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
@@ -599,7 +596,7 @@ public:
                     Point3d position = (*it).getPositionEstimate();
                     geometry_msgs::PointStamped personInMap;
 
-                    ROS_ERROR_STREAM("Getting transform at 600");
+                    //ROS_ERROR_STREAM("Getting transform at 600");
                     try
                     {
                         geometry_msgs::PointStamped personInBase;
