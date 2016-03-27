@@ -1,7 +1,6 @@
 #include "../include/detector/colorFeatures.hpp"
-#include <highgui.h>
-#include <cv.h>
-#include <ros/ros.h>
+#include <opencv/highgui.h>
+#include <opencv/cv.h>
 
 using namespace std;
 

@@ -14,7 +14,6 @@
 
 #include "../include/detector/strongClassifierTree.hpp"
 #include <sys/time.h>
-#include <ros/ros.h>
 #include <stack>
 
 double *classifierData  = NULL; //global variable, accessible from everywhere

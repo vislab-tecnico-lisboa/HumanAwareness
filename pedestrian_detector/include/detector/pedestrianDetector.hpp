@@ -107,7 +107,7 @@ public:
     // nExtraFeatures
     int nExtraFeatures;
 
-    helperXMLParser(string filename);
+    helperXMLParser(string filename, string class_path);
     ~helperXMLParser();
     void print();
 };
@@ -132,7 +132,7 @@ public:
 
     std::string detectorType;
     
-    pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType);
+    pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType, string class_path);
     ~pedestrianDetector();
-    void runDetector(Mat img_original);
+    void runDetector(const Mat img_original);
 };

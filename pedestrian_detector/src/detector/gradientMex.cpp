@@ -247,7 +247,7 @@ void hog( float *H, float *G, int h, int w, int bin, int nOrients, float clip ){
 }
 
 /******************************************************************************/
-#ifdef MATLAB_MEX_FILE
+/*#ifdef MATLAB_MEX_FILE
 // Create [hxwxd] mxArray array, initialize to 0 if c=true
 mxArray* mxCreateMatrix3( int h, int w, int d, mxClassID id, bool c, void **I ){
     const int dims[3]={h,w,d}, n=h*w*d; int b; mxArray* M;
@@ -340,4 +340,4 @@ void mexFunction( int nl, mxArray *pl[], int nr, const mxArray *pr[] ) {
     else if(!strcmp(action,"gradientHist")) mGradHist(nl,pl,nr,pr);
     else mexErrMsgTxt("Invalid action.");
 }
-#endif
+#endif*/

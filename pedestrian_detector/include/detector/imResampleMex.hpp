@@ -152,7 +152,7 @@ void resample( T *A, T *B, int ha, int hb, int wa, int wb, int d, T r ) {
 }
 
 // B = imResampleMex(A,hb,wb,nrm); see imResample.m for usage details
-#ifdef MATLAB_MEX_FILE
+/*#ifdef MATLAB_MEX_FILE
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   int *ns, ms[3], n, m, nCh, nDims;
   void *A, *B; mxClassID id; double nrm;
@@ -189,6 +189,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     mexErrMsgTxt("Unsupported type.");
   }
 }
-#endif
+#endif*/
 
 #endif /* IMRESAMPLEMEX_HPP_ */

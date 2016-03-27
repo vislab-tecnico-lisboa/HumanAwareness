@@ -18,7 +18,7 @@
 #include <iostream>
 #include <ctime>
 #include <stack>
-#include <ros/package.h>
+//#include <ros/package.h>
 #include <sstream>
 #include "common.h"
 
@@ -33,7 +33,7 @@ void rapidxml::parse_error_handler(const char *what, void *where){
 //*/
 
 //*/
-helperXMLParser::helperXMLParser(string filename){
+helperXMLParser::helperXMLParser(string filename, std::string class_path){
     // Read the source file
     ifstream in(filename.c_str());
 
@@ -87,7 +87,10 @@ helperXMLParser::helperXMLParser(string filename){
 
     //With this we don't really need to worry about our working directory
     stringstream ss;
-    ss << ros::package::getPath("pedestrian_detector") << "/" << classFile;
+    //ss << ros::package::getPath("pedestrian_detector") << "/" << classFile;
+    ss << class_path << "/" << classFile;
+
+
     classFile = ss.str();
     /**********************************************************************/
     nrClass = atoll(classifierN->first_attribute("nrClass")->value());
@@ -124,21 +127,21 @@ void helperXMLParser::print(){
 }
 
 
-pedestrianDetector::pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType)
+pedestrianDetector::pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType, std::string class_path)
 {
 
     /*Detector initialization*/
 
     this->detectorType = detectorType;
 
-    parsed = new helperXMLParser(configuration);
+    parsed = new helperXMLParser(configuration,class_path);
     if(parsed->verbose)
         parsed->print();
 
 
 
     //Parse HeadAndShoulders
-    parsedHeads = new helperXMLParser(configHeadAndShoulders);
+    parsedHeads = new helperXMLParser(configHeadAndShoulders, class_path);
 
     pInput = new pyrInput();
     pInput->nApprox = -1; 								//parse it
@@ -227,7 +230,7 @@ pedestrianDetector::~pedestrianDetector(){
 
 }
 
-void pedestrianDetector::runDetector(Mat img_original){
+void pedestrianDetector::runDetector(const Mat img_original){
 
     // These are helper variables
     Mat image, imagef, imageO = img_original;

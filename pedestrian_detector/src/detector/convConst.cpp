@@ -216,7 +216,7 @@ void convMax( float *I, float *O, int h, int w, int d, int r ) {
 }
 
 // B=convConst(type,A,r,s); fast 2D convolutions (see convTri.m and convBox.m)
-#ifdef MATLAB_MEX_FILE
+/*#ifdef MATLAB_MEX_FILE
 void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[] ) {
   int *ns, ms[3], nDims, d, m, r, s; float *A, *B, p;
   mxClassID id; char type[1024];
@@ -268,4 +268,4 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[] ) {
     mexErrMsgTxt("Invalid type.");
   }
 }
-#endif
+#endif*/

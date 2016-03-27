@@ -92,7 +92,7 @@ template<class T> void imPad( T *A, T *B, int h, int w, int d, int pt, int pb,
 }
 
 // B = imPadMex(A,pad,type); see imPad.m for usage details
-#ifdef MATLAB_MEX_FILE
+/*#ifdef MATLAB_MEX_FILE
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   int *ns, ms[3], nCh, nDims, pt, pb, pl, pr, flag, k; double *p;
   void *A, *B; mxClassID id; double val=0; char type[1024];
@@ -145,6 +145,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     mexErrMsgTxt("Unsupported image type.");
   }
 }
-#endif
+#endif*/
 
 #endif /* IMPADMEX_HPP_ */
