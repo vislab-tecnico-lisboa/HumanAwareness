@@ -32,7 +32,7 @@ void tic() {
     tictoc_stack.push(clock());
 }
 
-double toc_() 
+double toc_()
 {
     double time_elapsed=((double)(clock() - tictoc_stack.top())) / CLOCKS_PER_SEC;
     //std::cout << "Time elapsed: " << time_elapsed << std::endl;
@@ -90,7 +90,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     
     
-    
     // Get the class instance pointer from the second input
     pedestrianDetector *pedestrian_detector = convertMat2Ptr<pedestrianDetector>(prhs[1]);
     
@@ -99,22 +98,42 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (!strcmp("detect", cmd))
     {
         // Check parameters
-        if (nrhs !=3)
+        if (nrhs !=7)
             mexErrMsgTxt("detect: Unexpected arguments.");
         
         // Convert from matlab to opencv
         const cv::Mat opencv_const=MxArray(prhs[2]).toMat();
+        
+        int x=*(double *) mxGetPr(prhs[3]);
+        int y=*(double *) mxGetPr(prhs[4]);
+        int width=*(double *) mxGetPr(prhs[5]);
+        int height=*(double *) mxGetPr(prhs[6]);
+
+        // Setup a rectangle to define your region of interest
+        cv::Rect myROI(x , y, width, height);
+        
+        // Crop the full image to that image contained by the rectangle myROI
+        // Note that this doesn't copy the data
+        cv::Mat croppedRef(opencv_const, myROI);
+        
+        // Copy the data into new matrix
+        //croppedRef.copyTo(image);
+        std::cout << "after width:"<< croppedRef.cols << " after height:"<< croppedRef.rows << std::endl;
+        
+        
         // Call the method
         tic();
-        pedestrian_detector->runDetector(opencv_const);
+        pedestrian_detector->runDetector(croppedRef);
         double time_elapsed=toc_();
         cv::Mat imageDisplay = opencv_const.clone();
         
         mxArray *p;
         int i=0;
         plhs[0] = mxCreateStructMatrix(1, pedestrian_detector->boundingBoxes->size(), 4, fieldsPoint);
-        for (vector<cv::Rect_<int> >::iterator it = pedestrian_detector->boundingBoxes->begin(); it != pedestrian_detector->boundingBoxes->end(); ++it) 
+        for (vector<cv::Rect_<int> >::iterator it = pedestrian_detector->boundingBoxes->begin(); it != pedestrian_detector->boundingBoxes->end(); ++it)
         {
+            it->x+=x;
+            it->y+=y;
             // start point
             mxSetField(plhs[0], i, "x", mxCreateDoubleScalar(it->x));
             mxSetField(plhs[0], i, "y", mxCreateDoubleScalar(it->y));
@@ -128,7 +147,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         
         return;
     }
-
+    
     // Got here, so command not recognized
     mexErrMsgTxt("Command not recognized.");
 }

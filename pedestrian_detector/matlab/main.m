@@ -25,13 +25,21 @@ screenSize = get(0, 'ScreenSize');
 % 	set(gcf, 'Position', get(0,'Screensize')); % Maximize figure.
 
 for i=1:length(srcFiles)
-    [bounding_boxes, time_elapsed]=detect(pedestrian_detector_,mov(i).cdata);
-    
+    width=size(mov(i).cdata,2)/2.0;
+    height=size(mov(i).cdata,1)/2.0;
+    x=width-width/2.0;
+    y=height-height/2.0;
+    [bounding_boxes, time_elapsed]=detect(pedestrian_detector_,...
+        mov(i).cdata,...
+        x,y,width,height);
+    fps=1.0/time_elapsed
     figure(1),imshow(mov(i).cdata);
     hold on
+    rectangle('Position', [x, y, width, height],...
+            'EdgeColor','b', 'LineWidth', 3); % draw attentional focci
     for b=1:length(bounding_boxes)
         rectangle('Position', [bounding_boxes(b).x, bounding_boxes(b).y, bounding_boxes(b).width, bounding_boxes(b).height],...
-            'EdgeColor','r', 'LineWidth', 3)
+            'EdgeColor','r', 'LineWidth', 3);
     end
     hold off
     drawnow
