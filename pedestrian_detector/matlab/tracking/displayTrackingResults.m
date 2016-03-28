@@ -1,9 +1,9 @@
-function displayTrackingResults(obj,frame,tracks, detection_bboxes)
+function displayTrackingResults(obj,frame,tracks, detection_bboxes, minVisibleCount)
 % Convert the frame and the mask to uint8 RGB.
 frame = im2uint8(frame);
 detector_frame=frame;
 tracking_frame=frame;
-minVisibleCount = 1;
+
 if ~isempty(tracks)
     
     % Noisy detections tend to result in short-lived tracks.
@@ -44,6 +44,6 @@ if ~isempty(tracks)
 end
 
 obj.detectorPlayer.step(detector_frame);
-obj.videoPlayer.step(tracking_frame);
+obj.trackerPlayer.step(tracking_frame);
 
 end

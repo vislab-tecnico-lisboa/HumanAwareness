@@ -1,10 +1,10 @@
-function tracks=deleteLostTracks(tracks)
+function tracks=deleteLostTracks(tracks,...
+    invisibleForTooLong,...
+    ageThreshold)
 if isempty(tracks)
     return;
 end
 
-invisibleForTooLong = 20;
-ageThreshold = 8;
 
 % Compute the fraction of the track's age for which it was visible.
 ages = [tracks(:).age];

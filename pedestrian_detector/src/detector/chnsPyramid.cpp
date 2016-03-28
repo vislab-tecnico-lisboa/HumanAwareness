@@ -36,8 +36,6 @@ pyrInput::pyrInput()
     minDs[0] = 16;
     minDs[1] = 16;
 
-
-
     smoothIm = 1;
     smoothChns = 1;
 
