@@ -41,7 +41,9 @@ double toc_()
     return time_elapsed;
 }
 
+const char *centroid[] = {"x", "y"};
 const char *fieldsPoint[] = {"x", "y", "width","height"};
+
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
@@ -54,10 +56,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     if (!strcmp("new", cmd))
     {
         // Check parameters
-        std::cout << "nrhs: " << nrhs << std::endl;
+        //std::cout << "nrhs: " << nrhs << std::endl;
         if(nrhs!=5)
         {
-            mexErrMsgTxt("wrong inputs number");
+            mexErrMsgTxt("wrong inputs number (should be 5)");
         }
         
         std::string conf_pedestrians=mxArrayToString(prhs[1]);
@@ -65,10 +67,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         std::string detector_type=mxArrayToString(prhs[3]);
         std::string class_path=mxArrayToString(prhs[4]);
         
-        std::cout << "conf_pedestrians:" << conf_pedestrians << std::endl;
-        std::cout << "conf_heads:" << conf_heads << std::endl;
-        std::cout << "detector_type:" << detector_type << std::endl;
-        std::cout << "class_path:" << class_path << std::endl;
+        //std::cout << "conf_pedestrians:" << conf_pedestrians << std::endl;
+        //std::cout << "conf_heads:" << conf_heads << std::endl;
+        //std::cout << "detector_type:" << detector_type << std::endl;
+        //std::cout << "class_path:" << class_path << std::endl;
         
         plhs[0] = convertPtr2Mat<pedestrianDetector>(new  pedestrianDetector(conf_pedestrians, conf_heads, detector_type, class_path));
         
@@ -108,7 +110,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         int y=*(double *) mxGetPr(prhs[4]);
         int width=*(double *) mxGetPr(prhs[5]);
         int height=*(double *) mxGetPr(prhs[6]);
-
+        
         // Setup a rectangle to define your region of interest
         cv::Rect myROI(x , y, width, height);
         
@@ -118,7 +120,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         
         // Copy the data into new matrix
         //croppedRef.copyTo(image);
-        std::cout << "after width:"<< croppedRef.cols << " after height:"<< croppedRef.rows << std::endl;
         
         
         // Call the method
@@ -129,22 +130,29 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         
         mxArray *p;
         int i=0;
-        plhs[0] = mxCreateStructMatrix(1, pedestrian_detector->boundingBoxes->size(), 4, fieldsPoint);
+        plhs[0] = mxCreateStructMatrix(1, pedestrian_detector->boundingBoxes->size(), 2, centroid);
+        plhs[1] = mxCreateStructMatrix(1, pedestrian_detector->boundingBoxes->size(), 4, fieldsPoint);
+        
         for (vector<cv::Rect_<int> >::iterator it = pedestrian_detector->boundingBoxes->begin(); it != pedestrian_detector->boundingBoxes->end(); ++it)
         {
             it->x+=x;
             it->y+=y;
-            // start point
-            mxSetField(plhs[0], i, "x", mxCreateDoubleScalar(it->x));
-            mxSetField(plhs[0], i, "y", mxCreateDoubleScalar(it->y));
-            mxSetField(plhs[0], i, "width", mxCreateDoubleScalar(it->width));
-            mxSetField(plhs[0], i, "height", mxCreateDoubleScalar(it->height));
+            
+            // Centroids
+            mxSetField(plhs[0], i, "x", mxCreateDoubleScalar(it->x+it->width/2.0));
+            mxSetField(plhs[0], i, "y", mxCreateDoubleScalar(it->y+it->height/2.0));
+
+            // ROIs
+            mxSetField(plhs[1], i, "x", mxCreateDoubleScalar(it->x));
+            mxSetField(plhs[1], i, "y", mxCreateDoubleScalar(it->y));
+            mxSetField(plhs[1], i, "width", mxCreateDoubleScalar(it->width));
+            mxSetField(plhs[1], i, "height", mxCreateDoubleScalar(it->height));
             ++i;
         }
         
         // Convert from opencv to matlab
-        plhs[1]=mxCreateDoubleScalar(time_elapsed);
-        
+        plhs[2]=mxCreateDoubleScalar(time_elapsed);
+        plhs[3]=MxArray(croppedRef);
         return;
     }
     
