@@ -15,7 +15,8 @@ size_motion_noise=[40, 100];
 size_measurement_noise=5;
 costOfNonAssignmentSize=20;
 
-resource_constraint=0.2; % 20% of image
+capacity_constraint=0.2; % 20% of image
+max_items=7;
 %% Create System objects used for reading video, detecting moving objects,
 % and displaying the results.
 obj = setupSystemObjects('dataset/cvpr10_tud_stadtmitte.avi');
@@ -23,13 +24,13 @@ v = VideoReader('dataset/cvpr10_tud_stadtmitte.avi');
 frame_size = size(read(v,1));
 %% Initialize pedestrian detector
 detector=initializeDetector();
-
+ 
 %% Initialize trackers
 tracks = initializeTracks(); % Create an empty array of tracks.
 nextId = 1; % ID of the next track
 
 %% Initialize resource contraint policy optimizer
-darap=initializeDARAP(frame_size(2), frame_size(1),resource_constraint);
+darap=initializeDARAP(frame_size(2), frame_size(1),capacity_constraint,max_items);
 %% Detect moving objects, and track them across video frames.
 while ~isDone(obj.reader)
     frame=readFrame(obj);
