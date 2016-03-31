@@ -126,7 +126,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         tic();
         pedestrian_detector->runDetector(croppedRef);
         double time_elapsed=toc_();
-        cv::Mat imageDisplay = opencv_const.clone();
+        std::cout << "time elapsed (detection):" << time_elapsed<< std::endl;
+
         
         mxArray *p;
         int i=0;
@@ -152,7 +153,80 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         
         // Convert from opencv to matlab
         plhs[2]=mxCreateDoubleScalar(time_elapsed);
-        plhs[3]=MxArray(croppedRef);
+
+        return;
+    }
+    
+    if (!strcmp("detect_with_rois", cmd))
+    {
+        // Check parameters
+        if (nrhs !=8)
+            mexErrMsgTxt("detect: Unexpected arguments.");
+        
+        // Convert from matlab to opencv
+        const cv::Mat opencv_const=MxArray(prhs[2]).toMat();
+        int x=*(double *) mxGetPr(prhs[3]);
+        int y=*(double *) mxGetPr(prhs[4]);
+        int width=*(double *) mxGetPr(prhs[5]);
+        int height=*(double *) mxGetPr(prhs[6]);
+        const cv::Mat rois_mat=MxArray(prhs[7]).toMat();
+        tic();
+        std::vector<cv::Rect> detections;
+        for(int i=0; i<rois_mat.rows;++i)
+        {
+            if(rois_mat.at<double>(i,2)<64||rois_mat.at<double>(i,3)<128)
+                continue;
+            // Setup a rectangle to define your region of interest
+            cv::Rect roi(rois_mat.at<double>(i,0), 
+                    rois_mat.at<double>(i,1), 
+                    rois_mat.at<double>(i,2), 
+                    rois_mat.at<double>(i,3));
+        
+            // Crop the full image to that image contained by the rectangle myROI
+            // Note that this doesn't copy the data
+            cv::Mat croppedRef(opencv_const, roi);
+            pedestrian_detector->runDetector(croppedRef);
+            for(std::vector<cv::Rect>::iterator it=pedestrian_detector->boundingBoxes->begin(); 
+            it!=pedestrian_detector->boundingBoxes->end(); ++it)
+            {
+                (*it).x+=rois_mat.at<double>(i,0);
+                (*it).y+=rois_mat.at<double>(i,1);
+                detections.push_back(*it);
+            }
+        }
+
+        double time_elapsed=toc_();
+        std::cout << "time elapsed (detection):" << time_elapsed<< std::endl;
+
+        
+        // Call the method
+        
+
+        
+        mxArray *p;
+        int i=0;
+        plhs[0] = mxCreateStructMatrix(1, detections.size(), 2, centroid);
+        plhs[1] = mxCreateStructMatrix(1, detections.size(), 4, fieldsPoint);
+        
+        for (std::vector<cv::Rect>::iterator it = detections.begin(); it != detections.end(); ++it)
+        {
+            it->x+=x;
+            it->y+=y;
+            
+            // Centroids
+            mxSetField(plhs[0], i, "x", mxCreateDoubleScalar(it->x+it->width/2.0));
+            mxSetField(plhs[0], i, "y", mxCreateDoubleScalar(it->y+it->height/2.0));
+
+            // ROIs
+            mxSetField(plhs[1], i, "x", mxCreateDoubleScalar(it->x));
+            mxSetField(plhs[1], i, "y", mxCreateDoubleScalar(it->y));
+            mxSetField(plhs[1], i, "width", mxCreateDoubleScalar(it->width));
+            mxSetField(plhs[1], i, "height", mxCreateDoubleScalar(it->height));
+            ++i;
+        }
+        
+        // Convert from opencv to matlab
+        plhs[2]=mxCreateDoubleScalar(time_elapsed);
         return;
     }
     

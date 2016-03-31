@@ -18,6 +18,9 @@ classdef pedestrian_detector < handle
         function varargout = detect(this, varargin)
             [varargout{1:nargout}] = pedestrian_detector_interface_mex('detect', this.objectHandle, varargin{:});
         end
-
+        
+        function varargout = detect_with_rois(this, varargin)
+            [varargout{1:nargout}] = pedestrian_detector_interface_mex('detect_with_rois', this.objectHandle, varargin{:});
+        end
     end
 end

@@ -7,7 +7,12 @@ function [assignments, unassignedTracks, unassignedDetections] = ...
 
 nTracks = length(tracks);
 nDetections = size(centroids, 1);
-
+if nDetections == 0
+    assignments=[];
+    unassignedTracks=[];
+    unassignedDetections=[];
+    return
+end
 % Compute the cost of assigning each detection to each track (centroid).
 cost = zeros(nTracks, nDetections);
 for i = 1:nTracks

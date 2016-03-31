@@ -1,9 +1,9 @@
-function displayTrackingResults(obj,frame,tracks, detection_bboxes, minVisibleCount)
+function displayTrackingResults(obj,frame,tracks, detection_bboxes, minVisibleCount,rois)
 % Convert the frame and the mask to uint8 RGB.
 frame = im2uint8(frame);
 detector_frame=frame;
 tracking_frame=frame;
-
+proposals_frame=frame;
 if ~isempty(tracks)
     
     % Noisy detections tend to result in short-lived tracks.
@@ -40,10 +40,14 @@ if ~isempty(tracks)
         % Draw the trackers on the frame.
         tracking_frame = insertObjectAnnotation(frame, 'rectangle', ...
             bboxes, tracker_labels,'Color','green');
+        
+        % Draw the proposals on the frame.
+        proposals_frame = insertObjectAnnotation(frame, 'rectangle', ...
+            rois, cellstr(int2str([1:size(rois,1)]')),'Color','blue');
     end
 end
 
 obj.detectorPlayer.step(detector_frame);
 obj.trackerPlayer.step(tracking_frame);
-
+obj.proposalsPlayer.step(proposals_frame);
 end

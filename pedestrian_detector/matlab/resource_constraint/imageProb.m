@@ -1,4 +1,6 @@
-function prob_image=imageProb(tracks,darp)
+function [rois,time_elapsed]=imageProb(tracks,darp)
+rois=[];
+time_elapsed=0.0;
 
 centroid_means=zeros(length(tracks),2);
 centroid_variances=zeros(length(tracks),2);
@@ -6,7 +8,7 @@ centroid_variances=zeros(length(tracks),2);
 
 size_means=zeros(length(tracks),2);
 size_variances=zeros(length(tracks),2);
-
+upper_left_corner=zeros(length(tracks),2);
 if ~isempty(tracks)
 for i=1:length(tracks)
     centroid_means(i,:)=[tracks(i).centroidsKalmanFilter.State(1) tracks(i).centroidsKalmanFilter.State(3)];
@@ -18,7 +20,7 @@ for i=1:length(tracks)
     size_variances(i,:)=[...
         tracks(i).sizeKalmanFilter.StateCovariance(1,1)...
         tracks(i).sizeKalmanFilter.StateCovariance(2,2)];
-    
+    upper_left_corner(i,:)=tracks(i).bbox(1:2);
     %% Compute bounding box
 %     size_thresholded=size_mean+...
 %         [3*sqrt(size_variances(1,1)) 3*sqrt(size_variances(2,2))]+...
@@ -32,6 +34,7 @@ for i=1:length(tracks)
 %         end
 %     end
 end
-compute_probabilities(darp,centroid_means',centroid_variances',size_means',size_variances');
+[rois,time_elapsed]=compute_probabilities(darp,centroid_means',centroid_variances',size_means',size_variances',upper_left_corner');
+rois=reshape(cell2mat(rois)',4,size(rois,2))';
 end
 end

@@ -8,8 +8,10 @@ obj.reader = vision.VideoFileReader(filename);
 
 % Create two video players, one to display the video,
 % and one to display the foreground mask.
-obj.detectorPlayer = vision.VideoPlayer('Position', [2*740, 2*400, 2*700, 2*400],'Name','detections');
-obj.trackerPlayer = vision.VideoPlayer('Position', [20, 400, 700, 400],'Name','trackers');
+obj.detectorPlayer = vision.VideoPlayer('Position', [20, 400, 700, 400],'Name','detections');
+obj.trackerPlayer = vision.VideoPlayer('Position', [2*740, 2*400, 2*700, 2*400],'Name','trackers');
+obj.proposalsPlayer = vision.VideoPlayer('Position', [20, 400, 700, 400],'Name','proposals');
+
 % Create System objects for foreground detection and blob analysis
 
 % The foreground detector is used to segment moving objects from

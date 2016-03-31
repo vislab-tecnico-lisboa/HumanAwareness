@@ -15,8 +15,8 @@ classdef darap < handle
         end
         
         %% Detect persons
-        function varargout = get_probability_map(this, varargin)
-            [varargout{1:nargout}] = darap_interface_mex('get_probability_map', this.objectHandle, varargin{:});
+        function varargout = get_probability_maps(this, varargin)
+            [varargout{1:nargout}] = darap_interface_mex('get_probability_maps', this.objectHandle, varargin{:});
         end
 
 
