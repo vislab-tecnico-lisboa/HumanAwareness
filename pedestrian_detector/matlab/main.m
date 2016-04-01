@@ -1,6 +1,8 @@
 close all
 addpath('tracking');
 addpath('resource_constraint');
+
+% tracking parameters
 invisibleForTooLong = 4;
 ageThreshold = 5;
 minVisibleCount = 4;
@@ -10,17 +12,22 @@ centroid_motion_noise=[40, 40];
 centroid_measurement_noise=15;
 costOfNonAssignmentCentroid = 30;
 
-size_initial_estimate_error=[100, 100];
-size_motion_noise=[40, 100];
-size_measurement_noise=5;
+size_transition_model=[1 0; 0 1]; % constant position
+size_measurement_model=[1 0; 0 1];
+size_init_state_covariance=[100 0; 0 100];
+size_process_noise=[40 0; 0 40];
+size_measurement_noise=[10 0; 0 10];
 costOfNonAssignmentSize=20;
 
-capacity_constraint=0.1; % 20% of image
-max_items=7;
+% optimization parameters    
+capacity_constraint=0.5; % percentage of image to be process at each time instant
+max_items=7;             % max regions to be process (To do)
+time_horizon=2;          % planning time horizon (To do: now its 1 by default)
+
 %% Create System objects used for reading video, detecting moving objects,
 % and displaying the results.
-obj = setupSystemObjects('dataset/cvpr10_tud_stadtmitte.avi');
-v = VideoReader('dataset/cvpr10_tud_stadtmitte.avi');
+obj = setupSystemObjects('dataset/cvpr10_tud_stadtmitte/cvpr10_tud_stadtmitte.avi');
+v = VideoReader('dataset/cvpr10_tud_stadtmitte/cvpr10_tud_stadtmitte.avi');
 frame_size = size(read(v,1));
 %% Initialize pedestrian detector
 detector=initializeDetector();
@@ -80,8 +87,10 @@ while ~isDone(obj.reader)
         centroid_initial_estimate_error,...
         centroid_motion_noise,...
         centroid_measurement_noise,...
-        size_initial_estimate_error,...
-        size_motion_noise,...
+        size_transition_model,...
+        size_measurement_model,...
+        size_init_state_covariance,...
+        size_process_noise,...
         size_measurement_noise);
     displayTrackingResults(obj,frame,tracks,detection_bboxes,minVisibleCount,rois);
     
