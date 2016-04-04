@@ -1,23 +1,35 @@
 #include "resource_allocation.h"
 
 DARP::DARP(const int & width_,
-           const int & height_,
-           const double & max_relative_capacity_,
-           const int & max_items_) :
-           width(width_),
-           height(height_),
+        const int & height_,
+        const double & max_relative_capacity_,
+        const int & max_items_,
+        const int & min_width_,
+        const int & min_height_) :
+            width(width_),
+                    height(height_),
                     max_relative_capacity(max_relative_capacity_), //percentage
                     max_items(max_items_),
                     total_capacity(max_relative_capacity_*width_*height_),
-                    optimizer(new Knapsack(total_capacity,max_items))
+                    optimizer(new Knapsack(total_capacity,max_items)),
+                    min_width(min_width_),
+                    min_height(min_height_)
             {
-
+                
                 // ALLOCATE MEMORY FOR AUXILIARY PROBABILITY MAPS
                 item_weight.resize(max_items);
                 item_value.resize(max_items);
                 std::fill(item_value.begin(),item_value.end(),0.0);
                 std::fill(item_weight.begin(),item_weight.end(),10000000);
                 
+                // ALLOCATE MEMORY FOR OTHER AUXILIARY VARS
+                x=cv::Mat(2,1,CV_64F);
+                std_dev=cv::Mat(2,1,CV_64F);
+                centroid_std_dev=cv::Mat(2,1,CV_64F);
+                size_std_dev=cv::Mat(2,1,CV_64F);
+                size_means=cv::Mat(2,1,CV_64F);
+                thresholds=cv::Mat(2,1,CV_64F);
+                cov=cv::Mat(2,2,CV_64F,cv::Scalar(0.0));
                 probability_maps.resize(1);
                 
                 // INITIALIZE WITH A GAUSSIAN CENTERED
@@ -32,7 +44,7 @@ DARP::DARP(const int & width_,
                 cov.at<double>(1,1)=1000.0;
                 
                 tic();
- 
+                
                 cv::Mat x(2,1,CV_64F);
                 for(int i=0;i<width;++i)
                 {
@@ -47,33 +59,29 @@ DARP::DARP(const int & width_,
             };
             
             void DARP::computeValues(
-                    const cv::Mat & centroid_means,
-                    const cv::Mat & centroid_variances,
-                    const cv::Mat & size_means,
-                    const cv::Mat & size_variances)
+                    const cv::Mat & state_means,
+                    const cv::Mat & state_variances)
             {
-                item_weight.resize(centroid_means.rows);
-                item_value.resize(centroid_means.rows);
-                probability_maps.resize(centroid_means.rows);
-                rois.resize(centroid_means.rows);
-                cv::Mat x(2,1,CV_64F);
-                
-                cv::Mat centroid_std_dev;
-                cv::sqrt(centroid_variances,centroid_std_dev);
-                
-                cv::Mat size_std_dev;
-                cv::sqrt(size_variances,size_std_dev);
-                
-                cv::Mat std_dev;
-                cv::sqrt(centroid_variances+size_variances,std_dev);
-                
-                cv::Mat thresholds=(size_means+1.0*std_dev)/2.0;// Half size each side)PARAMETRIZE THIS!!!
+                int nItems=state_means.rows;
+                item_weight.resize(nItems);
+                item_value.resize(nItems);
+                probability_maps.resize(nItems);
+                rois.resize(nItems);
                 
                 std::fill(item_value.begin(),item_value.end(),0.0);
                 std::fill(item_weight.begin(),item_weight.end(),1000000);
                 // For each tracked object...
-                for(int o=0; o<centroid_means.rows;++o)
+                for(int o=0; o<nItems;++o)
                 {
+                    size_std_dev.at<double>(0,0)=sqrt(state_variances.at<double>(o,2));
+                    size_std_dev.at<double>(1,0)=sqrt(state_variances.at<double>(o,2));
+                    centroid_std_dev.at<double>(0,0)=sqrt(state_variances.at<double>(o,0));
+                    centroid_std_dev.at<double>(1,0)=sqrt(state_variances.at<double>(o,1));
+                    std_dev=centroid_std_dev+size_std_dev;
+                    
+                    size_means.at<double>(0,0)=min_width*sqrt(state_means.at<double>(o,2));
+                    size_means.at<double>(1,0)=min_height*sqrt(state_means.at<double>(o,2));
+                    thresholds=(size_means+1.0*std_dev)/2.0;// Half size each side)PARAMETRIZE THIS!!!
                     // Max capacity (find better solution)
                     //if(o>max_items)
                     //   continue;
@@ -84,41 +92,40 @@ DARP::DARP(const int & width_,
                     //    continue;
                     
                     // don't go further than this
-                    int width_threshold=thresholds.at<double>(o,0);
-                    int height_threshold=thresholds.at<double>(o,1);
+                    int width_threshold=thresholds.at<double>(0,0);
+                    int height_threshold=thresholds.at<double>(0,1);
                     
-                    cv::Mat cov(2,2,CV_64F,cv::Scalar(0.0));
-                    cov.at<double>(0,0)=std_dev.at<double>(o,0)*std_dev.at<double>(o,0);
-                    cov.at<double>(1,1)=std_dev.at<double>(o,1)*std_dev.at<double>(o,1);
+                    cov.at<double>(0,0)=std_dev.at<double>(0,0)*std_dev.at<double>(0,0);
+                    cov.at<double>(1,1)=std_dev.at<double>(0,1)*std_dev.at<double>(0,1);
                     
-                    int width_begin=-width_threshold+round(centroid_means.at<double>(o,0));
+                    int width_begin=-width_threshold+round(state_means.at<double>(o,0));
                     if(width_begin<0)
                     {
                         width_begin=0;
-                        width_threshold=round(centroid_means.at<double>(o,0));
+                        width_threshold=round(state_means.at<double>(o,0));
                     }
                     
-                    int width_end=width_threshold+round(centroid_means.at<double>(o,0));
+                    int width_end=width_threshold+round(state_means.at<double>(o,0));
                     if(width_end>width)
                     {
                         width_end=width;
-                        width_threshold=width-round(centroid_means.at<double>(o,0));
+                        width_threshold=width-round(state_means.at<double>(o,0));
                     }
                     
-                    int height_begin=-height_threshold+round(centroid_means.at<double>(o,1));
+                    int height_begin=-height_threshold+round(state_means.at<double>(o,1));
                     if(height_begin<0)
                     {
                         height_begin=0;
-                        height_threshold=round(centroid_means.at<double>(o,1));
+                        height_threshold=round(state_means.at<double>(o,1));
                     }
                     
-                    int height_end=height_threshold+round(centroid_means.at<double>(o,1));
+                    int height_end=height_threshold+round(state_means.at<double>(o,1));
                     if(height_end>height)
                     {
                         height_end=height;
-                        height_threshold=height-round(centroid_means.at<double>(o,1));
+                        height_threshold=height-round(state_means.at<double>(o,1));
                     }
-
+                    
                     // Get ROI
                     double roi_width=width_end-width_begin;
                     double roi_height=height_end-height_begin;
@@ -126,12 +133,11 @@ DARP::DARP(const int & width_,
                             height_begin,
                             roi_width,
                             roi_height);
-                    
                     item_weight[o]=roi_width*roi_height;
                     
                     // Compute item value   // Fill simply with the best probability (at the centroid)
-                    double best=gaussian(centroid_means.row(o).t(),centroid_means.row(o).t(),cov);
-
+                    double best=gaussian(state_means(cv::Range(o,o+1),cv::Range(0,2)).t(),state_means(cv::Range(o,o+1),cv::Range(0,2)).t(),cov);
+                    
                     item_value[o]=0.0;
                     for(int u=width_begin;u<width_end;++u)
                     {
@@ -144,21 +150,18 @@ DARP::DARP(const int & width_,
                             item_value[o]+=best;
                         }
                     }
-                                        
+                    
                     //item_value[o]/=total_capacity; // normalize ??
-                }            
-}
+                }
+                //here we should check for overlaps
+            }
             
-std::vector<cv::Rect> DARP::getROIS(const cv::Mat & centroid_means,
-                                    const cv::Mat & centroid_variances,
-                                    const cv::Mat & size_means,
-                                    const cv::Mat & size_variances)
-{
+            std::vector<cv::Rect> DARP::getROIS(const cv::Mat & state_means,
+                    const cv::Mat & state_variances)
+            {
                 tic();
-                computeValues(centroid_means,
-                        centroid_variances,
-                        size_means,
-                        size_variances);
+                computeValues(state_means,
+                        state_variances);
                 std::cout << "time elapsed (values):" << toc_()<< std::endl;
                 
                 //tic();
@@ -171,25 +174,25 @@ std::vector<cv::Rect> DARP::getROIS(const cv::Mat & centroid_means,
                     best_rois[i]=(rois[items[i]]);
                 }
                 
-                return best_rois;         
-}
+                return best_rois;
+            }
             
-double DARP::gaussian(const cv::Mat & x,
-                      const cv::Mat & mu,
-                      const cv::Mat & cov)
-{
+            double DARP::gaussian(const cv::Mat & x,
+                    const cv::Mat & mu,
+                    const cv::Mat & cov)
+            {
                 cv::Mat diff=x-mu;
                 double det=determinant(cov);
                 double aux=(0.5/M_PI)*(1.0/sqrt(det));
-
+                
                 cv::Mat exponent=-0.5*diff.t()*cov.inv()*diff;
                 
                 return aux*exp(exponent.at<double>(0));
-}
+            }
             
-std::vector<int> DARP::optimize(const std::vector<double> & value,
-                                const std::vector<int> & weight)
-{
+            std::vector<int> DARP::optimize(const std::vector<double> & value,
+                    const std::vector<int> & weight)
+            {
                 //optimizer->clear_items();
                 optimizer=boost::shared_ptr<Knapsack>(new Knapsack(total_capacity,value.size()));
                 
@@ -208,21 +211,21 @@ std::vector<int> DARP::optimize(const std::vector<double> & value,
                 std::vector<int> resultItemsIndices;
                 optimizer->get_items_selected(resultItems,resultItemsIndices);
                 /*int i=0;
-                for ( std::vector<item>::iterator itr = resultItems.begin();
-                itr != resultItems.end();
-                ++itr)
-                {
-                    std::cout    << '\t' << '\t' << "(V:"
-                            << std::setw(2)
-                            << itr->value
-                            << ", "
-                            << "W:"
-                            << itr->capacity
-                            << ")   index:"
-                            << resultItemsIndices[i++]
-                            << std::endl;
-                }*/
+                 * for ( std::vector<item>::iterator itr = resultItems.begin();
+                 * itr != resultItems.end();
+                 * ++itr)
+                 * {
+                 * std::cout    << '\t' << '\t' << "(V:"
+                 * << std::setw(2)
+                 * << itr->value
+                 * << ", "
+                 * << "W:"
+                 * << itr->capacity
+                 * << ")   index:"
+                 * << resultItemsIndices[i++]
+                 * << std::endl;
+                 * }*/
                 return resultItemsIndices;
-}
+            }
             
             

@@ -54,7 +54,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
         // Check parameters
         //std::cout << "nrhs: " << nrhs << std::endl;
-        if(nrhs!=5)
+        if(nrhs!=7)
         {
             mexErrMsgTxt("wrong inputs number (should be 4)");
         }
@@ -63,8 +63,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         double height=*(double *) mxGetPr(prhs[2]);
         double capacity_percentage=*(double *) mxGetPr(prhs[3]);
         double max_items=*(double *) mxGetPr(prhs[4]);
+        double min_width=*(double *) mxGetPr(prhs[5]);
+        double min_height=*(double *) mxGetPr(prhs[6]);
 
-        DARP * darp_=new  DARP((int)width,(int)height,capacity_percentage,(int)max_items);
+
+        DARP * darp_=new  DARP((int)width,(int)height,capacity_percentage,(int)max_items,(int)min_width,(int)min_height);
         plhs[0] = convertPtr2Mat<DARP>(darp_);
         
         return;
@@ -105,27 +108,21 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     {
         // Check parameters
         
-        if (nrhs !=7)
+        if (nrhs !=5)
             mexErrMsgTxt("detect: Unexpected arguments.");
         const mwSize* size=mxGetDimensions(prhs[2]);
         //std::cout << "size:" << size[1] << " " << size[0] << std::endl;
-        cv::Mat centroid_means=cv::Mat(size[1],size[0],CV_64F,mxGetData(prhs[2]),0);
-        cv::Mat centroid_variances=cv::Mat(size[1],size[0],CV_64F,mxGetData(prhs[3]),0);
-        cv::Mat size_means=cv::Mat(size[1],size[0],CV_64F,mxGetData(prhs[4]),0);
-        cv::Mat size_variances=cv::Mat(size[1],size[0],CV_64F,mxGetData(prhs[5]),0);
-        cv::Mat left_upper_corners=cv::Mat(size[1],size[0],CV_64F,mxGetData(prhs[6]),0);
-        //std::cout << "centroid_means: " << centroid_means << std::endl;
-        //std::cout << "centroid_variances: " << centroid_variances << std::endl;
-        //std::cout << "size_means: " << size_means << std::endl;
-        //std::cout << "size_variances: " << size_variances << std::endl;
+        cv::Mat state_means=cv::Mat(size[1],size[0],CV_64F,mxGetData(prhs[2]),0);
+        cv::Mat state_variances=cv::Mat(size[1],size[0],CV_64F,mxGetData(prhs[3]),0);
+        cv::Mat left_upper_corners=cv::Mat(size[1],size[0],CV_64F,mxGetData(prhs[4]),0);
+        //std::cout << "state_means: " << state_means << std::endl;
+        //std::cout << "state_variances: " << state_variances << std::endl;
         //std::cout << "left_upper_corner: " << left_upper_corners << std::endl;
+        
         tic();
         std::vector<cv::Rect> rois=darp->getROIS(
-                centroid_means,
-                centroid_variances,
-                size_means,
-                size_variances
-                );
+                state_means,
+                state_variances);
         double time_elapsed=toc_();
         std::cout << "time elapsed (optimization):" << time_elapsed<< std::endl;
 

@@ -8,7 +8,7 @@ for i = 1:numAssignedTracks
     
     % Correct the estimate of the object's location
     % using the new detection.
-    correct(tracks(trackIdx).centroidsKalmanFilter, centroid);
+    correct(tracks(trackIdx).stateKalmanFilter, [centroid bbox(4)/bbox(3)]);
     
     % Replace predicted bounding box with detected
     % bounding box.

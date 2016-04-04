@@ -18,10 +18,8 @@
 class DARP
 {
 private:
-    void computeValues(const cv::Mat & centroid_means,
-            const cv::Mat & centroid_variances,
-            const cv::Mat & size_means,
-            const cv::Mat & size_variances);
+    void computeValues(const cv::Mat & state_means,
+            const cv::Mat & state_variances);
     
     double gaussian(const cv::Mat & x,
             const cv::Mat & mu,
@@ -33,12 +31,12 @@ public:
     DARP(const int & width_,
             const int & height_,
             const double & max_relative_capacity_=0.2,
-            const int & max_items_=7);
+            const int & max_items_=7,
+            const int & min_width_=52,
+            const int & min_height_=128);
     
-    std::vector<cv::Rect> getROIS(const cv::Mat & centroid_means,
-            const cv::Mat & centroid_variances,
-            const cv::Mat & size_means,
-            const cv::Mat & size_variances);
+    std::vector<cv::Rect> getROIS(const cv::Mat & state_means,
+            const cv::Mat & state_variances);
     
     std::vector<cv::Mat> getProbabilityMaps()
     {
@@ -60,8 +58,17 @@ public:
     cv::Mat label_map;
     
     double confidence_scale;
+    double min_width;
+    double min_height;
     
-    
+    // auxs
+    cv::Mat x;
+    cv::Mat std_dev;
+    cv::Mat centroid_std_dev;
+    cv::Mat size_std_dev;
+    cv::Mat size_means;
+    cv::Mat thresholds;
+    cv::Mat cov;
 protected:
     std::stack<clock_t> tictoc_stack;
     
