@@ -133,15 +133,58 @@ DARP::DARP(const int & width_,
                             height_begin,
                             roi_width,
                             roi_height);
-                    item_weight[o]=roi_width*roi_height;
                     
                     // Compute item value   // Fill simply with the best probability (at the centroid)
+                    //item_value[o]/=total_capacity; // normalize ??
+                }
+                
+                double minFraction=0.5;
+                //here we should check for overlaps (can't do this with iterators.....)
+                /*for (std::vector<cv::Rect>::iterator it1=rois.begin(); it1!=rois.end()-1;)
+                 * {
+                 * for (std::vector<cv::Rect>::iterator it2=it1+1; it2!=rois.end(); ++it2)
+                 * {
+                 * if ( (*it1& *it2).area() > minFraction * std::min(it1->area(), it2->area() ) )
+                 * {
+                 * // rects intersect by at least minFraction
+                 * std::cout << "rects intersect!" << std::endl;
+                 * it1 = rois.erase(it1);
+                 * }
+                 * else
+                 * {
+                 * ++it1;
+                 * }
+                 * }
+                 * }*/
+                int i=0;
+                while ( i < rois.size()-1 )
+                {
+                    int j=i+1;
+                    while(j<rois.size())
+                    {
+                        if ( (rois[i]&rois[j]).area() > minFraction * std::min(rois[i].area(), rois[j].area()) )
+                        {
+                            rois.erase( rois.begin() + j );
+                        }
+                        else
+                        {
+                            ++j;
+                        }
+                    }
+                }
+                
+                
+                std::cout << "ola" << std::endl;
+                // Fill
+                for(int o=0; o<nItems;++o)
+                {
+                    item_weight[o]=rois[o].width*rois[o].height;
                     double best=gaussian(state_means(cv::Range(o,o+1),cv::Range(0,2)).t(),state_means(cv::Range(o,o+1),cv::Range(0,2)).t(),cov);
                     
                     item_value[o]=0.0;
-                    for(int u=width_begin;u<width_end;++u)
+                    for(int u=rois[o].x;u<rois[o].x+rois[o].width;++u)
                     {
-                        for(int j=height_begin; j<height_end;++j)
+                        for(int j=rois[o].y; j<rois[o].y+rois[o].height;++j)
                         {
                             x.at<double>(0,0)=u;
                             x.at<double>(1,0)=j;
@@ -150,10 +193,7 @@ DARP::DARP(const int & width_,
                             item_value[o]+=best;
                         }
                     }
-                    
-                    //item_value[o]/=total_capacity; // normalize ??
                 }
-                //here we should check for overlaps
             }
             
             std::vector<cv::Rect> DARP::getROIS(const cv::Mat & state_means,

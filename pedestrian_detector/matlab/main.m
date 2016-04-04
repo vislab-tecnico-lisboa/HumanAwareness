@@ -18,7 +18,7 @@ state_measurement_noise=[10 0 0; 0 10 0; 0 0 1.0];
 costOfNonAssignmentState=120;
 
 % optimization parameters    
-capacity_constraint=0.2; % percentage of image to be process at each time instant
+capacity_constraint=0.3; % percentage of image to be process at each time instant
 max_items=7;             % max regions to be process (To do)
 time_horizon=2;          % planning time horizon (To do: now its 1 by default)
 
@@ -57,7 +57,9 @@ while ~isDone(obj.reader)
 %     end
 %rois=[];
     %% detection 
-    [detection_centroids, detection_bboxes, detection_time]=...
+    [detection_centroids,... 
+        detection_bboxes,...
+        detection_time]=...
         detectObjects(detector,...
         uint8(frame*256),...
         x,y,width,height,rois);
@@ -88,6 +90,7 @@ while ~isDone(obj.reader)
         state_init_state_covariance,...
         state_process_noise,...
         state_measurement_noise);
+    
     displayTrackingResults(obj,frame,tracks,detection_bboxes,minVisibleCount,rois);
     
 end
@@ -96,3 +99,4 @@ average_optimization_time=mean(optimization_times);
 average_detection_time=mean(detection_times);
 average_total_time=average_optimization_time+average_detection_time;
 average_frame_rate=1.0/average_total_time;
+
