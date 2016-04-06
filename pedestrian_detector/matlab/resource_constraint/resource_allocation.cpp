@@ -15,7 +15,6 @@ DARP::DARP(const int & width_,
                     min_width(min_width_),
                     min_height(min_height_)
             {
-                
                 // ALLOCATE MEMORY FOR AUXILIARY PROBABILITY MAPS
                 item_weight.resize(max_items);
                 item_value.resize(max_items);
@@ -62,14 +61,14 @@ DARP::DARP(const int & width_,
                     const cv::Mat & state_means,
                     const cv::Mat & state_variances)
             {
+                
                 int nItems=state_means.rows;
-                item_weight.resize(nItems);
-                item_value.resize(nItems);
-                probability_maps.resize(nItems);
+                
+                if(nItems==0)
+                    return;
                 rois.resize(nItems);
                 
-                std::fill(item_value.begin(),item_value.end(),0.0);
-                std::fill(item_weight.begin(),item_weight.end(),1000000);
+                
                 // For each tracked object...
                 for(int o=0; o<nItems;++o)
                 {
@@ -87,7 +86,6 @@ DARP::DARP(const int & width_,
                     //   continue;
                     
                     
-                    probability_maps[o]=cv::Mat(height,width,CV_64F,cv::Scalar(0));
                     //if(thresholds.at<double>(o,0)>250||thresholds.at<double>(o,1)>250)
                     //    continue;
                     
@@ -134,88 +132,113 @@ DARP::DARP(const int & width_,
                             roi_width,
                             roi_height);
                     
-                    // Compute item value   // Fill simply with the best probability (at the centroid)
-                    //item_value[o]/=total_capacity; // normalize ??
                 }
                 
-                double minFraction=0.5;
-                //here we should check for overlaps (can't do this with iterators.....)
-                /*for (std::vector<cv::Rect>::iterator it1=rois.begin(); it1!=rois.end()-1;)
+                double minFraction=0.1;
+                
+                std::vector<bool> associated_rois;
+                nItems=rois.size();
+                item_value.resize(nItems);
+                probability_maps.resize(nItems);
+                
+                //std::fill(item_value.begin(),item_value.end(),0.0);
+                //std::fill(item_weight.begin(),item_weight.end(),std::numeric_limits<int>::max());
+                
+                // FIND NEW ROIS AND FILL VALUES
+                
+                bool merges;
+                do
+                {
+                    int i=-1;
+                    merges=false;
+                    associated_rois.resize(rois.size());
+                    std::fill(associated_rois.begin(),associated_rois.end(),false);
+
+                    while ( i < (int)(rois.size()-1) )
+                    {
+                        
+                        ++i;
+                        if(associated_rois[i])
+                        {
+                            continue;
+                        }
+                        
+                        int j=i+1;
+                        int j_real=j;
+                        double value=gaussian(state_means(cv::Range(i,i+1),cv::Range(0,2)).t(),state_means(cv::Range(i,i+1),cv::Range(0,2)).t(),cov);
+                        item_value[i]=value*rois[i].area();
+                        while(j<rois.size())
+                        {
+                            if ( (rois[i]&rois[j]).area() > minFraction * std::min(rois[i].area(), rois[j].area()) )
+                            {
+                                value=gaussian(state_means(cv::Range(j_real,j_real+1),cv::Range(0,2)).t(),state_means(cv::Range(j_real,j_real+1),cv::Range(0,2)).t(),cov);
+                                item_value[i]+=value*rois[j].area();
+                                rois[i]=cv::Rect(rois[i]|rois[j]);
+                                associated_rois[j_real]=true;
+                                
+                                rois.erase(rois.begin()+j);
+                                item_value.erase(item_value.begin()+j);
+                                merges=true;
+                            }
+                            else
+                            {
+                                ++j;
+                            }
+                            ++j_real;
+                        }
+                        
+                        item_value[i]/=rois[i].area();
+                    }
+                }
+                while(merges);
+                
+                
+                item_weight.resize(rois.size());
+                for(int i=0; i<item_weight.size();++i)
+                {
+                    item_weight[i]=rois[i].area();
+                }
+                // Fill
+                /*for(int o=0; o<nItems;++o)
                  * {
-                 * for (std::vector<cv::Rect>::iterator it2=it1+1; it2!=rois.end(); ++it2)
+                 * double best=gaussian(state_means(cv::Range(o,o+1),cv::Range(0,2)).t(),state_means(cv::Range(o,o+1),cv::Range(0,2)).t(),cov);
+                 *
+                 * item_value[o]=rois[o].area()*best;
+                 * probability_maps[o]=cv::Mat(height,width,CV_64F,cv::Scalar(0));
+                 * probability_maps[o](rois[o])=best;
+                 *
+                 * /*item_value[o]=0.0;
+                 * for(int u=rois[o].x;u<rois[o].x+rois[o].width;++u)
                  * {
-                 * if ( (*it1& *it2).area() > minFraction * std::min(it1->area(), it2->area() ) )
+                 * for(int j=rois[o].y; j<rois[o].y+rois[o].height;++j)
                  * {
-                 * // rects intersect by at least minFraction
-                 * std::cout << "rects intersect!" << std::endl;
-                 * it1 = rois.erase(it1);
-                 * }
-                 * else
-                 * {
-                 * ++it1;
+                 * x.at<double>(0,0)=u;
+                 * x.at<double>(1,0)=j;
+                 *
+                 * probability_maps[o].at<double>(j,u)=best;
+                 * item_value[o]+=best;
                  * }
                  * }
                  * }*/
-                int i=0;
-                while ( i < rois.size()-1 )
-                {
-                    int j=i+1;
-                    while(j<rois.size())
-                    {
-                        if ( (rois[i]&rois[j]).area() > minFraction * std::min(rois[i].area(), rois[j].area()) )
-                        {
-                            rois.erase( rois.begin() + j );
-                            cv::Rect new_roi(rois[i]|rois[j]);
-                        }
-                        else
-                        {
-                            ++j;
-                        }
-                    }
-                    ++i;
-                }
-                std::cout << "ola" << std::endl;
-                return;
-                
-                
-                // Fill
-                for(int o=0; o<nItems;++o)
-                {
-                    item_weight[o]=rois[o].width*rois[o].height;
-                    double best=gaussian(state_means(cv::Range(o,o+1),cv::Range(0,2)).t(),state_means(cv::Range(o,o+1),cv::Range(0,2)).t(),cov);
-                    
-                    item_value[o]=0.0;
-                    for(int u=rois[o].x;u<rois[o].x+rois[o].width;++u)
-                    {
-                        for(int j=rois[o].y; j<rois[o].y+rois[o].height;++j)
-                        {
-                            x.at<double>(0,0)=u;
-                            x.at<double>(1,0)=j;
-                            
-                            probability_maps[o].at<double>(j,u)=best;
-                            item_value[o]+=best;
-                        }
-                    }
-                }
             }
             
             std::vector<cv::Rect> DARP::getROIS(const cv::Mat & state_means,
                     const cv::Mat & state_variances)
             {
                 tic();
-                computeValues(state_means,
-                        state_variances);
+                computeValues(state_means, state_variances);
                 std::cout << "time elapsed (computing values before optimization):" << toc_()<< std::endl;
+                std::vector<cv::Rect> best_rois;
+                
+                if(item_value.size()==0) // Couldn't compute values for some reason
+                    return best_rois;
                 tic();
-                                std::vector<cv::Rect> best_rois;
-                std::cout << "adeus" << std::endl;
-                                                return best_rois;
                 std::vector<int> items=optimize(item_value,item_weight);
                 std::cout << "time elapsed (knapsack optimization):" << toc_()<< std::endl;
-
-
+                
+                
                 best_rois.resize(items.size());
-
+                
                 for(int i=0; i< items.size();++i)
                 {
                     best_rois[i]=(rois[items[i]]);
@@ -250,7 +273,6 @@ DARP::DARP(const int & width_,
                     
                     optimizer->add_items(value[i],weight[i]);
                 }
-
                 double solution  = optimizer->solve();
                 //std::cout << *optimizer;
                 std::vector<item> resultItems;
