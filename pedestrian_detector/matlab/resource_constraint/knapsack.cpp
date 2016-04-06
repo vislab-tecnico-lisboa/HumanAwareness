@@ -1,23 +1,30 @@
 #include "knapsack.hpp"
 
-Knapsack::Knapsack(double knapsack_size, int item_size):
-    m_knapsack_size(knapsack_size),
-            m_item_size(item_size),
-            m_knapsack_table(item_size + 1,std::vector<double>(knapsack_size + 1)),
-            m_selection_table(item_size + 1,std::vector<double>(knapsack_size + 1)){
+Knapsack::Knapsack(double knapsack_size, int item_size, int min_width, int min_height):
+        m_knapsack_size(knapsack_size),
+        m_item_size(item_size),
+        m_knapsack_table(item_size + 1,std::vector<double>(knapsack_size + 1)),
+        m_selection_table(item_size + 1,std::vector<double>(knapsack_size + 1)),
+        current_n_items(0)    
+    {
         m_items.reserve(m_item_size);
     }
-    void Knapsack::add_items(double value, int capacity) {
+        
+    void Knapsack::add_items(double value, int capacity) 
+    {
         item t;
         t.value = value;
         t.capacity = capacity;
         m_items.push_back(t);
+        ++current_n_items;
     }
     
     void Knapsack::clear_items()
     {
         m_items.clear();
+        current_n_items=0;
     }
+    
     double Knapsack::solve() 
     {
         // Initialize the first row in both the
@@ -25,16 +32,23 @@ Knapsack::Knapsack(double knapsack_size, int item_size):
         // as if no items are selected and no capacity
         // is available.
         // This is the default case for bottom-up approach.
-
         for ( int i = 0; i < m_knapsack_size + 1 ; i++)
         {
             m_knapsack_table [0][i]  = 0;
             m_selection_table[0][i]  = 0;
         }
-
+        
+//         std::cout << "ITEMS:" << current_n_items<< " of "<< m_item_size<<std::endl;
+//         
+//         if(current_n_items>m_items.size())
+//         {
+//             std::cout << "foda-se"<< std::endl;
+//         }
         int row = 1;
         for ( std::vector<item>::iterator itemIterator = m_items.begin(); itemIterator != m_items.end(); ++itemIterator) 
         {
+            if(row>=current_n_items)
+                break;
             item currentItem = *itemIterator;
             int col = 0; // col is capacity available.
             while ( col < m_knapsack_size + 1) 
@@ -74,11 +88,11 @@ Knapsack::Knapsack(double knapsack_size, int item_size):
             }
             ++row;
         }
-        return m_knapsack_table[m_item_size][m_knapsack_size];
+        return m_knapsack_table[current_n_items][m_knapsack_size];
     }
     void Knapsack::get_items_selected(std::vector<item>& resultItems, std::vector<int>& resultItemsIndices) 
     {
-        int row = m_item_size;
+        int row = current_n_items;
         int col = m_knapsack_size;
         int cap = m_knapsack_size;
         while ( cap > 0 && row>=0) 

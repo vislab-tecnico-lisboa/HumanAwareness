@@ -10,7 +10,7 @@ struct item
 class Knapsack
 {
 public:
-    Knapsack(double knapsack_size, int item_size);
+    Knapsack(double knapsack_size, int item_size, int min_width, int min_height);
     ~Knapsack();
     void add_items(double value, int capacity);
     void clear_items();
@@ -32,4 +32,5 @@ private:
     // are selected for optimal calculation.
     std::vector<std::vector<double> > m_selection_table;
 
+    int current_n_items;
 };

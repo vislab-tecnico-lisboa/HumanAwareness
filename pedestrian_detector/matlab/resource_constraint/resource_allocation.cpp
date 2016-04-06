@@ -11,7 +11,7 @@ DARP::DARP(const int & width_,
                     max_relative_capacity(max_relative_capacity_), //percentage
                     max_items(max_items_),
                     total_capacity(max_relative_capacity_*width_*height_),
-                    optimizer(new Knapsack(total_capacity,max_items)),
+                    optimizer(new Knapsack(total_capacity,max_items,width,height)),
                     min_width(min_width_),
                     min_height(min_height_)
             {
@@ -165,16 +165,19 @@ DARP::DARP(const int & width_,
                         if ( (rois[i]&rois[j]).area() > minFraction * std::min(rois[i].area(), rois[j].area()) )
                         {
                             rois.erase( rois.begin() + j );
+                            cv::Rect new_roi(rois[i]|rois[j]);
                         }
                         else
                         {
                             ++j;
                         }
                     }
+                    ++i;
                 }
-                
-                
                 std::cout << "ola" << std::endl;
+                return;
+                
+                
                 // Fill
                 for(int o=0; o<nItems;++o)
                 {
@@ -202,13 +205,17 @@ DARP::DARP(const int & width_,
                 tic();
                 computeValues(state_means,
                         state_variances);
-                std::cout << "time elapsed (values):" << toc_()<< std::endl;
-                
-                //tic();
+                std::cout << "time elapsed (computing values before optimization):" << toc_()<< std::endl;
+                tic();
+                                std::vector<cv::Rect> best_rois;
+                std::cout << "adeus" << std::endl;
+                                                return best_rois;
                 std::vector<int> items=optimize(item_value,item_weight);
-                //std::cout << "time elapsed (optimization):" << toc_()<< std::endl;
-                std::vector<cv::Rect> best_rois;
+                std::cout << "time elapsed (knapsack optimization):" << toc_()<< std::endl;
+
+
                 best_rois.resize(items.size());
+
                 for(int i=0; i< items.size();++i)
                 {
                     best_rois[i]=(rois[items[i]]);
@@ -233,8 +240,8 @@ DARP::DARP(const int & width_,
             std::vector<int> DARP::optimize(const std::vector<double> & value,
                     const std::vector<int> & weight)
             {
-                //optimizer->clear_items();
-                optimizer=boost::shared_ptr<Knapsack>(new Knapsack(total_capacity,value.size()));
+                optimizer->clear_items();
+                //optimizer=boost::shared_ptr<Knapsack>(new Knapsack(total_capacity,value.size(),width,height));
                 
                 for(int i=0; i<value.size();++i)
                 {
@@ -243,9 +250,8 @@ DARP::DARP(const int & width_,
                     
                     optimizer->add_items(value[i],weight[i]);
                 }
-                
+
                 double solution  = optimizer->solve();
-                
                 //std::cout << *optimizer;
                 std::vector<item> resultItems;
                 std::vector<int> resultItemsIndices;

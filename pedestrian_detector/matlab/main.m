@@ -19,7 +19,7 @@ costOfNonAssignmentState=120;
 
 % optimization parameters    
 capacity_constraint=0.3; % percentage of image to be process at each time instant
-max_items=7;             % max regions to be process (To do)
+max_items=11;             % max regions to be process (To do) IT EXPLODES RIGHT NOW!!! FIX
 time_horizon=2;          % planning time horizon (To do: now its 1 by default)
 
 %% Create System objects used for reading video, detecting moving objects,
