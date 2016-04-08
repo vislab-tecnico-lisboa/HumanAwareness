@@ -8,12 +8,10 @@
 #include <ctime>
 #include <boost/shared_ptr.hpp>
 
+
 //OpenCV Includes
 #include <opencv2/opencv.hpp>
 #include <opencv/cv.h>
-
-
-
 
 class DARP
 {

@@ -6,7 +6,7 @@ DARP::DARP(const int & width_,
         const int & max_items_,
         const int & min_width_,
         const int & min_height_) :
-            width(width_),
+            width(width_), 
                     height(height_),
                     max_relative_capacity(max_relative_capacity_), //percentage
                     max_items(max_items_),
