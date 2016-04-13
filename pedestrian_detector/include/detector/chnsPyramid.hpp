@@ -37,57 +37,63 @@ using namespace std;
 /*
  * Class to pass the input variables
  */
-class pyrInput {
+class pyrInput
+{
 public:
-	pChns *pchns;
-	int nPerOct;	// [8] number of scales per octave
-	int nOctUp;		// [0] number of upsampled octaves to compute
-	int nApprox;	// [-1] number of approx. scales (if -1 nApprox=nPerOct-1)
-	float* lambdas;	// [] coefficients for power law scaling (see BMVC10)
-	int shrink;		// [4] integer downsampling amount for channels
-	int *pad;		// [0 0] amount to pad channels (along T/B and L/R)
-	int *minDs;		// [16 16] minimum image size for channel computation
-	float smoothIm;	// [1] radius for image smoothing (using convTri)
-	float smoothChns;// [1] radius for channel smoothing (using convTri)
-	bool concat;	// [true] if true concatenate channels
-	bool complete;	// [] if true does not check/set default vals in pPyramid
-	int *sz;		// [] size of image H*W*C
+    pChns *pchns;
+    int nPerOct;	// [8] number of scales per octave
+    int nOctUp;		// [0] number of upsampled octaves to compute
+    int nApprox;	// [-1] number of approx. scales (if -1 nApprox=nPerOct-1)
+    float* lambdas;	// [] coefficients for power law scaling (see BMVC10)
+    int shrink;		// [4] integer downsampling amount for channels
+    int *pad;		// [0 0] amount to pad channels (along T/B and L/R)
+    int *minDs;		// [16 16] minimum image size for channel computation
+    float smoothIm;	// [1] radius for image smoothing (using convTri)
+    float smoothChns;// [1] radius for channel smoothing (using convTri)
+    bool concat;	// [true] if true concatenate channels
+    bool complete;	// [] if true does not check/set default vals in pPyramid
+    int *sz;		// [] size of image H*W*C
 
-	pyrInput();
-	pyrInput(int _nPerOct, int _nOctUp, int _nApprox, float* _lambdas,
-			int _shrink, int _pad[2], int _minDs[2], int _smoothIm,
-			int _smoothChns, bool _concat, bool _complete, int _sz[3],
-			pChns *pchns);
-	~pyrInput();
+    pyrInput();
+    pyrInput(int _nPerOct, int _nOctUp, int _nApprox, float* _lambdas,
+             int _shrink, int _pad[2], int _minDs[2], int _smoothIm,
+    int _smoothChns, bool _concat, bool _complete, int _sz[3],
+    pChns *pchns);
+    ~pyrInput();
 };
 
-class pyrOutput {
+class pyrOutput
+{
 public:
-	pyrInput *input;
-	imgWrap ***chnsPerScale;
-	float *scales;
-	int nScales;
-	int nChannels;
+    pyrInput *input;
+    imgWrap ***chnsPerScale;
+    float *scales;
+    int nScales;
+    int nChannels;
 
-	pyrOutput() : input(NULL), chnsPerScale(NULL), scales(NULL), nScales(0),
-			nChannels(0) { };
-			
-	~pyrOutput(){
-		for(int i=0; i<nScales; i++)
-		{
-		  delete chnsPerScale[i][0];
-		}
-		delete [] scales;
-		
-		for(int i=0; i<nScales; i++)
-		{
-		  wrFree(chnsPerScale[i]);
-		}
-		
-		wrFree(chnsPerScale);
-		
-	}
+    pyrOutput() :
+        input(NULL),
+        chnsPerScale(NULL),
+        scales(NULL),
+        nScales(0),
+        nChannels(0) {}
 
+    ~pyrOutput()
+    {
+        for(int i=0; i<nScales; i++)
+        {
+            delete chnsPerScale[i][0];
+        }
+        delete [] scales;
+
+        for(int i=0; i<nScales; i++)
+        {
+            wrFree(chnsPerScale[i]);
+        }
+
+        wrFree(chnsPerScale);
+
+    }
 };
 
 /*

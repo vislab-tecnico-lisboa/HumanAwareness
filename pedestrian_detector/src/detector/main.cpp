@@ -199,8 +199,9 @@ public:
 
         nPriv.param<std::string>("detector_type", detectorType, "full");
 
-
-        person_detector = new pedestrianDetector(conf_pedestrians, conf_heads, detectorType);
+        stringstream ss;
+        ss << ros::package::getPath("pedestrian_detector");
+        person_detector = new pedestrianDetector(conf_pedestrians, conf_heads, detectorType, ss.str());
         it = new image_transport::ImageTransport(nh);
 
         //Advertise

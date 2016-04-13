@@ -53,69 +53,70 @@ float tocMatteo();
  */
 class helperXMLParser {
 public:
-  // Verbose
-  bool verbose;
-  
-  //////////////////////////////////////////////////////////////////////////////
-  // Pyramid calculation options
-  //////////////////////////////////////////////////////////////////////////////
-  
-  // Number of channels of the input image
-  int nrChannels;
-  // Number of scales to approximate between real scales
-  int nrScales;
-  // Minimum Dimensions
-  int minH; // Height
-  int minW; // Width
-  
-  //////////////////////////////////////////////////////////////////////////////
-  // Classifier options
-  //////////////////////////////////////////////////////////////////////////////
-  
-  // WidthOverHeight
-  float widthOverHeight;
-  // Shrink factor
-  int shrinkFactor;
-  // Theoretical window dimensions
-  int theoWWidth;
-  int theoWHeight;
-  // Theoretical active window dimensions
-  float theoActWWidth;
-  float theoActWHeight;
-  
-  //////////////////  
-  // Rectangles Data
-  // File with rectangles data
-  string rectFile;
-  // Number of features
-  int nrFeatures;  
-  // Number of properties per rectangle
-  int nrProp;
-    
-  //////////////////
-  // Classifier Data
-  // File with classifier data
-  string classFile;  
-  // Number of classifiers
-  int nrClass;  
-  // Number of columns per classifier
-  int nrCol;      
-  
-  // What are these?
-  // nBaseFeatures
-  int nBaseFeatures;
-  // nExtraFeatures
-  int nExtraFeatures;
+    // Verbose
+    bool verbose;
 
-  helperXMLParser(string filename);
-  ~helperXMLParser();
-  void print();
+    //////////////////////////////////////////////////////////////////////////////
+    // Pyramid calculation options
+    //////////////////////////////////////////////////////////////////////////////
+
+    // Number of channels of the input image
+    int nrChannels;
+    // Number of scales to approximate between real scales
+    int nrScales;
+    // Minimum Dimensions
+    int minH; // Height
+    int minW; // Width
+
+    //////////////////////////////////////////////////////////////////////////////
+    // Classifier options
+    //////////////////////////////////////////////////////////////////////////////
+
+    // WidthOverHeight
+    float widthOverHeight;
+    // Shrink factor
+    int shrinkFactor;
+    // Theoretical window dimensions
+    int theoWWidth;
+    int theoWHeight;
+    // Theoretical active window dimensions
+    float theoActWWidth;
+    float theoActWHeight;
+
+    //////////////////
+    // Rectangles Data
+    // File with rectangles data
+    string rectFile;
+    // Number of features
+    int nrFeatures;
+    // Number of properties per rectangle
+    int nrProp;
+    
+    //////////////////
+    // Classifier Data
+    // File with classifier data
+    string classFile;
+    // Number of classifiers
+    int nrClass;
+    // Number of columns per classifier
+    int nrCol;
+
+    // What are these?
+    // nBaseFeatures
+    int nBaseFeatures;
+    // nExtraFeatures
+    int nExtraFeatures;
+
+    helperXMLParser(string filename, string class_path);
+    ~helperXMLParser();
+    void print();
 };
 
 
-class pedestrianDetector{
-    
-    public:
+class pedestrianDetector
+{
+
+public:
     ClassRectangles *rectangles;
     ClassData *classData;
     ClassData *classDataHeads;
@@ -131,8 +132,7 @@ class pedestrianDetector{
 
     std::string detectorType;
     
-    public: 
-      pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType);
-      ~pedestrianDetector();
-      void runDetector(Mat img_original);
+    pedestrianDetector(string configuration, string configHeadAndShoulders, string detectorType, string class_path);
+    ~pedestrianDetector();
+    void runDetector(const Mat img_original);
 };

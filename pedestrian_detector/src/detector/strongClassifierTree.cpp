@@ -232,7 +232,6 @@ vector<cv::Rect_<int> >* sctRun(pyrOutput *outputPyr, classifierInput *cInput)
      * Begin cycling through all the scales and running the detector on them.
      */
     
-
     for(scaleId=0; scaleId<nScales; scaleId++){
 	//For all scales
 	//Get size of the images for this size and the pointer to the data
@@ -245,7 +244,7 @@ vector<cv::Rect_<int> >* sctRun(pyrOutput *outputPyr, classifierInput *cInput)
 	
 
 	//Only detect when the image is bigger than the detection window
-	if((nRows < windowHeight) || (nCols < windowWidth))
+    if((nRows < windowHeight) || (nCols < windowWidth))
 	    continue; //skip this size: it's too small to use our detector
 
 	//*************************************

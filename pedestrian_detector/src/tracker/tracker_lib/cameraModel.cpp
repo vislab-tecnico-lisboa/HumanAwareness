@@ -139,7 +139,6 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
        Point2d bbCenter = getCenter(rects.at(i));
 
        point.z = getZ(bbCenter, Point2d(point.x, point.y), worldLinkToCamera, this);
-
        basePoints.push_back(point);
      }
 

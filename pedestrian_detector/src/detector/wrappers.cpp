@@ -36,7 +36,8 @@ void* alMalloc( size_t size, int alignment ) {
 }
 
 // platform independent alignned memory de-allocation (see also alMalloc)
-void alFree(void* aligned) {
+void alFree(void* aligned)
+{
   void* raw = *(void**)((char*)aligned-sizeof(void*));
   wrFree(raw);
 }

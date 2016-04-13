@@ -190,7 +190,7 @@ oT* rgbConvert( iT *I, int n, int d, int flag, oT nrm ) {
 }
 
 // J = rgbConvertMex(I,flag,single); see rgbConvert.m for usage details
-#ifdef MATLAB_MEX_FILE
+/*#ifdef MATLAB_MEX_FILE
 void mexFunction(int nl, mxArray *pl[], int nr, const mxArray *pr[]) {
   const int *dims; int nDims, n, d, dims1[3]; void *I; void *J; int flag;
   bool single; mxClassID idIn, idOut;
@@ -231,6 +231,6 @@ void mexFunction(int nl, mxArray *pl[], int nr, const mxArray *pr[]) {
   pl[0] = mxCreateNumericMatrix(0,0,idOut,mxREAL);
   mxSetData(pl[0],J); mxSetDimensions(pl[0],(const mwSize*) dims1,3);
 }
-#endif
+#endif*/
 
 #endif /* RGBCONVERTMEX_HPP_ */

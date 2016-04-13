@@ -1,7 +1,6 @@
 #include "../include/detector/colorFeatures.hpp"
-#include <highgui.h>
-#include <cv.h>
-#include <ros/ros.h>
+#include <opencv/highgui.h>
+#include <opencv/cv.h>
 
 using namespace std;
 
@@ -13,16 +12,24 @@ void extractBVT(cv::Mat& inputImage, cv::Mat& bvtHistogram, int bgBins, std::vec
     cv::Mat hsv;
     std::vector<cv::Mat> matOfHistograms;
 
+    int hBins = 10;
+    int sBins = 10;
+
     //Convert the image to the HSV color space
     cvtColor(inputImage, hsv, CV_BGR2HSV);
 
 /* ---------- Copy/paste from OpenCV website: THIS NEEDS ATTENTION ----------- */
 
+    //Number of levels
+    int histSize[] = {hBins, sBins};
     // hue varies from 0 to 179, see cvtColor
     float hRanges[] = { 0, 180 };
     // saturation varies from 0 (black-gray-white) to
     // 255 (pure spectrum color)
+    float sRanges[] = { 0, 256 };
+    const float* ranges[] = { hRanges, sRanges };
     int channels[] = {0, 1};
+
 
 /*----------------------------------------------------------------------------*/
 
@@ -40,7 +47,7 @@ void extractBVT(cv::Mat& inputImage, cv::Mat& bvtHistogram, int bgBins, std::vec
         //Extract V channel
 
 
-        //Different bin sizes for each range of Saturation Values
+        //Different bin sizes for each range of Saturation Values - Not used. Worst results
         /*
         *   ________________________________________
         *  | Saturation range | Number of Hue bins |
@@ -74,75 +81,10 @@ void extractBVT(cv::Mat& inputImage, cv::Mat& bvtHistogram, int bgBins, std::vec
 
         //H-S histogram
 
-        // [0 - 8] range
-        float sRanges_1[] = { 0, 8 };
-        int histSize_1[] = {2, 1};
-        const float* ranges_1[] = { hRanges, sRanges_1};
-        cv::Mat hs_hist_1;
-        cv::calcHist(&imageROI, 1, channels, maskBlackSpots, hs_hist_1, 2, histSize_1, ranges_1, true, false);
+       hs_hist.empty();
+       cv::calcHist(&imageROI, 1, channels, maskBlackSpots, hs_hist, 2, histSize, ranges, true, false);
 
-        hs_hist_1 = hs_hist_1.reshape(0, 1);
-
-        // [8 -16] range
-        float sRanges_2[] = { 8, 16 };
-        int histSize_2[] = {4, 1};
-        const float* ranges_2[] = { hRanges, sRanges_2 };
-        cv::Mat hs_hist_2;
-
-        cv::calcHist(&imageROI, 1, channels, maskBlackSpots, hs_hist_2, 2, histSize_2, ranges_2, true, false);
-
-        hs_hist_2 = hs_hist_2.reshape(0, 1);
-
-        // [16 - 32] range
-        float sRanges_3[] = { 16, 32 };
-        int histSize_3[] = {8, 1};
-        const float* ranges_3[] = { hRanges, sRanges_3 };
-        cv::Mat hs_hist_3;
-
-        cv::calcHist(&imageROI, 1, channels, maskBlackSpots, hs_hist_3, 2, histSize_3, ranges_3, true, false);
-
-        hs_hist_3 = hs_hist_3.reshape(0, 1);
-
-        // [32 - 64] range
-        float sRanges_4[] = { 32, 64 };
-        int histSize_4[] = {16, 1};
-        const float* ranges_4[] = { hRanges, sRanges_4 };
-        cv::Mat hs_hist_4;
-
-        cv::calcHist(&imageROI, 1, channels, maskBlackSpots, hs_hist_4, 2, histSize_4, ranges_4, true, false);
-
-        hs_hist_4 = hs_hist_4.reshape(0, 1);
-
-        // [64 - 128] range
-        float sRanges_5[] = { 64, 128 };
-        int histSize_5[] = {32, 1};
-        const float* ranges_5[] = { hRanges, sRanges_5 };
-        cv::Mat hs_hist_5;
-
-        cv::calcHist(&imageROI, 1, channels, maskBlackSpots, hs_hist_5, 2, histSize_5, ranges_5, true, false);
-
-        hs_hist_5 = hs_hist_5.reshape(0, 1);
-
-        // [128 - 256] range
-        float sRanges_6[] = { 128, 256 };
-        int histSize_6[] = {64, 1};
-        const float* ranges_6[] = { hRanges, sRanges_6 };
-        cv::Mat hs_hist_6;
-
-        cv::calcHist(&imageROI, 1, channels, maskBlackSpots, hs_hist_6, 2, histSize_6, ranges_6, true, false);
-
-        hs_hist_6 = hs_hist_6.reshape(0, 1);
-
-        std::vector<cv::Mat> hist_vector;
-
-        hist_vector.push_back(hs_hist_1);
-        hist_vector.push_back(hs_hist_2);
-        hist_vector.push_back(hs_hist_3);
-        hist_vector.push_back(hs_hist_4);
-        hist_vector.push_back(hs_hist_5);
-        hist_vector.push_back(hs_hist_6);
-
-        cv::hconcat(hist_vector, hs_hist);
+       hs_hist = hs_hist.reshape(0, 1);
 
 
         //Black value - count the number of black pixels
