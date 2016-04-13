@@ -2,6 +2,12 @@
 
 ## ROS Nodes ##
 
+Detector - Performs pedestrian detection and/or head-and-shoulder detection using Aggregate Channel Features (AFC). Also extracts BVT histogram from each detection.
+
+Tracker  - Performs tracking of people using Multiple Model Adaptive Estimation, and color Re-ID for association. It's also responsible to receive feedback from RVIZ to select a target to follow. Also controls the gaze with an action.
+
+Follower - Node responsible for achieving target positions and orientations.
+
 ## Warning regarding compilation flags ##
 
 On CMakeLists.txt, line 51. Change that line to one of these according to your version of gcc (I will find a way to use an IF to do it later):
