@@ -292,6 +292,7 @@ public:
                 //Next state
                 if(distanceToPerson > planner_activation_distance && hold == false)
                 {
+
                     nextState = PLANNER;
                     delete rate;
                     rate = new ros::Rate(50);
@@ -319,7 +320,7 @@ public:
                     cmdPub.publish(goal);
                 }
                 else
-                {
+                {/*
                     nextState = STOPPED;
                     geometry_msgs::Twist goal;
                     goal.angular.x = 0;
@@ -329,7 +330,7 @@ public:
                     goal.linear.y = 0;
                     goal.linear.z = 0;
                     cmdPub.publish(goal);
-                    rate->sleep();
+                    rate->sleep();*/
                 }
 
                 break;
