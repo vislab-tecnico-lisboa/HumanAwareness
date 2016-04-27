@@ -46,7 +46,7 @@
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
 #include <move_robot_msgs/GazeAction.h>
-
+#include <nav_msgs/Odometry.h>
 using namespace std;
 
 
@@ -66,6 +66,7 @@ private:
     tf::StampedTransform transform;
     ros::NodeHandle n;
     ros::Subscriber image_sub;
+    ros::Subscriber odom_sub;
     bool personNotChosenFlag;
     bool automatic;
     Point3d targetCoords;
@@ -115,6 +116,11 @@ private:
     double associatingDistance;
     double minimum_person_height;
     double maximum_person_height;
+
+    // Odometry auxiliars
+    nav_msgs::Odometry last_odom_msg;
+    double last_odom_yaw;
+    bool first_odom_msg;
 
     bool sendHome()
     {
@@ -201,6 +207,30 @@ public:
         ROS_INFO_STREAM( feedback->marker_name << " is now at "
                          << feedback->pose.position.x << ", " << feedback->pose.position.y
                          << ", " << feedback->pose.position.z );
+    }
+
+    void odometryCallback(const nav_msgs::OdometryConstPtr & odom_msg)
+    {
+        tf::Quaternion q(odom_msg->pose.pose.orientation.x, odom_msg->pose.pose.orientation.y, odom_msg->pose.pose.orientation.z, odom_msg->pose.pose.orientation.w);
+        double roll, pitch, yaw;
+        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+        if(first_odom_msg)
+        {
+            first_odom_msg=false;
+            last_odom_msg=*odom_msg;
+            last_odom_yaw=yaw;
+            return;
+        }
+
+
+        // AQUI TENS O DELTA DO QUE O ROBOT SE MEXEU
+        double dx=odom_msg->pose.pose.position.x-last_odom_msg.pose.pose.position.x;
+        double dy=odom_msg->pose.pose.position.y-last_odom_msg.pose.pose.position.y;
+        double dtheta=yaw-last_odom_yaw;
+
+        // CALCULAR A MATRIZ DE TRANSFORMAÇAO A PARTIR DOS DELTAS E APLICAR AOS FILTROS
+
     }
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
@@ -449,7 +479,7 @@ public:
 
                 try
                 {
-                    
+
                     personInBase.header.frame_id = filtering_frame_id;
                     personInBase.header.stamp = last_image_header.stamp;
                     personInBase.point.x = position.x;
@@ -545,7 +575,7 @@ public:
                     final_position.point.y = position.y;
                     final_position.point.z = 0;
 
-                    
+
                     // CONTROL GAZE
                     if(personInBase.point.x > 0.5)
                     {
@@ -779,9 +809,9 @@ public:
 
         ROS_INFO("Subscribing detections");
         image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
-
         ROS_INFO("Subscribed");
 
+        odom_sub=n.subscribe("odom", 1, &Tracker::odometryCallback, this);
 
 
         //Stuff for results...
