@@ -231,6 +231,10 @@ public:
 
         // CALCULAR A MATRIZ DE TRANSFORMAÇAO A PARTIR DOS DELTAS E APLICAR AOS FILTROS
 
+
+        //
+        last_odom_msg=*odom_msg;
+        last_odom_yaw=yaw;
     }
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
