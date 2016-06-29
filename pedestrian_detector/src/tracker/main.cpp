@@ -231,10 +231,17 @@ public:
 
         // CALCULAR A MATRIZ DE TRANSFORMAÇAO A PARTIR DOS DELTAS E APLICAR AOS FILTROS
 
+        Mat odomR = (Mat_<double>(2, 2) << cos(-dtheta), -sin(-dtheta), sin(-dtheta), cos(-dtheta));
 
-        //
         last_odom_msg=*odom_msg;
         last_odom_yaw=yaw;
+
+        for(std::vector<PersonModel>::iterator it = personList->personList.begin(); it!=personList->personList.end(); it++)
+        {
+            //Update the fused state
+            //it->mmaeEstimator->xMMAE = odomT;
+
+        }
     }
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
@@ -771,7 +778,7 @@ public:
     Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~")
     {
         ROS_INFO("Waiting for action server to start.");
-        ac.waitForServer();
+        //ac.waitForServer();
 
         //For debug purposes
         it = new image_transport::ImageTransport(n);
