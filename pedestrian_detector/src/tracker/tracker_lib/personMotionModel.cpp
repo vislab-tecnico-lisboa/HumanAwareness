@@ -209,11 +209,11 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         KalmanFilter constantVelocity(4, 2, 0, CV_64F);
 
         //Phi
-        constantVelocity.transitionMatrix = (Mat_<double>(4, 4) << 1, T, 0, 0, 0, 1, 0, 0, 0, 0, 1, T, 0, 0, 0, 1);
+        constantVelocity.transitionMatrix = (Mat_<double>(4, 4) << 1, 0, T, 0, 0, 1, T, 0, 0, 0, 1, 0, 0, 0, 0, 1);
         //H
-        constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 0, 1, 0);
+        constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 1, 0, 0);
         //Q
-        constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, pow(T,3)/2, 0, 0, pow(T,3)/2, pow(T,2), 0, 0, 0, 0, pow(T,4)/4, pow(T,3)/2, 0, 0, pow(T,3)/2, pow(T,2));
+        constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, 0, pow(T,3)/2, 0, 0, pow(T,4)/4, 0, pow(T,3)/2, pow(T,3)/2, 0, pow(T,2), 0, 0, pow(T,3)/2, 0, pow(T,2));
         constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*0.1;  //Q*sigma
         //R
         constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
@@ -227,11 +227,11 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         KalmanFilter constantAcceleration(6, 2, 0, CV_64F);
 
         //Phi
-        constantAcceleration.transitionMatrix = (Mat_<double>(6, 6) << 1, T, pow(T, 2)/2, 0, 0, 0, 0, 1, T, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, T, pow(T, 2)/2, 0, 0, 0, 0, 1, T, 0, 0, 0, 0, 0, 1);
+        constantAcceleration.transitionMatrix = (Mat_<double>(6, 6) << 1, 0, T, 0, pow(T, 2)/2, 0, 0, 1, 0, T, 0, pow(T, 2)/2, 0, 0, 1, 0, T, 0, 0, 0, 0, 1, 0, T, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1 );
         //H
-        constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0);
+        constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0);
         //Q
-        constantAcceleration.processNoiseCov = (Mat_<double>(6, 6) << pow(T, 5)/20, pow(T, 4)/8, pow(T, 3)/6, 0, 0, 0, pow(T, 4)/8, pow(T, 3)/3, pow(T, 2)/2, 0, 0, 0, pow(T, 3)/6, pow(T, 2)/2, T, 0, 0, 0, 0, 0, 0, pow(T, 5)/20, pow(T, 4)/8, pow(T, 3)/3, 0, 0, 0, pow(T, 4)/8, pow(T, 3)/3, pow(T, 2)/2, 0, 0, 0, pow(T, 3)/6, pow(T, 2)/2, T);
+        constantAcceleration.processNoiseCov = (Mat_<double>(6, 6) << pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, 0, pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T, 0, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T);
         constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*0.1;  //Q*sigma
         //R
         constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
@@ -255,8 +255,9 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         int indexes2[] = {0, 1, 3, 4};
         int indexes3[] = {0, 1, 2, 3, 4, 5};*/
 
-        int indexes1[] = {0, 2};
+        int indexes1[] = {0, 1};
         int indexes2[] = {0, 1, 2, 3};
+//        int indexes3[] = {0, 1, 2, 3, 4, 5};
 
         std::vector<int> indexes1_(indexes1, indexes1+sizeof(indexes1)/sizeof(int));
         std::vector<int> indexes2_(indexes2, indexes2+sizeof(indexes2)/sizeof(int));
