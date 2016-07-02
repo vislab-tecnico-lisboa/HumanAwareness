@@ -232,6 +232,8 @@ public:
             return;
         }
 
+        odom_last_stamp_=odom_time;
+
         // Get control input
         double dx=baseDeltaTf.getOrigin().getX();
         double dy=baseDeltaTf.getOrigin().getY();
@@ -276,13 +278,20 @@ public:
             {
                 it_mmae->statePre(cv::Range(0,1),cv::Range(0,2)) += odom_trans;
 
-                // For each block (position, velocity, acceleration
-                /*for()
-                {
-                    // Rotate covariance matrix
-                    it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2)) = (odom_rot*it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2))*odom_rot.t());
 
-                }*/
+                // Get number of blocks
+                int row_blocks=it_mmae->errorCovPre.rows%2;
+                int col_blocks=it_mmae->errorCovPre.cols%2;
+
+                // For each block (position, velocity, acceleration
+                for(int i=0;i<row_blocks;++i)
+                {
+                    for(int j=0;i<col_blocks;++i)
+                    {
+                        // Rotate covariance matrix
+                        it_mmae->errorCovPre(cv::Range(i*2,(i+1)*2),cv::Range(j*2,(j+1)*2)) = (odom_rot*it_mmae->errorCovPre(cv::Range(i*2,(i+1)*2),cv::Range(j*2,(j+1)*2))*odom_rot.t());
+                    }
+                }
 
                 // Add noise (xy position only, no velocities for now)
                 it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2))+=R;
@@ -290,6 +299,49 @@ public:
 
         }
     }
+
+    void drawCovariances()
+    {
+        // JOAO ISTO AQUI TA MAL. ONDE VOU BUSCAR A MATRIZ?
+        for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++)
+        {
+            // Add noise (xy position only, no velocities for now)
+            Eigen::Matrix2f covMatrix= it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2)).data();
+
+            visualization_msgs::Marker tempMarker;
+            tempMarker.pose.position.x = 0;
+            tempMarker.pose.position.y = 0;
+
+            Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eig(covMatrix);
+
+            const Eigen::Vector2f& eigValues (eig.eigenvalues());
+            const Eigen::Matrix2f& eigVectors (eig.eigenvectors());
+
+            float angle = (atan2(eigVectors(1, 0), eigVectors(0, 0)));
+
+
+            tempMarker.type = visualization_msgs::Marker::SPHERE;
+
+            double lengthMajor = sqrt(eigValues[0]);
+            double lengthMinor = sqrt(eigValues[1]);
+
+            tempMarker.scale.x = covariance_marker_scale_*lengthMajor;
+            tempMarker.scale.y = covariance_marker_scale_*lengthMinor;
+            tempMarker.scale.z = 0.001;
+
+            tempMarker.color.a = 1.0;
+            tempMarker.color.r = 1.0;
+
+            tempMarker.pose.orientation.w = cos(angle*0.5);
+            tempMarker.pose.orientation.z = sin(angle*0.5);
+
+            tempMarker.header.frame_id=fixed_frame_id;
+            tempMarker.id = 0;
+
+            location_undertainty.publish(tempMarker);
+        }
+    }
+
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
@@ -838,6 +890,8 @@ public:
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
         nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/map");
         nPriv.param<std::string>("world_frame", world_frame, "/map");
+        nPriv.param<std::string>("odom_frame", odom_frame, "/odom");
+
         nPriv.param("gaze_threshold", gaze_threshold, 0.2);
         nPriv.param("median_window", median_window, 5);
         nPriv.param("fixation_tolerance", fixation_tolerance, 0.1);
@@ -987,7 +1041,12 @@ int main(int argc, char **argv)
 
     Tracker tracker(ss.str());
 
-    ros::spin();
+    while(ros::ok())
+    {
+        tracker.odometry();
+        ros::spinOnce();
+        tracker.drawCovariances();
+    }
 
     //results.close();
 
