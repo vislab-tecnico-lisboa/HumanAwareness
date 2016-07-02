@@ -267,6 +267,7 @@ public:
             J.at<double>(1,1)=sin(delta_rot1);
             J.at<double>(1,2)=0;
 
+            // Odometry xy covariance
             cv::Mat R(2, 3, 0, CV_64F);
             R=J*control_noise*J.t();
 
@@ -274,8 +275,17 @@ public:
             for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++)
             {
                 it_mmae->statePre(cv::Range(0,1),cv::Range(0,2)) += odom_trans;
-                // For each block...
-                it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2)) = (odom_rot*it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2))*odom_rot.t())+R;
+
+                // For each block (position, velocity, acceleration
+                /*for()
+                {
+                    // Rotate covariance matrix
+                    it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2)) = (odom_rot*it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2))*odom_rot.t());
+
+                }*/
+
+                // Add noise (xy position only, no velocities for now)
+                it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2))+=R;
             }
 
         }
