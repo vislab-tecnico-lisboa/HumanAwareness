@@ -83,11 +83,10 @@ private:
 
 
     // Odometry stuff
-    ros::Time odom_last_stamp_;
     double alpha_1, alpha_2, alpha_3, alpha_4;
-    bool odom_initialized_;
+    bool tracking_initialized_;
     std_msgs::Header last_image_header;
-
+    ros::Time last_odom_time;
 
     int targetId;
 
@@ -117,7 +116,7 @@ private:
     std::string filtering_frame_id;
     std::string marker_frame_id;
     std::string world_frame;
-    std::string odom_frame;
+    std::string odom_frame_id;
     double gaze_threshold;
     int median_window;
     double fixation_tolerance;
@@ -222,11 +221,12 @@ public:
 
     void odometry()
     {
-        ros::Time odom_time=ros::Time::now();
-
-        if(!odom_initialized_)
+        ros::Time current_time=ros::Time(0);
+        // First detection is discarded to use diffential times
+        if(!tracking_initialized_)
         {
-            odom_last_stamp_=odom_time;
+            tracking_initialized_=true;
+            last_odom_time = current_time;
             return;
         }
 
@@ -235,8 +235,8 @@ public:
         // Get odom delta motion in cartesian coordinates with TF
         try
         {
-            listener->waitForTransform(fixed_frame_id, odom_last_stamp_, fixed_frame_id, odom_time , odom_frame, ros::Duration(0.5) );
-            listener->lookupTransform(fixed_frame_id, odom_last_stamp_, fixed_frame_id, odom_time, odom_frame, baseDeltaTf); // delta position
+            listener->waitForTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time , odom_frame_id, ros::Duration(0.5) );
+            listener->lookupTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time, odom_frame_id, baseDeltaTf); // delta position
 
         }
         catch (tf::TransformException &ex)
@@ -244,8 +244,7 @@ public:
             ROS_WARN("%s",ex.what());
             return;
         }
-
-        odom_last_stamp_=odom_time;
+        last_odom_time=current_time;
 
         // Get control input
         double dx=baseDeltaTf.getOrigin().getX();
@@ -287,11 +286,10 @@ public:
             // Odometry xy covariance
             cv::Mat R(2, 3, CV_64F);
             R=J*control_noise*J.t();
-
             //Update the fused state
             for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++)
             {
-                it_mmae->statePre(cv::Range(0,1),cv::Range(0,2)) += odom_trans;
+                it_mmae->statePre(cv::Range(0,2),cv::Range(0,1)) += odom_trans;
 
 
                 // Get number of blocks
@@ -311,14 +309,11 @@ public:
                 // Add noise (xy position only, no velocities for now)
                 it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2))+=R;
             }
-
         }
     }
 
     void drawCovariances()
     {
-
-
         //For each person
         for(std::vector<PersonModel>::iterator it = personList->personList.begin(); it!=personList->personList.end(); it++)
         {
@@ -337,8 +332,8 @@ public:
                 cv2eigen(errorCovPre, covMatrix);
 
                 visualization_msgs::Marker tempMarker;
-                tempMarker.pose.position.x = 0;
-                tempMarker.pose.position.y = 0;
+                tempMarker.pose.position.x = it_mmae->statePre.at<double>(0,0);
+                tempMarker.pose.position.y = it_mmae->statePre.at<double>(1,0);
 
                 Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eig(covMatrix);
 
@@ -355,7 +350,7 @@ public:
 
                 tempMarker.scale.x = covariance_marker_scale_*lengthMajor;
                 tempMarker.scale.y = covariance_marker_scale_*lengthMinor;
-                tempMarker.scale.z = 0.001+lol;
+                tempMarker.scale.z = 0.001;
 
                 tempMarker.color.a = 1.0;
                 tempMarker.color.r = 1.0;
@@ -364,8 +359,8 @@ public:
                 tempMarker.pose.orientation.z = sin(angle*0.5);
 
                 tempMarker.header.frame_id=fixed_frame_id;
-                tempMarker.id = 0;
-
+                tempMarker.id = (*it).id;
+                tempMarker.lifetime=ros::Duration(0.1);
                 location_uncertainty.publish(tempMarker);
             }
 
@@ -375,6 +370,8 @@ public:
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
+
+
         cv_bridge::CvImagePtr cv_ptr;
 
         try
@@ -387,7 +384,6 @@ public:
             return;
         }
 
-        last_image_header = detection->header;
         //Get transforms
         tf::StampedTransform transform;
 
@@ -396,13 +392,14 @@ public:
         ros::Time currentTime = ros::Time(0);
 
 
+
         //ROS_ERROR_STREAM("Getting transform at 228");
 
         try
         {
 
-            listener->waitForTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1) );
-            listener->lookupTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
+            listener->waitForTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1) );
+            listener->lookupTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
         }
         catch(tf::TransformException ex)
         {
@@ -410,8 +407,13 @@ public:
             //ros::Duration(1.0).sleep();
             return;
         }
-        //ROS_ERROR_STREAM("Got 228");
-        //ROS_ERROR_STREAM("Got 228");
+
+        // Account for what the robot moved
+        odometry();
+
+        last_image_header = detection->header;
+
+
 
 
         //Get rects from message
@@ -904,7 +906,7 @@ public:
 
 
     }
-    Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~"),odom_initialized_(false)
+    Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~"),tracking_initialized_(false)
     {
         ROS_INFO("Waiting for action server to start.");
         //ac.waitForServer();
@@ -916,11 +918,11 @@ public:
 
         nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
-        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/odom");
+        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/base_footprint");
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
         nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/map");
         nPriv.param<std::string>("world_frame", world_frame, "/map");
-        nPriv.param<std::string>("odom_frame", odom_frame, "/odom");
+        nPriv.param<std::string>("odom_frame_id", odom_frame_id, "/odom");
 
         nPriv.param("gaze_threshold", gaze_threshold, 0.2);
         nPriv.param("median_window", median_window, 5);
@@ -1073,12 +1075,13 @@ int main(int argc, char **argv)
 
     Tracker tracker(ss.str());
 
+    ros::Rate r(200);
 
     while(ros::ok())
     {
-        tracker.odometry();
         ros::spinOnce();
-//        tracker.drawCovariances();
+        r.sleep();
+        tracker.drawCovariances();
     }
 
     //results.close();
