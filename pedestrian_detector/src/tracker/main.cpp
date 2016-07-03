@@ -69,6 +69,9 @@ private:
     boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
     ros::NodeHandle n;
+    ros::NodeHandle nPriv;
+    actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
+
     ros::Subscriber image_sub;
     //ros::Subscriber odom_sub;
     bool personNotChosenFlag;
@@ -82,8 +85,7 @@ private:
     // Odometry stuff
     ros::Time odom_last_stamp_;
     double alpha_1, alpha_2, alpha_3, alpha_4;
-
-    actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
+    bool odom_initialized_;
     std_msgs::Header last_image_header;
 
 
@@ -116,7 +118,6 @@ private:
     std::string marker_frame_id;
     std::string world_frame;
     std::string odom_frame;
-    ros::NodeHandle nPriv;
     double gaze_threshold;
     int median_window;
     double fixation_tolerance;
@@ -222,6 +223,12 @@ public:
     void odometry()
     {
         ros::Time odom_time=ros::Time::now();
+
+        if(!odom_initialized_)
+        {
+            odom_last_stamp_=odom_time;
+            return;
+        }
 
         tf::StampedTransform baseDeltaTf;
 
@@ -897,7 +904,7 @@ public:
 
 
     }
-    Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~")
+    Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~"),odom_initialized_(false)
     {
         ROS_INFO("Waiting for action server to start.");
         //ac.waitForServer();
