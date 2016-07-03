@@ -25,6 +25,10 @@
 #include <opencv2/opencv.hpp>
 #include <opencv/cv.h>
 
+//Eigen includes
+#include <Eigen/Eigenvalues>
+
+
 //Custom messages
 #include <pedestrian_detector/DetectionList.h>
 #include <pedestrian_detector/BoundingBox.h>
@@ -94,6 +98,7 @@ private:
 
     //Message
     ros::Publisher position_publisher;
+    ros::Publisher location_uncertainty;
 
     //Image for debug purposes
     image_transport::ImageTransport *it;
@@ -125,6 +130,7 @@ private:
     nav_msgs::Odometry last_odom_msg;
     double last_odom_yaw;
     bool first_odom_msg;
+    double covariance_marker_scale_;
 
     bool sendHome()
     {
@@ -247,11 +253,13 @@ public:
         double var_trans=alpha_3*delta_trans*delta_trans+alpha_4*(delta_rot1*delta_rot1+delta_rot2*delta_rot2);
         double var_rot2=alpha_1*delta_rot2*delta_rot2+alpha_2*delta_trans*delta_trans;
 
-        cv::Mat control_mean(3, 1, 0, CV_64F);
+        cv::Mat control_mean(3, 1, CV_64F);
         control_mean = (Mat_<double>(3, 1) << delta_rot1, delta_trans, delta_rot2);
 
-        cv::Mat control_noise(3, 3, 0, CV_64F);
-        control_noise.at<double>(0,0)=var_rot1; control_noise.at<double>(1,1)=var_trans; control_noise.at<double>(2,2)=var_rot2;
+        cv::Mat control_noise = Mat::zeros(3, 3, CV_64F);
+        control_noise.at<double>(0,0)=var_rot1;
+        control_noise.at<double>(1,1)=var_trans;
+        control_noise.at<double>(2,2)=var_rot2;
 
         Mat odom_rot = (Mat_<double>(2, 2) << cos(d_theta), sin(d_theta), -sin(d_theta), cos(d_theta));
         Mat odom_trans = (Mat_<double>(2, 1) << -dx*cos(d_theta)-dy*sin(d_theta), -dy*cos(d_theta)+dx*sin(d_theta));
@@ -259,7 +267,7 @@ public:
         for(std::vector<PersonModel>::iterator it = personList->personList.begin(); it!=personList->personList.end(); it++)
         {
             // Linearize control noise
-            cv::Mat J(2, 3, 0, CV_64F);
+            cv::Mat J(2, 3, CV_64F);
 
             J.at<double>(0,0)=-sin(delta_rot1)*delta_trans;
             J.at<double>(0,1)=cos(delta_rot1);
@@ -270,7 +278,7 @@ public:
             J.at<double>(1,2)=0;
 
             // Odometry xy covariance
-            cv::Mat R(2, 3, 0, CV_64F);
+            cv::Mat R(2, 3, CV_64F);
             R=J*control_noise*J.t();
 
             //Update the fused state
@@ -302,43 +310,58 @@ public:
 
     void drawCovariances()
     {
-        // JOAO ISTO AQUI TA MAL. ONDE VOU BUSCAR A MATRIZ?
-        for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++)
+
+
+        //For each person
+        for(std::vector<PersonModel>::iterator it = personList->personList.begin(); it!=personList->personList.end(); it++)
         {
-            // Add noise (xy position only, no velocities for now)
-            Eigen::Matrix2f covMatrix= it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2)).data();
+            int lol = 0;
+            //For each motion model of a person
+            for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++, lol++)
+            {
+                // Add noise (xy position only, no velocities for now)
 
-            visualization_msgs::Marker tempMarker;
-            tempMarker.pose.position.x = 0;
-            tempMarker.pose.position.y = 0;
+                Mat errorCovPre = it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2));
 
-            Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eig(covMatrix);
+                errorCovPre.convertTo(errorCovPre, CV_32FC1);
 
-            const Eigen::Vector2f& eigValues (eig.eigenvalues());
-            const Eigen::Matrix2f& eigVectors (eig.eigenvectors());
+                Eigen::Matrix<float,Eigen::Dynamic,Eigen::Dynamic> covMatrix;
 
-            float angle = (atan2(eigVectors(1, 0), eigVectors(0, 0)));
+                cv2eigen(errorCovPre, covMatrix);
+
+                visualization_msgs::Marker tempMarker;
+                tempMarker.pose.position.x = 0;
+                tempMarker.pose.position.y = 0;
+
+                Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eig(covMatrix);
+
+                const Eigen::Vector2f& eigValues (eig.eigenvalues());
+                const Eigen::Matrix2f& eigVectors (eig.eigenvectors());
+
+                float angle = (atan2(eigVectors(1, 0), eigVectors(0, 0)));
 
 
-            tempMarker.type = visualization_msgs::Marker::SPHERE;
+                tempMarker.type = visualization_msgs::Marker::SPHERE;
 
-            double lengthMajor = sqrt(eigValues[0]);
-            double lengthMinor = sqrt(eigValues[1]);
+                double lengthMajor = sqrt(eigValues[0]);
+                double lengthMinor = sqrt(eigValues[1]);
 
-            tempMarker.scale.x = covariance_marker_scale_*lengthMajor;
-            tempMarker.scale.y = covariance_marker_scale_*lengthMinor;
-            tempMarker.scale.z = 0.001;
+                tempMarker.scale.x = covariance_marker_scale_*lengthMajor;
+                tempMarker.scale.y = covariance_marker_scale_*lengthMinor;
+                tempMarker.scale.z = 0.001+lol;
 
-            tempMarker.color.a = 1.0;
-            tempMarker.color.r = 1.0;
+                tempMarker.color.a = 1.0;
+                tempMarker.color.r = 1.0;
 
-            tempMarker.pose.orientation.w = cos(angle*0.5);
-            tempMarker.pose.orientation.z = sin(angle*0.5);
+                tempMarker.pose.orientation.w = cos(angle*0.5);
+                tempMarker.pose.orientation.z = sin(angle*0.5);
 
-            tempMarker.header.frame_id=fixed_frame_id;
-            tempMarker.id = 0;
+                tempMarker.header.frame_id=fixed_frame_id;
+                tempMarker.id = 0;
 
-            location_undertainty.publish(tempMarker);
+                location_uncertainty.publish(tempMarker);
+            }
+
         }
     }
 
@@ -902,6 +925,7 @@ public:
         nPriv.param("alpha_2",alpha_2, 0.001);
         nPriv.param("alpha_3",alpha_3, 5.0);
         nPriv.param("alpha_4",alpha_4, 0.05);
+        nPriv.param("covariance_marker_scale", covariance_marker_scale_, 2.0);
 
         /*The tallest man living is Sultan Ksen (Turkey, b.10 December 1982) who measured 251 cm (8 ft 3 in) in Ankara,
          *Turkey, on 08 February 2011.*/
@@ -1014,6 +1038,7 @@ public:
 
 
         position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
+        location_uncertainty = n.advertise<visualization_msgs::Marker>( "uncertainty_marker", 0 );
     }
 
     ~Tracker()
@@ -1041,11 +1066,12 @@ int main(int argc, char **argv)
 
     Tracker tracker(ss.str());
 
+
     while(ros::ok())
     {
         tracker.odometry();
         ros::spinOnce();
-        tracker.drawCovariances();
+//        tracker.drawCovariances();
     }
 
     //results.close();
