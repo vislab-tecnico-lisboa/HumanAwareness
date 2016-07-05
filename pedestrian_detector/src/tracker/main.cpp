@@ -115,7 +115,7 @@ private:
     std::string markers_frame_id;
     std::string filtering_frame_id;
     std::string marker_frame_id;
-    std::string world_frame;
+
     std::string odom_frame_id;
     double gaze_threshold;
     int median_window;
@@ -249,7 +249,7 @@ public:
         // Get odom delta motion in cartesian coordinates with TF
         try
         {
-            listener->waitForTransform(fixed_frame_id, current_time, fixed_frame_id, last_odom_time , odom_frame_id, ros::Duration(0.5) );
+            listener->waitForTransform(fixed_frame_id, current_time, fixed_frame_id, last_odom_time , odom_frame_id, ros::Duration(0.1) );
             listener->lookupTransform(fixed_frame_id, current_time, fixed_frame_id, last_odom_time, odom_frame_id, baseDeltaTf); // delta position
 
         }
@@ -583,7 +583,7 @@ public:
 
                 //If there is no person chosen, choose the closest one.
                 int_marker.header.stamp=currentTime;
-                int_marker.header.frame_id=world_frame;
+                int_marker.header.frame_id=filtering_frame_id;
 
                 double best = 100000000000000;
                 int personID=-1;
@@ -629,7 +629,7 @@ public:
                 int_marker.controls.at(0).markers.at(0).color.b = 0;
 
 
-                geometry_msgs::PointStamped personInMap;
+
                 //ROS_ERROR_STREAM("Getting transform at 448");
                 geometry_msgs::PointStamped personInBase;
 
@@ -643,8 +643,6 @@ public:
                     personInBase.point.z = 0;
 
 
-                    listener->waitForTransform(markers_frame_id, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1) );
-                    listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
                 }
                 catch(tf::TransformException ex)
                 {
@@ -652,11 +650,6 @@ public:
                     //ros::Duration(1.0).sleep();
                     return;
                 }
-
-                //ROS_ERROR_STREAM("Got 448");
-
-                int_marker.pose.position.x = personInMap.point.x;
-                int_marker.pose.position.y = personInMap.point.y;
 
                 //results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
 
@@ -666,7 +659,7 @@ public:
         else
         {
             int_marker.header.stamp=currentTime;
-            int_marker.header.frame_id=world_frame;
+            int_marker.header.frame_id=filtering_frame_id;
 
             for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); ++it)
             {
@@ -683,7 +676,7 @@ public:
                     int_marker.controls.at(0).markers.at(0).color.g = 0;
                     int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-                    geometry_msgs::PointStamped personInMap;
+
 
                     //ROS_ERROR_STREAM("Getting transform at 504");
                     geometry_msgs::PointStamped personInBase;
@@ -696,8 +689,7 @@ public:
                         personInBase.point.y = position.y;
                         personInBase.point.z = position.z;
 
-                        listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1) );
-                        listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
+
                     }
                     catch(tf::TransformException ex)
                     {
@@ -708,8 +700,8 @@ public:
 
                     //ROS_ERROR_STREAM("Got 504");
 
-                    int_marker.pose.position.x = personInMap.point.x;
-                    int_marker.pose.position.y = personInMap.point.y;
+                    int_marker.pose.position.x = personInBase.point.x;
+                    int_marker.pose.position.y = personInBase.point.y;
 
                     stringstream description, name;
                     name << "person " << (*it).id;
@@ -720,7 +712,6 @@ public:
 
                     marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
 
-
                     //Now we send out the position
                     geometry_msgs::PointStamped final_position;
 
@@ -730,7 +721,6 @@ public:
                     final_position.point.x = position.x;
                     final_position.point.y = position.y;
                     final_position.point.z = 0;
-
 
                     // CONTROL GAZE
                     if(personInBase.point.x > 0.5)
@@ -780,21 +770,18 @@ public:
                     int_marker.controls.at(0).markers.at(0).color.b = 0;
 
                     Point3d position = (*it).getPositionEstimate();
-                    geometry_msgs::PointStamped personInMap;
 
+                        geometry_msgs::PointStamped personInBase;
                     //ROS_ERROR_STREAM("Getting transform at 600");
                     try
                     {
-                        geometry_msgs::PointStamped personInBase;
+
                         personInBase.header.frame_id = filtering_frame_id;
                         personInBase.header.stamp = currentTime;
                         personInBase.point.x = position.x;
                         personInBase.point.y = position.y;
                         personInBase.point.z = 0;
 
-
-                        listener->waitForTransform(world_frame, currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1));
-                        listener->transformPoint(markers_frame_id, currentTime, personInBase, fixed_frame_id, personInMap);
                     }
                     catch(tf::TransformException ex)
                     {
@@ -804,8 +791,8 @@ public:
                     }
 
 
-                    int_marker.pose.position.x = personInMap.point.x;
-                    int_marker.pose.position.y = personInMap.point.y;
+                    int_marker.pose.position.x = personInBase.point.x;
+                    int_marker.pose.position.y = personInBase.point.y;
 
                     stringstream description, name;
 
@@ -934,8 +921,8 @@ public:
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
         nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/base_footprint");
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
-        nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/map");
-        nPriv.param<std::string>("world_frame", world_frame, "/map");
+        nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/base_footprint");
+
         nPriv.param<std::string>("odom_frame_id", odom_frame_id, "/odom");
 
         nPriv.param("gaze_threshold", gaze_threshold, 0.2);
