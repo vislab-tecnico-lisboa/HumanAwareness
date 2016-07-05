@@ -221,27 +221,42 @@ public:
 
     void odometry()
     {
+
+                tf::StampedTransform baseDeltaTf;
+
         ros::Time current_time=ros::Time::now();
         // First detection is discarded to use diffential times
         if(!tracking_initialized_)
         {
-            tracking_initialized_=true;
-            last_odom_time = current_time;
-            return;
+        try
+        {
+        listener->waitForTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time , odom_frame_id, ros::Duration(0.5) );
+        listener->lookupTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time, odom_frame_id, baseDeltaTf); // delta position
+        }
+        catch (tf::TransformException &ex)
+        {
+        ROS_WARN("%s",ex.what());
+        ROS_ERROR("RETURN BEFORE INIT");
+        return;
+        }
+        tracking_initialized_=true;
+        last_odom_time = current_time;
+        return;
         }
 
-        tf::StampedTransform baseDeltaTf;
+
 
         // Get odom delta motion in cartesian coordinates with TF
         try
         {
-            listener->waitForTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time , odom_frame_id, ros::Duration(0.5) );
-            listener->lookupTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time, odom_frame_id, baseDeltaTf); // delta position
+            listener->waitForTransform(fixed_frame_id, current_time, fixed_frame_id, last_odom_time , odom_frame_id, ros::Duration(0.5) );
+            listener->lookupTransform(fixed_frame_id, current_time, fixed_frame_id, last_odom_time, odom_frame_id, baseDeltaTf); // delta position
 
         }
         catch (tf::TransformException &ex)
         {
             ROS_WARN("%s",ex.what());
+            ROS_ERROR_STREAM("DEU RETURN");
             return;
         }
         last_odom_time=current_time;
@@ -291,12 +306,12 @@ public:
             //Update the fused state
             for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++)
             {
-                it_mmae->statePre(cv::Range(0,2),cv::Range(0,1)) += odom_trans;
+                it_mmae->statePost(cv::Range(0,2),cv::Range(0,1)) = odom_trans + odom_rot*it_mmae->statePost(cv::Range(0,2),cv::Range(0,1));
 
 
                 // Get number of blocks
-                int row_blocks=it_mmae->errorCovPre.rows%2;
-                int col_blocks=it_mmae->errorCovPre.cols%2;
+                int row_blocks=it_mmae->errorCovPost.rows%2;
+                int col_blocks=it_mmae->errorCovPost.cols%2;
 
                 // For each block (position, velocity, acceleration
                 for(int i=0;i<row_blocks;++i)
@@ -304,12 +319,12 @@ public:
                     for(int j=0;i<col_blocks;++i)
                     {
                         // Rotate covariance matrix
-                        it_mmae->errorCovPre(cv::Range(i*2,(i+1)*2),cv::Range(j*2,(j+1)*2)) = (odom_rot*it_mmae->errorCovPre(cv::Range(i*2,(i+1)*2),cv::Range(j*2,(j+1)*2))*odom_rot.t());
+                        it_mmae->errorCovPost(cv::Range(i*2,(i+1)*2),cv::Range(j*2,(j+1)*2)) = (odom_rot*it_mmae->errorCovPost(cv::Range(i*2,(i+1)*2),cv::Range(j*2,(j+1)*2))*odom_rot.t());
                     }
                 }
 
                 // Add noise (xy position only, no velocities for now)
-                it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2))+=R;
+                it_mmae->errorCovPost(cv::Range(0,2),cv::Range(0,2))+=R;
             }
         }
     }
@@ -325,17 +340,17 @@ public:
             {
                 // Add noise (xy position only, no velocities for now)
 
-                Mat errorCovPre = it_mmae->errorCovPre(cv::Range(0,2),cv::Range(0,2));
+                Mat errorCovPost = it_mmae->errorCovPost(cv::Range(0,2),cv::Range(0,2));
 
-                errorCovPre.convertTo(errorCovPre, CV_32FC1);
+                errorCovPost.convertTo(errorCovPost, CV_32FC1);
 
                 Eigen::Matrix<float,Eigen::Dynamic,Eigen::Dynamic> covMatrix;
 
-                cv2eigen(errorCovPre, covMatrix);
+                cv2eigen(errorCovPost, covMatrix);
 
                 visualization_msgs::Marker tempMarker;
-                tempMarker.pose.position.x = it_mmae->statePre.at<double>(0,0);
-                tempMarker.pose.position.y = it_mmae->statePre.at<double>(1,0);
+                tempMarker.pose.position.x = it_mmae->statePost.at<double>(0,0);
+                tempMarker.pose.position.y = it_mmae->statePost.at<double>(1,0);
 
                 Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eig(covMatrix);
 
