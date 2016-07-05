@@ -25,6 +25,10 @@
 #include <opencv2/opencv.hpp>
 #include <opencv/cv.h>
 
+//Eigen includes
+#include <Eigen/Eigenvalues>
+
+
 //Custom messages
 #include <pedestrian_detector/DetectionList.h>
 #include <pedestrian_detector/BoundingBox.h>
@@ -46,7 +50,7 @@
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
 #include <move_robot_msgs/GazeAction.h>
-
+#include <nav_msgs/Odometry.h>
 using namespace std;
 
 
@@ -65,7 +69,11 @@ private:
     boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
     ros::NodeHandle n;
+    ros::NodeHandle nPriv;
+    actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
+
     ros::Subscriber image_sub;
+    //ros::Subscriber odom_sub;
     bool personNotChosenFlag;
     bool automatic;
     Point3d targetCoords;
@@ -74,10 +82,11 @@ private:
     DetectionFilter *detectionfilter;
 
 
-
-    actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
+    // Odometry stuff
+    double alpha_1, alpha_2, alpha_3, alpha_4;
+    bool tracking_initialized_;
     std_msgs::Header last_image_header;
-
+    ros::Time last_odom_time;
 
     int targetId;
 
@@ -90,6 +99,7 @@ private:
 
     //Message
     ros::Publisher position_publisher;
+    ros::Publisher location_uncertainty;
 
     //Image for debug purposes
     image_transport::ImageTransport *it;
@@ -106,7 +116,7 @@ private:
     std::string filtering_frame_id;
     std::string marker_frame_id;
     std::string world_frame;
-    ros::NodeHandle nPriv;
+    std::string odom_frame_id;
     double gaze_threshold;
     int median_window;
     double fixation_tolerance;
@@ -115,6 +125,12 @@ private:
     double associatingDistance;
     double minimum_person_height;
     double maximum_person_height;
+
+    // Odometry auxiliars
+    nav_msgs::Odometry last_odom_msg;
+    double last_odom_yaw;
+    bool first_odom_msg;
+    double covariance_marker_scale_;
 
     bool sendHome()
     {
@@ -203,8 +219,176 @@ public:
                          << ", " << feedback->pose.position.z );
     }
 
+    void odometry()
+    {
+
+                tf::StampedTransform baseDeltaTf;
+
+        ros::Time current_time=ros::Time::now();
+        // First detection is discarded to use diffential times
+        if(!tracking_initialized_)
+        {
+        try
+        {
+        listener->waitForTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time , odom_frame_id, ros::Duration(0.5) );
+        listener->lookupTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time, odom_frame_id, baseDeltaTf); // delta position
+        }
+        catch (tf::TransformException &ex)
+        {
+        ROS_WARN("%s",ex.what());
+        ROS_ERROR("RETURN BEFORE INIT");
+        return;
+        }
+        tracking_initialized_=true;
+        last_odom_time = current_time;
+        return;
+        }
+
+
+
+        // Get odom delta motion in cartesian coordinates with TF
+        try
+        {
+            listener->waitForTransform(fixed_frame_id, current_time, fixed_frame_id, last_odom_time , odom_frame_id, ros::Duration(0.5) );
+            listener->lookupTransform(fixed_frame_id, current_time, fixed_frame_id, last_odom_time, odom_frame_id, baseDeltaTf); // delta position
+
+        }
+        catch (tf::TransformException &ex)
+        {
+            ROS_WARN("%s",ex.what());
+            ROS_ERROR_STREAM("DEU RETURN");
+            return;
+        }
+        last_odom_time=current_time;
+
+        // Get control input
+        double dx=baseDeltaTf.getOrigin().getX();
+        double dy=baseDeltaTf.getOrigin().getY();
+        double d_theta=baseDeltaTf.getRotation().getAxis()[2]*baseDeltaTf.getRotation().getAngle();
+
+        double delta_rot1=atan2(dy,dx);
+        double delta_trans=sqrt(dx*dx+dy*dy);
+        double delta_rot2=d_theta-delta_rot1;
+
+        double var_rot1=alpha_1*delta_rot1*delta_rot1+alpha_2*delta_trans*delta_trans;
+        double var_trans=alpha_3*delta_trans*delta_trans+alpha_4*(delta_rot1*delta_rot1+delta_rot2*delta_rot2);
+        double var_rot2=alpha_1*delta_rot2*delta_rot2+alpha_2*delta_trans*delta_trans;
+
+        cv::Mat control_mean(3, 1, CV_64F);
+        control_mean = (Mat_<double>(3, 1) << delta_rot1, delta_trans, delta_rot2);
+
+        cv::Mat control_noise = Mat::zeros(3, 3, CV_64F);
+        control_noise.at<double>(0,0)=var_rot1;
+        control_noise.at<double>(1,1)=var_trans;
+        control_noise.at<double>(2,2)=var_rot2;
+
+        Mat odom_rot = (Mat_<double>(2, 2) << cos(d_theta), -sin(d_theta), sin(d_theta), cos(d_theta));
+        Mat odom_trans = (Mat_<double>(2, 1) << dx*cos(d_theta), dy*sin(d_theta));
+
+        // Linearize control noise
+        cv::Mat J(2, 3, CV_64F);
+
+        J.at<double>(0,0)=-sin(delta_rot1)*delta_trans;
+        J.at<double>(0,1)=cos(delta_rot1);
+        J.at<double>(0,2)=0;
+
+        J.at<double>(1,0)=cos(delta_rot1)*delta_trans;
+        J.at<double>(1,1)=sin(delta_rot1);
+        J.at<double>(1,2)=0;
+
+        // Odometry xy covariance
+        cv::Mat R(2, 3, CV_64F);
+        R=J*control_noise*J.t();
+
+        for(std::vector<PersonModel>::iterator it = personList->personList.begin(); it!=personList->personList.end(); it++)
+        {
+
+            //Update the fused state
+            for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++)
+            {
+                it_mmae->statePost(cv::Range(0,2),cv::Range(0,1)) = odom_trans + odom_rot*it_mmae->statePost(cv::Range(0,2),cv::Range(0,1));
+
+
+                // Get number of blocks
+                int row_blocks=it_mmae->errorCovPost.rows%2;
+                int col_blocks=it_mmae->errorCovPost.cols%2;
+
+                // For each block (position, velocity, acceleration
+                for(int i=0;i<row_blocks;++i)
+                {
+                    for(int j=0;i<col_blocks;++i)
+                    {
+                        // Rotate covariance matrix
+                        it_mmae->errorCovPost(cv::Range(i*2,(i+1)*2),cv::Range(j*2,(j+1)*2)) = (odom_rot*it_mmae->errorCovPost(cv::Range(i*2,(i+1)*2),cv::Range(j*2,(j+1)*2))*odom_rot.t());
+                    }
+                }
+
+                // Add noise (xy position only, no velocities for now)
+                it_mmae->errorCovPost(cv::Range(0,2),cv::Range(0,2))+=R;
+            }
+        }
+    }
+
+    void drawCovariances()
+    {
+        //For each person
+        for(std::vector<PersonModel>::iterator it = personList->personList.begin(); it!=personList->personList.end(); it++)
+        {
+            int lol = 0;
+            //For each motion model of a person
+            for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++, lol++)
+            {
+                // Add noise (xy position only, no velocities for now)
+
+                Mat errorCovPost = it_mmae->errorCovPost(cv::Range(0,2),cv::Range(0,2));
+
+                errorCovPost.convertTo(errorCovPost, CV_32FC1);
+
+                Eigen::Matrix<float,Eigen::Dynamic,Eigen::Dynamic> covMatrix;
+
+                cv2eigen(errorCovPost, covMatrix);
+
+                visualization_msgs::Marker tempMarker;
+                tempMarker.pose.position.x = it_mmae->statePost.at<double>(0,0);
+                tempMarker.pose.position.y = it_mmae->statePost.at<double>(1,0);
+
+                Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eig(covMatrix);
+
+                const Eigen::Vector2f& eigValues (eig.eigenvalues());
+                const Eigen::Matrix2f& eigVectors (eig.eigenvectors());
+
+                float angle = (atan2(eigVectors(1, 0), eigVectors(0, 0)));
+
+
+                tempMarker.type = visualization_msgs::Marker::SPHERE;
+
+                double lengthMajor = sqrt(eigValues[0]);
+                double lengthMinor = sqrt(eigValues[1]);
+
+                tempMarker.scale.x = covariance_marker_scale_*lengthMajor;
+                tempMarker.scale.y = covariance_marker_scale_*lengthMinor;
+                tempMarker.scale.z = 0.001;
+
+                tempMarker.color.a = 1.0;
+                tempMarker.color.r = 1.0;
+
+                tempMarker.pose.orientation.w = cos(angle*0.5);
+                tempMarker.pose.orientation.z = sin(angle*0.5);
+
+                tempMarker.header.frame_id=fixed_frame_id;
+                tempMarker.id = (*it).id;
+                tempMarker.lifetime=ros::Duration(0.1);
+                location_uncertainty.publish(tempMarker);
+            }
+
+        }
+    }
+
+
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
+
+
         cv_bridge::CvImagePtr cv_ptr;
 
         try
@@ -217,7 +401,6 @@ public:
             return;
         }
 
-        last_image_header = detection->header;
         //Get transforms
         tf::StampedTransform transform;
 
@@ -226,13 +409,14 @@ public:
         ros::Time currentTime = ros::Time(0);
 
 
+
         //ROS_ERROR_STREAM("Getting transform at 228");
 
         try
         {
 
-            listener->waitForTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1) );
-            listener->lookupTransform(cameraFrameId, last_image_header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
+            listener->waitForTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1) );
+            listener->lookupTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
         }
         catch(tf::TransformException ex)
         {
@@ -240,8 +424,10 @@ public:
             //ros::Duration(1.0).sleep();
             return;
         }
-        //ROS_ERROR_STREAM("Got 228");
-        //ROS_ERROR_STREAM("Got 228");
+
+        last_image_header = detection->header;
+
+
 
 
         //Get rects from message
@@ -449,7 +635,7 @@ public:
 
                 try
                 {
-                    
+
                     personInBase.header.frame_id = filtering_frame_id;
                     personInBase.header.stamp = last_image_header.stamp;
                     personInBase.point.x = position.x;
@@ -545,7 +731,7 @@ public:
                     final_position.point.y = position.y;
                     final_position.point.z = 0;
 
-                    
+
                     // CONTROL GAZE
                     if(personInBase.point.x > 0.5)
                     {
@@ -734,10 +920,10 @@ public:
 
 
     }
-    Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~")
+    Tracker(string cameraConfig) : listener(new tf::TransformListener(ros::Duration(2.0))), ac("gaze", true), nPriv("~"),tracking_initialized_(false)
     {
         ROS_INFO("Waiting for action server to start.");
-        ac.waitForServer();
+        //ac.waitForServer();
 
         //For debug purposes
         it = new image_transport::ImageTransport(n);
@@ -746,16 +932,23 @@ public:
 
         nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
-        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/odom");
+        nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/base_footprint");
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
         nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/map");
         nPriv.param<std::string>("world_frame", world_frame, "/map");
+        nPriv.param<std::string>("odom_frame_id", odom_frame_id, "/odom");
+
         nPriv.param("gaze_threshold", gaze_threshold, 0.2);
         nPriv.param("median_window", median_window, 5);
         nPriv.param("fixation_tolerance", fixation_tolerance, 0.1);
         nPriv.param("number_of_frames_before_destruction", numberOfFramesBeforeDestruction, 25);
         nPriv.param("number_of_frames_before_destruction_locked", numberOfFramesBeforeDestructionLocked, 35);
         nPriv.param("associating_distance", associatingDistance, 0.5);
+        nPriv.param("alpha_1",alpha_1, 0.05);
+        nPriv.param("alpha_2",alpha_2, 0.001);
+        nPriv.param("alpha_3",alpha_3, 5.0);
+        nPriv.param("alpha_4",alpha_4, 0.05);
+        nPriv.param("covariance_marker_scale", covariance_marker_scale_, 2.0);
 
         /*The tallest man living is Sultan Ksen (Turkey, b.10 December 1982) who measured 251 cm (8 ft 3 in) in Ankara,
          *Turkey, on 08 February 2011.*/
@@ -779,9 +972,9 @@ public:
 
         ROS_INFO("Subscribing detections");
         image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
-
         ROS_INFO("Subscribed");
 
+        //odom_sub=n.subscribe("odom", 1, &Tracker::odometryCallback, this);
 
 
         //Stuff for results...
@@ -868,6 +1061,7 @@ public:
 
 
         position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
+        location_uncertainty = n.advertise<visualization_msgs::Marker>( "uncertainty_marker", 0 );
     }
 
     ~Tracker()
@@ -895,7 +1089,16 @@ int main(int argc, char **argv)
 
     Tracker tracker(ss.str());
 
-    ros::spin();
+    ros::Rate r(200);
+
+    while(ros::ok())
+    {
+        // Account for what the robot moved
+        tracker.odometry();
+        ros::spinOnce();
+        r.sleep();
+        tracker.drawCovariances();
+    }
 
     //results.close();
 

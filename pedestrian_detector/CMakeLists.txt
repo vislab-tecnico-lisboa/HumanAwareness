@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf_conversions
   message_generation
   interactive_markers
+  nav_msgs
 )
 
 find_package(OpenCV REQUIRED)

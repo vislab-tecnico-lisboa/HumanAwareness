@@ -2,13 +2,13 @@ close all
 addpath('tracking');
 addpath('resource_constraint');
 % min size 128x52  
-min_width=52;
-min_height=128;
+min_width=41;
+min_height=100;
 % x = [u v s u_v v_v s_v]
 % tracking parameters
 invisibleForTooLong = 10;
 ageThreshold = 5;
-minVisibleCount = 4;
+minVisibleCount = 2;
 
 state_transition_model=[1 0 0; 0 1 0; 0 0 1]; % constant position
 state_measurement_model=[1 0 0; 0 1 0; 0 0 1];
