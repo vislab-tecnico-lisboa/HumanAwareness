@@ -221,7 +221,7 @@ public:
 
     void odometry()
     {
-        ros::Time current_time=ros::Time(0);
+        ros::Time current_time=ros::Time::now();
         // First detection is discarded to use diffential times
         if(!tracking_initialized_)
         {
@@ -267,25 +267,30 @@ public:
         control_noise.at<double>(1,1)=var_trans;
         control_noise.at<double>(2,2)=var_rot2;
 
-        Mat odom_rot = (Mat_<double>(2, 2) << cos(d_theta), sin(d_theta), -sin(d_theta), cos(d_theta));
-        Mat odom_trans = (Mat_<double>(2, 1) << -dx*cos(d_theta)-dy*sin(d_theta), -dy*cos(d_theta)+dx*sin(d_theta));
+        //Mat odom_rot = (Mat_<double>(2, 2) << cos(d_theta), sin(d_theta), -sin(d_theta), cos(d_theta));
+        //Mat odom_trans = (Mat_<double>(2, 1) << dx*cos(d_theta), dy*sin(d_theta));
+
+        Mat odom_rot = (Mat_<double>(2, 2) << cos(d_theta), -sin(d_theta), sin(d_theta), cos(d_theta));
+        Mat odom_trans = (Mat_<double>(2, 1) << dx*cos(d_theta), dy*sin(d_theta));
+
+        // Linearize control noise
+        cv::Mat J(2, 3, CV_64F);
+
+        J.at<double>(0,0)=-sin(delta_rot1)*delta_trans;
+        J.at<double>(0,1)=cos(delta_rot1);
+        J.at<double>(0,2)=0;
+
+        J.at<double>(1,0)=cos(delta_rot1)*delta_trans;
+        J.at<double>(1,1)=sin(delta_rot1);
+        J.at<double>(1,2)=0;
+
+        // Odometry xy covariance
+        cv::Mat R(2, 3, CV_64F);
+        R=J*control_noise*J.t();
 
         for(std::vector<PersonModel>::iterator it = personList->personList.begin(); it!=personList->personList.end(); it++)
         {
-            // Linearize control noise
-            cv::Mat J(2, 3, CV_64F);
 
-            J.at<double>(0,0)=-sin(delta_rot1)*delta_trans;
-            J.at<double>(0,1)=cos(delta_rot1);
-            J.at<double>(0,2)=0;
-
-            J.at<double>(1,0)=cos(delta_rot1)*delta_trans;
-            J.at<double>(1,1)=sin(delta_rot1);
-            J.at<double>(1,2)=0;
-
-            // Odometry xy covariance
-            cv::Mat R(2, 3, CV_64F);
-            R=J*control_noise*J.t();
             //Update the fused state
             for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++)
             {
@@ -407,9 +412,6 @@ public:
             //ros::Duration(1.0).sleep();
             return;
         }
-
-        // Account for what the robot moved
-        odometry();
 
         last_image_header = detection->header;
 
@@ -1079,6 +1081,8 @@ int main(int argc, char **argv)
 
     while(ros::ok())
     {
+        // Account for what the robot moved
+        tracker.odometry();
         ros::spinOnce();
         r.sleep();
         tracker.drawCovariances();
