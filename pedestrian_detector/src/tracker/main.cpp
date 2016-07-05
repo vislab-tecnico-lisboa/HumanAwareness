@@ -267,14 +267,6 @@ public:
         control_noise.at<double>(1,1)=var_trans;
         control_noise.at<double>(2,2)=var_rot2;
 
-<<<<<<< HEAD
-        //Mat odom_rot = (Mat_<double>(2, 2) << cos(d_theta), sin(d_theta), -sin(d_theta), cos(d_theta));
-        //Mat odom_trans = (Mat_<double>(2, 1) << dx*cos(d_theta), dy*sin(d_theta));
-=======
-        Mat odom_rot = (Mat_<double>(2, 2) << cos(d_theta), sin(d_theta), -sin(d_theta), cos(d_theta));   
-        Mat odom_trans = (Mat_<double>(2, 1) << dx*cos(d_theta), dy*sin(d_theta));
->>>>>>> 62a8238fa6b414e40ca778b76992fad71da65704
-
         Mat odom_rot = (Mat_<double>(2, 2) << cos(d_theta), -sin(d_theta), sin(d_theta), cos(d_theta));
         Mat odom_trans = (Mat_<double>(2, 1) << dx*cos(d_theta), dy*sin(d_theta));
 
