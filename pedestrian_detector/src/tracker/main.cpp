@@ -916,7 +916,11 @@ public:
         nPriv.param("alpha_3",alpha_3, 5.0);
         nPriv.param("alpha_4",alpha_4, 0.05);
         nPriv.param("update_min_d", d_thresh_, 0.2);
-        nPriv.param("update_min_a", a_thresh_, M_PI/100.0);
+        nPriv.param("update_min_a", a_thresh_, M_PI/100.0); // In degrees
+        // Convert to radians
+
+        a_thresh_=a_thresh_*(M_PI/180.0);
+
         nPriv.param("covariance_marker_scale", covariance_marker_scale_, 2.0);
 
         /*The tallest man living is Sultan Ksen (Turkey, b.10 December 1982) who measured 251 cm (8 ft 3 in) in Ankara,
@@ -927,6 +931,9 @@ public:
          *Height confirmed by Guinness World Records.
          */
         nPriv.param("minimum_person_height", minimum_person_height, 0.55);
+
+
+
 
         personList = new PersonList(median_window,numberOfFramesBeforeDestruction, numberOfFramesBeforeDestructionLocked, associatingDistance, MMAETRACKING);
 
@@ -1064,11 +1071,15 @@ int main(int argc, char **argv)
     {
         // Account for what the robot moved
         tracker.odometry();
-        ros::spinOnce();
-        r.sleep();
 
+        // Visual detections callback
+        ros::spinOnce();
+
+        // visualization
         tracker.publishMarkersAndTarget();
         tracker.drawCovariances();
+
+        r.sleep();
     }
 
     //results.close();
