@@ -84,6 +84,7 @@ private:
 
     // Odometry stuff
     double alpha_1, alpha_2, alpha_3, alpha_4;
+    double d_thresh_,a_thresh_;
     bool tracking_initialized_;
     std_msgs::Header last_image_header;
     ros::Time last_odom_time;
@@ -222,26 +223,26 @@ public:
     void odometry()
     {
 
-                tf::StampedTransform baseDeltaTf;
+        tf::StampedTransform baseDeltaTf;
 
         ros::Time current_time=ros::Time::now();
         // First detection is discarded to use diffential times
         if(!tracking_initialized_)
         {
-        try
-        {
-        listener->waitForTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time , odom_frame_id, ros::Duration(0.5) );
-        listener->lookupTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time, odom_frame_id, baseDeltaTf); // delta position
-        }
-        catch (tf::TransformException &ex)
-        {
-        ROS_WARN("%s",ex.what());
-        ROS_ERROR("RETURN BEFORE INIT");
-        return;
-        }
-        tracking_initialized_=true;
-        last_odom_time = current_time;
-        return;
+            try
+            {
+                listener->waitForTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time , odom_frame_id, ros::Duration(0.5) );
+                listener->lookupTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time, odom_frame_id, baseDeltaTf); // delta position
+            }
+            catch (tf::TransformException &ex)
+            {
+                ROS_WARN("%s",ex.what());
+                ROS_ERROR("RETURN BEFORE INIT");
+                return;
+            }
+            tracking_initialized_=true;
+            last_odom_time = current_time;
+            return;
         }
 
 
@@ -265,6 +266,12 @@ public:
         double dx=baseDeltaTf.getOrigin().getX();
         double dy=baseDeltaTf.getOrigin().getY();
         double d_theta=baseDeltaTf.getRotation().getAxis()[2]*baseDeltaTf.getRotation().getAngle();
+
+        // See if we should update the filter
+        if(!(fabs(dx) > d_thresh_ || fabs(dy) > d_thresh_ || fabs(d_theta) > a_thresh_))
+        {
+            return;
+        }
 
         double delta_rot1=atan2(dy,dx);
         double delta_trans=sqrt(dx*dx+dy*dy);
@@ -771,7 +778,7 @@ public:
 
                     Point3d position = (*it).getPositionEstimate();
 
-                        geometry_msgs::PointStamped personInBase;
+                    geometry_msgs::PointStamped personInBase;
                     //ROS_ERROR_STREAM("Getting transform at 600");
                     try
                     {
@@ -935,6 +942,8 @@ public:
         nPriv.param("alpha_2",alpha_2, 0.001);
         nPriv.param("alpha_3",alpha_3, 5.0);
         nPriv.param("alpha_4",alpha_4, 0.05);
+        nPriv.param("update_min_d", d_thresh_, 0.2);
+        nPriv.param("update_min_a", a_thresh_, M_PI/100.0);
         nPriv.param("covariance_marker_scale", covariance_marker_scale_, 2.0);
 
         /*The tallest man living is Sultan Ksen (Turkey, b.10 December 1982) who measured 251 cm (8 ft 3 in) in Ankara,
