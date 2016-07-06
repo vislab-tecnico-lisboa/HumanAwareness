@@ -69,8 +69,9 @@ private:
     boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
     ros::NodeHandle n;
-    ros::NodeHandle nPriv;
     actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
+    ros::NodeHandle nPriv;
+
 
     ros::Subscriber image_sub;
     //ros::Subscriber odom_sub;
@@ -391,194 +392,17 @@ public:
         }
     }
 
-
-    void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
+    void publishMarkersAndTarget()
     {
 
 
-        cv_bridge::CvImagePtr cv_ptr;
-
-        try
-        {
-            cv_ptr = cv_bridge::toCvCopy(detection->im, sensor_msgs::image_encodings::BGR8);
-        }
-        catch (cv_bridge::Exception& e)
-        {
-            ROS_ERROR("cv_bridge exception: %s", e.what());
-            return;
-        }
-
-        //Get transforms
-        tf::StampedTransform transform;
-
-        Mat lastImage = cv_ptr->image;
+        vector<PersonModel> list = personList->getValidTrackerPosition();
 
         ros::Time currentTime = ros::Time(0);
 
-
-
-        //ROS_ERROR_STREAM("Getting transform at 228");
-
-        try
-        {
-
-            listener->waitForTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1) );
-            listener->lookupTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
-        }
-        catch(tf::TransformException ex)
-        {
-            ROS_WARN("%s",ex.what());
-            //ros::Duration(1.0).sleep();
-            return;
-        }
-
-        last_image_header = detection->header;
-
-
-
-
-        //Get rects from message
-
-        vector<cv::Rect_<int> > rects;
-        vector<Mat> colorFeaturesList;
-
-
-        for(pedestrian_detector::DetectionList::_bbVector_type::const_iterator it = detection->bbVector.begin(); it != detection ->bbVector.end(); it++)
-        {
-
-            int x, y, width, height;
-            x = (*it).x;
-            y = (*it).y;
-            width = (*it).width;
-            height = (*it).height;
-            cv::Rect_<int> detect(x, y, width, height);
-            rects.push_back(detect);
-        }
-
-
-        for(pedestrian_detector::DetectionList::_featuresVector_type::const_iterator it = detection->featuresVector.begin(); it != detection->featuresVector.end(); it++)
-        {
-            vector<float> features = it->features;
-            Mat bvtHistogram(features);
-
-            colorFeaturesList.push_back(bvtHistogram.clone());
-        }
-
-
-        Eigen::Affine3d eigen_transform;
-        tf::transformTFToEigen(transform, eigen_transform);
-
-        // convert matrix from Eigen to openCV
-        cv::Mat mapToCameraTransform;
-        cv::eigen2cv(eigen_transform.matrix(), mapToCameraTransform);
-
-        //invert(transform_opencv, mapToCameraTransform);
-
-        //Calculate the position from camera intrinsics and extrinsics
-
-        Mat feetImagePoints;
-
-        for(vector<cv::Rect_<int> >::iterator it = rects.begin(); it!= rects.end(); it++)
-        {
-            Mat feetMat(getFeet(*it));
-
-            transpose(feetMat, feetMat);
-
-            feetImagePoints.push_back(feetMat);
-        }
-
-
-
-        vector<cv::Point3d> coordsInBaseFrame;
-
-
-        //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
-
-
-        //ROS_ERROR_STREAM("Computing points on world frame");
-        coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, mapToCameraTransform, rects);
-        //ROS_ERROR_STREAM("Computed");
-
-        //Before we associate the data we need to filter invalid detections
-        detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, mapToCameraTransform);
-
-        //ROS_ERROR_STREAM("Associating data");
-        personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
-        //ROS_ERROR_STREAM("Done");
-
-        //Delete the trackers that need to be deleted...
-        for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
-        {
-            if(it->toBeDeleted)
-            {
-                if(it->id == targetId)
-                {
-                    personNotChosenFlag = true;
-                    it = personList->personList.erase(it);
-                    targetId = -1;
-
-                    //Send eyes to home position
-                    sendHome();
-                    ROS_INFO("Lost target. Sending eyes to home position");
-                }
-                else
-                {
-                    it = personList->personList.erase(it);
-                }
-            }
-            else
-            {
-                //results << frame << " " << (*it).id << " " << it->positionHistory[0].x << " " << it->positionHistory[0].y << endl;
-                it++;
-            }
-
-        }
-        vector<PersonModel> list = personList->getValidTrackerPosition();
-        /*        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
-        {
-
-            geometry_msgs::PointStamped personInBase;
-            geometry_msgs::PointStamped personInBaseFootprint;
-            personInBase.header.frame_id = filtering_frame_id;
-            personInBase.header.stamp = currentTime;
-            personInBase.point.x = it->positionHistory[0].x;
-            personInBase.point.y = it->positionHistory[0].y;
-            personInBase.point.z = it->positionHistory[0].z;
-
-            try{
-                listener->waitForTransform("base_footprint", currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
-                listener->transformPoint("base_footprint", currentTime, personInBase, fixed_frame_id, personInBaseFootprint);
-            }catch(tf::TransformException ex)
-            {
-                ROS_WARN("%s",ex.what());
-                //ros::Duration(1.0).sleep();
-                return;
-            }
-
-            results << it->id << " " << personInBaseFootprint.point.x << " " << personInBaseFootprint.point.z*2 << endl;
-        }*/
-
-
-        //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
-
-        /*
-        *  TODO!
-        *
-        */
-
-
-        //SIMULATION ONLY
-        /*Write simulated persons positions to file. Frame | Id | x | y |*/
-        /*Person1 ID: -1, Person2 ID: -2*/
-
-        //      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
-        //      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
-
-        //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
-        //that have median different than -1000 on either coordinate
         marker_server->clear();
         marker_server->insert(diceMarker, boost::bind(&Tracker::processAutomaticFeedback, this, _1));
-        //ros::Time now=ros::Time::now();
+
 
         //If in automatic mode
         if(automatic)
@@ -635,30 +459,10 @@ public:
                 int_marker.controls.at(0).markers.at(0).color.g = 1;
                 int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-
-
-                //ROS_ERROR_STREAM("Getting transform at 448");
-                geometry_msgs::PointStamped personInBase;
-
-                try
-                {
-
-                    personInBase.header.frame_id = filtering_frame_id;
-                    personInBase.header.stamp = last_image_header.stamp;
-                    personInBase.point.x = position.x;
-                    personInBase.point.y = position.y;
-                    personInBase.point.z = 0;
-
-
-                }
-                catch(tf::TransformException ex)
-                {
-                    ROS_WARN("%s",ex.what());
-                    //ros::Duration(1.0).sleep();
-                    return;
-                }
-
                 //results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
+
+                int_marker.pose.position.x = position.x;
+                int_marker.pose.position.y = position.y;
 
                 marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
             }
@@ -684,31 +488,8 @@ public:
                     int_marker.controls.at(0).markers.at(0).color.b = 0;
 
 
-
-                    //ROS_ERROR_STREAM("Getting transform at 504");
-                    geometry_msgs::PointStamped personInBase;
-                    try
-                    {
-
-                        personInBase.header.frame_id = filtering_frame_id;
-                        personInBase.header.stamp = currentTime;
-                        personInBase.point.x = position.x;
-                        personInBase.point.y = position.y;
-                        personInBase.point.z = position.z;
-
-
-                    }
-                    catch(tf::TransformException ex)
-                    {
-                        ROS_WARN("%s",ex.what());
-                        //ros::Duration(1.0).sleep();
-                        return;
-                    }
-
-                    //ROS_ERROR_STREAM("Got 504");
-
-                    int_marker.pose.position.x = personInBase.point.x;
-                    int_marker.pose.position.y = personInBase.point.y;
+                    int_marker.pose.position.x = position.x;
+                    int_marker.pose.position.y = position.y;
 
                     stringstream description, name;
                     name << "person " << (*it).id;
@@ -730,7 +511,7 @@ public:
                     final_position.point.z = 0;
 
                     // CONTROL GAZE
-                    if(personInBase.point.x > 0.5)
+                    if(position.x > 0.5) //DOnt send goals behind the robot
                     {
                         move_robot_msgs::GazeGoal fixationGoal;
                         fixationGoal.fixation_point.header.stamp=currentTime;
@@ -816,8 +597,200 @@ public:
         }
         marker_server->applyChanges();
         frame++;
-
         //Write rectangles on image with ids and publish
+
+    }
+
+
+    void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
+    {
+
+
+        cv_bridge::CvImagePtr cv_ptr;
+
+        try
+        {
+            cv_ptr = cv_bridge::toCvCopy(detection->im, sensor_msgs::image_encodings::BGR8);
+        }
+        catch (cv_bridge::Exception& e)
+        {
+            ROS_ERROR("cv_bridge exception: %s", e.what());
+            return;
+        }
+
+        //Get transforms
+        tf::StampedTransform transform;
+
+        Mat lastImage = cv_ptr->image;
+
+        ros::Time currentTime = ros::Time(0);
+
+
+
+        //ROS_ERROR_STREAM("Getting transform at 228");
+
+        try
+        {
+
+            listener->waitForTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.1) );
+            listener->lookupTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
+        }
+        catch(tf::TransformException ex)
+        {
+            ROS_WARN("%s",ex.what());
+            //ros::Duration(1.0).sleep();
+            return;
+        }
+
+        last_image_header = detection->header;
+
+
+
+
+        //Get rects from message
+
+        vector<cv::Rect_<int> > rects;
+        vector<Mat> colorFeaturesList;
+
+
+        for(pedestrian_detector::DetectionList::_bbVector_type::const_iterator it = detection->bbVector.begin(); it != detection ->bbVector.end(); it++)
+        {
+
+            int x, y, width, height;
+            x = (*it).x;
+            y = (*it).y;
+            width = (*it).width;
+            height = (*it).height;
+            cv::Rect_<int> detect(x, y, width, height);
+            rects.push_back(detect);
+        }
+
+
+        for(pedestrian_detector::DetectionList::_featuresVector_type::const_iterator it = detection->featuresVector.begin(); it != detection->featuresVector.end(); it++)
+        {
+            vector<float> features = it->features;
+            Mat bvtHistogram(features);
+
+            colorFeaturesList.push_back(bvtHistogram.clone());
+        }
+
+
+        Eigen::Affine3d eigen_transform;
+        tf::transformTFToEigen(transform, eigen_transform);
+
+        // convert matrix from Eigen to openCV
+        cv::Mat baseFootprintToCameraTransform;
+        cv::eigen2cv(eigen_transform.matrix(), baseFootprintToCameraTransform);
+
+        //invert(transform_opencv, mapToCameraTransform);
+
+        //Calculate the position from camera intrinsics and extrinsics
+
+        Mat feetImagePoints;
+
+        for(vector<cv::Rect_<int> >::iterator it = rects.begin(); it!= rects.end(); it++)
+        {
+            Mat feetMat(getFeet(*it));
+
+            transpose(feetMat, feetMat);
+
+            feetImagePoints.push_back(feetMat);
+        }
+
+
+
+        vector<cv::Point3d> coordsInBaseFrame;
+
+
+        //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
+
+
+        //ROS_ERROR_STREAM("Computing points on world frame");
+        coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, baseFootprintToCameraTransform, rects);
+        //ROS_ERROR_STREAM("Computed");
+
+        //Before we associate the data we need to filter invalid detections
+        detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, baseFootprintToCameraTransform);
+
+        //ROS_ERROR_STREAM("Associating data");
+        personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
+        //ROS_ERROR_STREAM("Done");
+
+        //Delete the trackers that need to be deleted...
+        for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
+        {
+            if(it->toBeDeleted)
+            {
+                if(it->id == targetId)
+                {
+                    personNotChosenFlag = true;
+                    it = personList->personList.erase(it);
+                    targetId = -1;
+
+                    //Send eyes to home position
+                    sendHome();
+                    ROS_INFO("Lost target. Sending eyes to home position");
+                }
+                else
+                {
+                    it = personList->personList.erase(it);
+                }
+            }
+            else
+            {
+                //results << frame << " " << (*it).id << " " << it->positionHistory[0].x << " " << it->positionHistory[0].y << endl;
+                it++;
+            }
+
+        }
+        vector<PersonModel> list = personList->getValidTrackerPosition();
+        /*        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+        {
+
+            geometry_msgs::PointStamped personInBase;
+            geometry_msgs::PointStamped personInBaseFootprint;
+            personInBase.header.frame_id = filtering_frame_id;
+            personInBase.header.stamp = currentTime;
+            personInBase.point.x = it->positionHistory[0].x;
+            personInBase.point.y = it->positionHistory[0].y;
+            personInBase.point.z = it->positionHistory[0].z;
+
+            try{
+                listener->waitForTransform("base_footprint", currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
+                listener->transformPoint("base_footprint", currentTime, personInBase, fixed_frame_id, personInBaseFootprint);
+            }catch(tf::TransformException ex)
+            {
+                ROS_WARN("%s",ex.what());
+                //ros::Duration(1.0).sleep();
+                return;
+            }
+
+            results << it->id << " " << personInBaseFootprint.point.x << " " << personInBaseFootprint.point.z*2 << endl;
+        }*/
+
+
+        //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
+
+        /*
+        *  TODO!
+        *
+        */
+
+
+        //SIMULATION ONLY
+        /*Write simulated persons positions to file. Frame | Id | x | y |*/
+        /*Person1 ID: -1, Person2 ID: -2*/
+
+        //      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
+        //      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
+
+        //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
+        //that have median different than -1000 on either coordinate
+
+        //ros::Time now=ros::Time::now();
+
+
+        ////////////////////////////////////////////
 
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
@@ -846,7 +819,7 @@ public:
             Mat intrinsics = cameramodel->getK();
             intrinsics.convertTo(intrinsics, CV_32F);
 
-            Mat RtMat = mapToCameraTransform(Range(0, 3), Range(0, 4));
+            Mat RtMat = baseFootprintToCameraTransform(Range(0, 3), Range(0, 4));
             RtMat.convertTo(RtMat, CV_32F);
 
             Mat feetOnImageMat = intrinsics*RtMat*feetMat;
@@ -1093,6 +1066,8 @@ int main(int argc, char **argv)
         tracker.odometry();
         ros::spinOnce();
         r.sleep();
+
+        tracker.publishMarkersAndTarget();
         tracker.drawCovariances();
     }
 

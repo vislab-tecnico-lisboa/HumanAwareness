@@ -322,7 +322,6 @@ public:
             {
             case STOPPED:
                 //ROS_ERROR("STOPPED!");
-                ac->cancelAllGoals();
                 //Next state
                 if(distanceToPerson > planner_activation_distance && hold == false)
                 {
