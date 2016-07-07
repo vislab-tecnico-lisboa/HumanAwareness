@@ -1,9 +1,10 @@
 world_frame: map
 robot_frame: base_footprint
-minimum_distance: 1
+minimum_distance: 1.2
 planner_activation_distance: 1.7
 minimum_planner_distance: 1.7
 distance_to_target: 1.5
 fixed_frame: odom
 kv: 0.2
 kalfa: 0.8
+control_type: local

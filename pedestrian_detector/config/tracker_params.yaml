@@ -1,7 +1,7 @@
 gaze_threshold: 0.2
 fixation_tolerance: 0.5
 median_window: 5
-number_of_frames_before_destruction: 1000
+number_of_frames_before_destruction: 60
 number_of_frames_before_destruction_locked: 300
 associating_distance: 0.8
 camera: l_camera_vision_link
@@ -11,3 +11,13 @@ filtering_frame_id: base_footprint
 markers_frame_id: base_footprint
 fixed_frame_id: base_footprint
 odom_frame_id: odom
+
+#odom parameters
+alpha_1: 0.05
+alpha_2: 0.001
+alpha_3: 5.0
+alpha_4: 0.05
+
+update_min_d: 0.01
+update_min_a: 0.01
+

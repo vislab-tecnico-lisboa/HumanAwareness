@@ -33,18 +33,19 @@ private:
         LOCALCONTROLLER
     };
 
-    geometry_msgs::PointStamped personMapPosition;
     geometry_msgs::PointStamped personInRobotBaseFrame;
 
     double distanceToPerson;
 
+    bool hold;
     State currentState;
     State nextState;
     ros::Rate *rate;
     ros::Subscriber sub;
     ros::Publisher cmdPub;
     ros::Timer timer;
-    bool hold;
+    MoveBaseClient *ac;
+
 
     ros::NodeHandle n;
     ros::NodeHandle nPriv;
@@ -83,45 +84,34 @@ private:
         notReceivedNumber = 0;
         hold = false;
 
-	
-        personInRobotBaseFrame = *person;
-
-        personMapPosition.header.stamp = person->header.stamp;
-        personMapPosition.header.frame_id = world_frame;
-
-             try
-              {
-
-              listener.waitForTransform(world_frame, person->header.stamp, person->header.frame_id, person->header.stamp, fixed_frame_id, ros::Duration(10.0) );
-              listener.transformPoint(world_frame, person->header.stamp, personInRobotBaseFrame, fixed_frame_id, personMapPosition);
-              }
-              catch(tf::TransformException ex)
-              {
-            ROS_WARN("%s",ex.what());
-            //ros::Duration(1.0).sleep();
-            return;
-              }
-
-        /*Check distance to objective*/
-        //Get person on robot frame
         try
         {
-            listener.transformPoint(robot_frame, personInRobotBaseFrame, personInRobotBaseFrame);
 
-            cv::Point3d point(personInRobotBaseFrame.point.x, personInRobotBaseFrame.point.y, personInRobotBaseFrame.point.z);
-            distanceToPerson = cv::norm(point);
-            ROS_INFO("Person distance: %f", distanceToPerson);
-            hold = false;
+            listener.waitForTransform(robot_frame, person->header.stamp, person->header.frame_id, person->header.stamp, fixed_frame_id, ros::Duration(10.0) );
+            listener.transformPoint(robot_frame, person->header.stamp, *person, fixed_frame_id, personInRobotBaseFrame);
 
+            cv::Point3d personPoint;
+            personPoint.x = personInRobotBaseFrame.point.x;
+            personPoint.y = personInRobotBaseFrame.point.y;
+            personPoint.z = personInRobotBaseFrame.point.z;
+
+            distanceToPerson = cv::norm(personPoint);
+            ROS_ERROR("Person distance: %f", distanceToPerson);
         }
         catch(tf::TransformException ex)
         {
-            ROS_ERROR("%s",ex.what());
-            ros::Duration(1.0).sleep();
+            ROS_WARN("%s",ex.what());
+            //ros::Duration(1.0).sleep();
+            return;
         }
+
+        personInRobotBaseFrame.header.frame_id = robot_frame;
     }
 
 public:
+
+    std::string cType;
+
     FollowerFSM() : hold(true),
         currentState(STOPPED),
         nextState(STOPPED),
@@ -143,6 +133,10 @@ public:
         nPriv.param("distance_to_target", distance_to_target, 1.5);
         nPriv.param<double>("kv", kv, 0.03);
         nPriv.param<double>("kalfa", kalfa, 0.08);
+        nPriv.param<std::string>("control_type", cType, "planner");
+
+        if(cType == "planner")
+        { ac = new MoveBaseClient("move_base", true);}
 
         notReceivedNumber = 0;
         sub = n.subscribe("person_position", 1, &FollowerFSM::receiveInformation, this);
@@ -158,124 +152,8 @@ public:
             delete rate;
     }
 
-/*
-    void run()
-    {
 
-		
-
-        while(ros::ok())
-        {
-
-            //If we are receiving data
-            switch(currentState)
-            {
-            case STOPPED:
-                ROS_ERROR("STOPPED!");
-
-                //Next state
-                if(distanceToPerson > planner_activation_distance && hold == false)
-                {
-                    nextState = PLANNER;
-                    delete rate;
-                    rate = new ros::Rate(10);
-                }
-                else if(distanceToPerson < planner_activation_distance && distanceToPerson > minimum_distance && hold == false)
-                {
-                    nextState = LOCALCONTROLLER;
-                    delete rate;
-                    rate = new ros::Rate(10);
-                }
-                else
-                {
-                    nextState = STOPPED;
-                    rate->sleep();
-                }
-
-                break;
-            case PLANNER:
-                ROS_ERROR("PLANNER");
-
-                if(distanceToPerson >= minimum_planner_distance && hold == false)
-                {
-                    nextState = PLANNER;
-                    //Get transforms
-                    tf::StampedTransform transform;
-                    try
-                    {
-                        listener.waitForTransform(robot_frame, world_frame, ros::Time(0), ros::Duration(10.0) );
-                        listener.lookupTransform(robot_frame, world_frame,ros::Time(0), transform);
-                    }
-                    catch(tf::TransformException ex)
-                    {
-                        ROS_ERROR("%s",ex.what());
-                        ros::Duration(1.0).sleep();
-                    }
-
-                    Eigen::Affine3d eigen_transform;
-                    tf::transformTFToEigen(transform, eigen_transform);
-
-
-                    // convert matrix from Eigen to openCV
-                    cv::Mat odomToRobotBase;
-                    cv::eigen2cv(eigen_transform.matrix(), odomToRobotBase);
-
-                    cv::Point3d personPoint;
-                    personPoint.x = personMapPosition.point.x;
-                    personPoint.y = personMapPosition.point.y;
-                    personPoint.z = personMapPosition.point.z;
-                    segwayController::moveBase(personPoint, odomToRobotBase, ac, distance_to_target);
-                    rate->sleep();
-                }
-                else if( distanceToPerson < minimum_planner_distance && distanceToPerson >= minimum_distance && hold == false)
-                {
-                    nextState = LOCALCONTROLLER;
-                    ac->cancelAllGoals();
-                    delete rate;
-                    rate = new ros::Rate(10);
-                }
-
-                else if(distanceToPerson < minimum_distance || hold == true)
-                {
-                    nextState = STOPPED;
-                    ac->cancelAllGoals();
-                    delete rate;
-                    rate = new ros::Rate(10);
-                }
-
-                break;
-            case LOCALCONTROLLER:
-                ROS_ERROR("LOCALCONTROLLER");
-
-                if(distanceToPerson >= minimum_distance && distanceToPerson < planner_activation_distance && hold == false)
-                {
-                    nextState = LOCALCONTROLLER;
-
-                }
-                else if(distanceToPerson < minimum_distance || hold == true)
-                {
-                    nextState = STOPPED;
-                }
-                else if(distanceToPerson >= planner_activation_distance)
-                {
-
-
-                    nextState = PLANNER;
-                    delete rate;
-                    rate = new ros::Rate(10);
-
-                }
-
-                break;
-            }
-            ros::spinOnce();
-            currentState = nextState;
-        }
-    }
-
-};*/
-
-    void run()
+    void runLocalController()
     {
 
 
@@ -431,7 +309,84 @@ public:
         }
     }
 
+    void runPlanner()
+    {
+
+
+
+        while(ros::ok())
+        {
+
+            //If we are receiving data
+            switch(currentState)
+            {
+            case STOPPED:
+                //ROS_ERROR("STOPPED!");
+                //Next state
+                if(distanceToPerson > planner_activation_distance && hold == false)
+                {
+                    nextState = PLANNER;
+                    delete rate;
+                    rate = new ros::Rate(10);
+                }
+
+                break;
+            case PLANNER:
+                ROS_ERROR("PLANNER");
+
+                if(distanceToPerson >= minimum_planner_distance && hold == false)
+                {
+                    nextState = PLANNER;
+                    //Get transforms
+                    tf::StampedTransform transform;
+                    try
+                    {
+                        listener.waitForTransform(world_frame, robot_frame, ros::Time(0), ros::Duration(10.0) );
+                        listener.lookupTransform(world_frame, robot_frame,ros::Time(0), transform);
+                    }
+                    catch(tf::TransformException ex)
+                    {
+                        ROS_ERROR("%s",ex.what());
+                        ros::Duration(1.0).sleep();
+                    }
+
+                    Eigen::Affine3d eigen_transform;
+                    tf::transformTFToEigen(transform, eigen_transform);
+
+
+                    // convert matrix from Eigen to openCV
+                    cv::Mat baseLinkToMap;
+                    cv::eigen2cv(eigen_transform.matrix(), baseLinkToMap);
+
+                    cv::Point3d personPoint;
+                    personPoint.x = personInRobotBaseFrame.point.x;
+                    personPoint.y = personInRobotBaseFrame.point.y;
+                    personPoint.z = personInRobotBaseFrame.point.z;
+                    segwayController::moveBase(personPoint, baseLinkToMap, ac, distance_to_target);
+                    rate->sleep();
+                }
+
+                else if(distanceToPerson < minimum_planner_distance || hold == true)
+                {
+                    nextState = STOPPED;
+                    ac->cancelAllGoals();
+                    delete rate;
+                    rate = new ros::Rate(10);
+                }
+
+                break;
+            default:
+                nextState = STOPPED;
+                ac->cancelAllGoals();
+            }
+            ros::spinOnce();
+            currentState = nextState;
+        }
+    }
+
 };
+
+
 
 int main(int argc, char** argv)
 {
@@ -443,8 +398,13 @@ int main(int argc, char** argv)
     //*******************************************************************************
 
     FollowerFSM fsm;
-    fsm.run();
 
+    if(fsm.cType == "planner")
+    {
+        fsm.runPlanner();
+    }else if(fsm.cType == "local"){
+        fsm.runLocalController();
+    }
 
 
     return 0;
