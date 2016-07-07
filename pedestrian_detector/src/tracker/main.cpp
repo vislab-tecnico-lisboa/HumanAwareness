@@ -632,7 +632,6 @@ public:
 
         try
         {
-
             listener->waitForTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.05) );
             listener->lookupTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
         }
