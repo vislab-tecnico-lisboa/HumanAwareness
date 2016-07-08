@@ -10,6 +10,7 @@
   <arg name="odom_frame_id" default="$(arg tf_prefix)/odom" />
   <arg name="map_topic" default="/map" />
   <arg name="visualization" default="true" />
+  <param name="use_sim_time" value="true" />
 
 <!-- Run pedestrian detector !-->
   <arg name="image_in" default="/vizzy/l_camera/image_rect_color" />

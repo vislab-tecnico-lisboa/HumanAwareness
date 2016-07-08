@@ -117,6 +117,11 @@ Point3d PersonModel::getPositionEstimate()
     return medianFilter();
 }
 
+Mat PersonModel::getCovarianceOfMixture()
+{
+  return mmaeEstimator->stateCovMMAE;
+}
+
 
 void PersonModel::updateModel()
 {
@@ -196,31 +201,31 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         constantPosition.measurementMatrix = (Mat_<double>(2, 2) << 1, 0, 0, 1);
         //Q
         constantPosition.processNoiseCov = (Mat_<double>(2, 2) << pow(T, 2), 0, 0, pow(T, 2));  //Q*sigma
-        constantPosition.processNoiseCov  = constantPosition.processNoiseCov*0.1;
+        constantPosition.processNoiseCov  = constantPosition.processNoiseCov*1;
         //R
         constantPosition.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*0.01; //R*sigma
+        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*0.05; //R*sigma
 
         //P0
-        constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*50;
+        constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*0.5;
 
         //Constant velocity filter
 
         KalmanFilter constantVelocity(4, 2, 0, CV_64F);
 
         //Phi
-        constantVelocity.transitionMatrix = (Mat_<double>(4, 4) << 1, 0, T, 0, 0, 1, T, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+        constantVelocity.transitionMatrix = (Mat_<double>(4, 4) << 1, 0, T, 0, 0, 1, 0, T, 0, 0, 1, 0, 0, 0, 0, 1);
         //H
         constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 1, 0, 0);
-        //Q
+        //Q1
         constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, 0, pow(T,3)/2, 0, 0, pow(T,4)/4, 0, pow(T,3)/2, pow(T,3)/2, 0, pow(T,2), 0, 0, pow(T,3)/2, 0, pow(T,2));
-        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*0.1;  //Q*sigma
+        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*1;  //Q*sigma
         //R
         constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*0.01; //R*sigma
+        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*0.05; //R*sigma
 
         //P0
-        constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*50;
+        constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*0.5;
 
         //Constant acceleration filter
 
@@ -229,22 +234,22 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
         //Phi
         constantAcceleration.transitionMatrix = (Mat_<double>(6, 6) << 1, 0, T, 0, pow(T, 2)/2, 0, 0, 1, 0, T, 0, pow(T, 2)/2, 0, 0, 1, 0, T, 0, 0, 0, 0, 1, 0, T, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1 );
         //H
-        constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0);
+        constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0);
         //Q
         constantAcceleration.processNoiseCov = (Mat_<double>(6, 6) << pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, 0, pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T, 0, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T);
-        constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*0.1;  //Q*sigma
+        constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*1;  //Q*sigma
         //R
         constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*0.01; //R*sigma
+        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*0.05; //R*sigma
 
         //P0
-        constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*50;
+        constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*0.5;
 
         // Put them all in the bank
         std::vector<KalmanFilter> kalmanBank;
         kalmanBank.push_back(constantPosition);
         kalmanBank.push_back(constantVelocity);
-        //        kalmanBank.push_back(constantAcceleration);
+        kalmanBank.push_back(constantAcceleration);
 
         // Link each of these filters states to the ponderated state
 
@@ -257,29 +262,29 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
 
         int indexes1[] = {0, 1};
         int indexes2[] = {0, 1, 2, 3};
-        //        int indexes3[] = {0, 1, 2, 3, 4, 5};
+        int indexes3[] = {0, 1, 2, 3, 4, 5};
 
         std::vector<int> indexes1_(indexes1, indexes1+sizeof(indexes1)/sizeof(int));
         std::vector<int> indexes2_(indexes2, indexes2+sizeof(indexes2)/sizeof(int));
-        //        std::vector<int> indexes3_(indexes3, indexes3+sizeof(indexes3)/sizeof(int));
+        std::vector<int> indexes3_(indexes3, indexes3+sizeof(indexes3)/sizeof(int));
 
         std::vector<std::vector<int> > indexList;
         indexList.push_back(indexes1_);
         indexList.push_back(indexes2_);
-        //        indexList.push_back(indexes3_);
+        indexList.push_back(indexes3_);
 
         //Guess the initial states - a good guess for the position is the measurement we just got!
 
-        /*      For 3 models
-        double states[] = {detectedPosition.x, 0, 0, detectedPosition.y, 0, 0};
+      //        For 3 models
+        double states[] = {detectedPosition.x, detectedPosition.y, 0, 0, 0, 0};
 //        double states[] = {0, 0, 0, 0, 0, 0};
-        Mat initialStates = Mat(6, 1, CV_64F, states).clone();*/
+        Mat initialStates = Mat(6, 1, CV_64F, states).clone();
 
-        double states[] = {detectedPosition.x, 0, detectedPosition.y, 0};
-        Mat initialStates = Mat(4, 1, CV_64F, states).clone();
+//        double states[] = {detectedPosition.x, 0, detectedPosition.y, 0};
+//        Mat initialStates = Mat(4, 1, CV_64F, states).clone();
 
         //Build the Bank!
-        mmaeEstimator = new MMAEFilterBank(kalmanBank, indexList, true, false, initialStates, CV_64F);
+        mmaeEstimator = new MMAEFilterBank(kalmanBank, indexList, false, false, initialStates, CV_64F);
     }
 
 

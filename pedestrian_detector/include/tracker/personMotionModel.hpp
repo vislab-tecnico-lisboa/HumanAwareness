@@ -70,6 +70,7 @@ class PersonModel
 
     Point3d medianFilter();
     Point3d getPositionEstimate();
+    Mat getCovarianceOfMixture();
     void updateModel();
     Point3d getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point3d estimation);
     Point2d velocityMedianFilter();

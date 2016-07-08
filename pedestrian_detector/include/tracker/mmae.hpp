@@ -23,7 +23,7 @@ class MMAEFilterBank
 
 public:
     Mat xMMAE;                                                //Ponderated state
-
+    Mat stateCovMMAE;                                         //Covariance of the mixture of Gaussians
     std::vector<KalmanFilter> filterBank;                     //Vector of models
     std::vector<std::vector <int> > modelToxMMAEindexes;      //Since a model might have less states than xMMAE,
     //we will save their corresponding indexes

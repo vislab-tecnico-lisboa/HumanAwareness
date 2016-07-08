@@ -232,7 +232,7 @@ public:
         {
             try
             {
-                listener->waitForTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time , odom_frame_id, ros::Duration(0.5) );
+                listener->waitForTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time , odom_frame_id, ros::Duration(0.05) );
                 listener->lookupTransform(fixed_frame_id, last_odom_time, fixed_frame_id, current_time, odom_frame_id, baseDeltaTf); // delta position
             }
             catch (tf::TransformException &ex)
@@ -343,52 +343,53 @@ public:
         //For each person
         for(std::vector<PersonModel>::iterator it = personList->personList.begin(); it!=personList->personList.end(); it++)
         {
-            int lol = 0;
-            //For each motion model of a person
-            for(std::vector<KalmanFilter>::iterator it_mmae=it->mmaeEstimator->filterBank.begin(); it_mmae!=it->mmaeEstimator->filterBank.end(); it_mmae++, lol++)
-            {
-                // Add noise (xy position only, no velocities for now)
-
-                Mat errorCovPost = it_mmae->errorCovPost(cv::Range(0,2),cv::Range(0,2));
-
-                errorCovPost.convertTo(errorCovPost, CV_32FC1);
-
-                Eigen::Matrix<float,Eigen::Dynamic,Eigen::Dynamic> covMatrix;
-
-                cv2eigen(errorCovPost, covMatrix);
-
-                visualization_msgs::Marker tempMarker;
-                tempMarker.pose.position.x = it_mmae->statePost.at<double>(0,0);
-                tempMarker.pose.position.y = it_mmae->statePost.at<double>(1,0);
-
-                Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eig(covMatrix);
-
-                const Eigen::Vector2f& eigValues (eig.eigenvalues());
-                const Eigen::Matrix2f& eigVectors (eig.eigenvectors());
-
-                float angle = (atan2(eigVectors(1, 0), eigVectors(0, 0)));
+            // Add noise (xy position only, no velocities for now)
 
 
-                tempMarker.type = visualization_msgs::Marker::SPHERE;
+            Mat aux;
+            it->getCovarianceOfMixture().copyTo(aux);
+            Mat errorCovPost = aux(cv::Range(0,2),cv::Range(0,2));
 
-                double lengthMajor = sqrt(eigValues[0]);
-                double lengthMinor = sqrt(eigValues[1]);
+            errorCovPost.convertTo(errorCovPost, CV_32FC1);
 
-                tempMarker.scale.x = covariance_marker_scale_*lengthMajor;
-                tempMarker.scale.y = covariance_marker_scale_*lengthMinor;
-                tempMarker.scale.z = 0.001;
+            Eigen::Matrix<float,Eigen::Dynamic,Eigen::Dynamic> covMatrix;
 
-                tempMarker.color.a = 1.0;
-                tempMarker.color.r = 1.0;
+            cv2eigen(errorCovPost, covMatrix);
 
-                tempMarker.pose.orientation.w = cos(angle*0.5);
-                tempMarker.pose.orientation.z = sin(angle*0.5);
+            visualization_msgs::Marker tempMarker;
 
-                tempMarker.header.frame_id=fixed_frame_id;
-                tempMarker.id = (*it).id;
-                tempMarker.lifetime=ros::Duration(0.1);
-                location_uncertainty.publish(tempMarker);
-            }
+            Point3d positionOfPerson = it->getPositionEstimate();
+
+            tempMarker.pose.position.x = positionOfPerson.x;
+            tempMarker.pose.position.y = positionOfPerson.y;
+
+            Eigen::SelfAdjointEigenSolver<Eigen::Matrix2f> eig(covMatrix);
+
+            const Eigen::Vector2f& eigValues (eig.eigenvalues());
+            const Eigen::Matrix2f& eigVectors (eig.eigenvectors());
+
+            float angle = (atan2(eigVectors(1, 0), eigVectors(0, 0)));
+
+
+            tempMarker.type = visualization_msgs::Marker::SPHERE;
+
+            double lengthMajor = sqrt(eigValues[0]);
+            double lengthMinor = sqrt(eigValues[1]);
+
+            tempMarker.scale.x = covariance_marker_scale_*lengthMajor;
+            tempMarker.scale.y = covariance_marker_scale_*lengthMinor;
+            tempMarker.scale.z = 0.001;
+
+            tempMarker.color.a = 1.0;
+            tempMarker.color.r = 1.0;
+
+            tempMarker.pose.orientation.w = cos(angle*0.5);
+            tempMarker.pose.orientation.z = sin(angle*0.5);
+
+            tempMarker.header.frame_id=fixed_frame_id;
+            tempMarker.id = (*it).id;
+            tempMarker.lifetime=ros::Duration(0.1);
+            location_uncertainty.publish(tempMarker);
 
         }
     }
@@ -399,7 +400,7 @@ public:
 
         vector<PersonModel> list = personList->getValidTrackerPosition();
 
-        ros::Time currentTime = ros::Time(0);
+        ros::Time currentTime = ros::Time::now();
 
         marker_server->clear();
         marker_server->insert(diceMarker, boost::bind(&Tracker::processAutomaticFeedback, this, _1));
@@ -624,7 +625,7 @@ public:
 
         Mat lastImage = cv_ptr->image;
 
-        ros::Time currentTime = ros::Time(0);
+        ros::Time currentTime = ros::Time::now();
 
 
 
@@ -857,7 +858,7 @@ public:
                     Point2d tl = barBase-Point2d(0, maxBarSize*(*pr));
                     rectangle(lastImage, tl, barBase + Point2d(step, 0), cores[ind], CV_FILLED);
 
-                    if(ind < 1)
+                    if(ind < 2)
                         ind++;
                     else
                         ind = 0;

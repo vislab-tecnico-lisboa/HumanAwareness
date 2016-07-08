@@ -36,6 +36,8 @@ MMAEFilterBank::MMAEFilterBank(std::vector<KalmanFilter> & filterBank,
             xMMAEsize = it->statePost.rows;
     }
 
+ //   ROS_ERROR_STREAM("xmmae size: " << xMMAEsize);
+
     if(initialState.empty())
         xMMAE = Mat::zeros(xMMAEsize, 1, type);
     else
@@ -43,6 +45,23 @@ MMAEFilterBank::MMAEFilterBank(std::vector<KalmanFilter> & filterBank,
         CV_Assert(initialState.rows == xMMAEsize && initialState.cols == 1);
         xMMAE = initialState;
     }
+
+    stateCovMMAE = Mat::zeros(xMMAEsize, xMMAEsize, type);
+
+    counter = 0;
+
+    for(std::vector<KalmanFilter>::iterator it=filterBank.begin(); it != filterBank.end(); it++, counter++)
+    {
+        Mat tmpMat = Mat::zeros(xMMAEsize, xMMAEsize, type);
+        it->errorCovPost.copyTo(tmpMat(cv::Range(0, it->errorCovPost.rows), cv::Range(0, it->errorCovPost.cols)));
+
+        Mat tmpState = Mat::zeros(xMMAEsize, 1, type);
+        it->statePost.copyTo(tmpState(cv::Range(0, it->statePost.rows), cv::Range(0, it->statePost.cols)));
+
+
+        stateCovMMAE = stateCovMMAE + probabilities.at(counter)*(tmpMat+tmpState*tmpState.t()-xMMAE*xMMAE.t());
+    }
+
 
 
 
@@ -180,11 +199,6 @@ void MMAEFilterBank::correct(Mat &measurement)
 
                 (*itProb) = densities.at(j)*(*itProb)/sumOfAll;
 
-                if(j == 2)
-                {
-                    *itProb = 0;
-                    continue;
-                }
                 *itProb+=0.01;
                 sumProbs += *itProb;
             }
@@ -224,6 +238,22 @@ void MMAEFilterBank::correct(Mat &measurement)
 
     xMMAE = xMMAE_tmp;
 
+    stateCovMMAE = Mat::zeros(stateCovMMAE.rows, stateCovMMAE.rows, type);
+
+    int counter = 0;
+
+    for(std::vector<KalmanFilter>::iterator it=filterBank.begin(); it != filterBank.end(); it++, counter++)
+    {
+        Mat tmpMat = Mat::zeros(stateCovMMAE.rows, stateCovMMAE.cols, type);
+        it->errorCovPost.copyTo(tmpMat(cv::Range(0, it->errorCovPost.rows), cv::Range(0, it->errorCovPost.cols)));
+
+        Mat tmpState = Mat::zeros(xMMAE.rows, xMMAE.cols, type);
+        it->statePost.copyTo(tmpState(cv::Range(0, it->statePost.rows), cv::Range(0, it->statePost.cols)));
+
+
+        stateCovMMAE = stateCovMMAE + probabilities.at(counter)*(tmpMat+tmpState*tmpState.t()-xMMAE*xMMAE.t());
+    }
+
 
     //
     //We we want to use the same state vector for all filters, and that state vector is the ponderated vector
@@ -231,7 +261,7 @@ void MMAEFilterBank::correct(Mat &measurement)
 
     if(commonState)
     {
-        //        linkXMMAEtoFilterStates();
+        linkXMMAEtoFilterStates();
     }
 
 }
