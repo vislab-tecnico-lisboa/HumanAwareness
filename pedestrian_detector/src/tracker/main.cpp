@@ -116,7 +116,6 @@ private:
     std::string cameraInfoTopic;
     std::string markers_frame_id;
     std::string filtering_frame_id;
-    std::string marker_frame_id;
 
     std::string odom_frame_id;
     double gaze_threshold;
@@ -466,6 +465,12 @@ public:
                 int_marker.pose.position.x = position.x;
                 int_marker.pose.position.y = position.y;
 
+                double yaw_mesh_offset=M_PI;
+                double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
+                double mesh_offset = M_PI/2;
+                tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
+                tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+
                 marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
             }
         }
@@ -499,6 +504,13 @@ public:
 
                     int_marker.name = name.str();
                     int_marker.description = description.str();
+
+                    double yaw_mesh_offset=M_PI;
+                    double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
+                    double mesh_offset = M_PI/2;
+                    tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
+                    tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+
 
                     marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
 
@@ -591,6 +603,13 @@ public:
 
                     int_marker.name = name.str();
                     int_marker.description = description.str();
+
+                    double yaw_mesh_offset=M_PI;
+                    double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
+                    double mesh_offset = M_PI/2;
+                    tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
+                    tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+
 
                     marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
 
