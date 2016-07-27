@@ -34,6 +34,7 @@ add_message_files(
   BoundingBox.msg
   Features.msg
   DetectionList.msg
+  BBList.msg
 )
 
 generate_messages(

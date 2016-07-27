@@ -32,6 +32,7 @@
 //Custom messages
 #include <pedestrian_detector/DetectionList.h>
 #include <pedestrian_detector/BoundingBox.h>
+#include <pedestrian_detector/BBList.h>
 
 //Other includes
 #include <sstream>
@@ -102,6 +103,7 @@ private:
     //Message
     ros::Publisher position_publisher;
     ros::Publisher location_uncertainty;
+    ros::Publisher trackerPublisher;
 
     //Image for debug purposes
     image_transport::ImageTransport *it;
@@ -668,7 +670,7 @@ public:
 
 
         //Get rects from message
-
+/**********************/
         vector<cv::Rect_<int> > rects;
         vector<Mat> colorFeaturesList;
 
@@ -702,7 +704,6 @@ public:
         cv::Mat baseFootprintToCameraTransform;
         cv::eigen2cv(eigen_transform.matrix(), baseFootprintToCameraTransform);
 
-        //invert(transform_opencv, mapToCameraTransform);
 
         //Calculate the position from camera intrinsics and extrinsics
 
@@ -717,26 +718,16 @@ public:
             feetImagePoints.push_back(feetMat);
         }
 
-
-
         vector<cv::Point3d> coordsInBaseFrame;
 
-
-        //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
-
-
-        //ROS_ERROR_STREAM("Computing points on world frame");
         coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, baseFootprintToCameraTransform, rects);
-        //ROS_ERROR_STREAM("Computed");
 
-        //Before we associate the data we need to filter invalid detections
         detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, baseFootprintToCameraTransform);
 
-        //ROS_ERROR_STREAM("Associating data");
         personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
-        //ROS_ERROR_STREAM("Done");
 
-        //Delete the trackers that need to be deleted...
+
+        /***Tracklet destruction**************/
         for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
         {
             if(it->toBeDeleted)
@@ -758,59 +749,18 @@ public:
             }
             else
             {
-                //results << frame << " " << (*it).id << " " << it->positionHistory[0].x << " " << it->positionHistory[0].y << endl;
                 it++;
             }
 
         }
+        /******************************************/
+
         vector<PersonModel> list = personList->getValidTrackerPosition();
-        /*        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
-        {
-
-            geometry_msgs::PointStamped personInBase;
-            geometry_msgs::PointStamped personInBaseFootprint;
-            personInBase.header.frame_id = filtering_frame_id;
-            personInBase.header.stamp = currentTime;
-            personInBase.point.x = it->positionHistory[0].x;
-            personInBase.point.y = it->positionHistory[0].y;
-            personInBase.point.z = it->positionHistory[0].z;
-
-            try{
-                listener->waitForTransform("base_footprint", currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
-                listener->transformPoint("base_footprint", currentTime, personInBase, fixed_frame_id, personInBaseFootprint);
-            }catch(tf::TransformException ex)
-            {
-                ROS_WARN("%s",ex.what());
-                //ros::Duration(1.0).sleep();
-                return;
-            }
-
-            results << it->id << " " << personInBaseFootprint.point.x << " " << personInBaseFootprint.point.z*2 << endl;
-        }*/
 
 
-        //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
+        /***********Reproject bounding boxes and probabilities to image*****************/
 
-        /*
-        *  TODO!
-        *
-        */
-
-
-        //SIMULATION ONLY
-        /*Write simulated persons positions to file. Frame | Id | x | y |*/
-        /*Person1 ID: -1, Person2 ID: -2*/
-
-        //      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
-        //      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
-
-        //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
-        //that have median different than -1000 on either coordinate
-
-        //ros::Time now=ros::Time::now();
-
-
-        ////////////////////////////////////////////
+        pedestrian_detector::BBList listOfBBs;
 
         for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
         {
@@ -897,6 +847,16 @@ public:
                     convert << "id: " << it->id;
                 }
 
+                pedestrian_detector::BoundingBox bBoxWithId;
+
+                bBoxWithId.id = it->id;
+                bBoxWithId.x = trackedBB.x;
+                bBoxWithId.y = trackedBB.y;
+                bBoxWithId.width = trackedBB.width;
+                bBoxWithId.height = trackedBB.height;
+
+                listOfBBs.bbVector.push_back(bBoxWithId);
+
                 putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
 
             }
@@ -904,6 +864,9 @@ public:
 
         sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", lastImage).toImageMsg();
         image_pub.publish(msgImage);
+
+        listOfBBs.header = detection->header;
+        trackerPublisher.publish(listOfBBs);
 
 
     }
@@ -969,14 +932,6 @@ public:
         ROS_INFO("Subscribing detections");
         image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
         ROS_INFO("Subscribed");
-
-        //odom_sub=n.subscribe("odom", 1, &Tracker::odometryCallback, this);
-
-
-        //Stuff for results...
-        //     person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
-        //     person2Topic = n.subscribe("/person2/odom", 1, &Tracker::person2PosCallback, this);
-
 
         //Prepare the marker
         marker_server = new interactive_markers::InteractiveMarkerServer("tracker");
@@ -1058,6 +1013,8 @@ public:
 
         position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
         location_uncertainty = n.advertise<visualization_msgs::Marker>( "uncertainty_marker", 0 );
+        trackerPublisher = n.advertise<pedestrian_detector::BBList>("bbs_with_id", 1);
+
     }
 
     ~Tracker()
@@ -1077,8 +1034,6 @@ int main(int argc, char **argv)
 
     stringstream ss;
 
-    //Simulation results file
-    //results.open("/home/avelino/altura_z.txt");
 
     ss << ros::package::getPath("pedestrian_detector");
     ss << "/camera_model/config.yaml";
@@ -1102,7 +1057,6 @@ int main(int argc, char **argv)
         r.sleep();
     }
 
-    //results.close();
 
     return 0;
 }
