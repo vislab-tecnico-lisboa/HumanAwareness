@@ -94,15 +94,21 @@ void PersonModel::updateModel()
     position.z = 0.95;
 
     Mat measurement;
-    if(positionHistory[0].x == -1000 || positionHistory[0].y == -1000)
+
+    cv::Point3d filteredPoint;
+
+    filteredPoint = medianFilter();
+
+    if(filteredPoint.x == -1000 || filteredPoint.y == -1000)
     {
         measurement = Mat();
+        ROS_ERROR_STREAM("-1000!");
     }
     else
     {
         measurement = Mat(2, 1, CV_64F);
-        measurement.at<double>(0, 0) = positionHistory[0].x;
-        measurement.at<double>(1, 0) = positionHistory[0].y;
+        measurement.at<double>(0, 0) = filteredPoint.x;
+        measurement.at<double>(1, 0) = filteredPoint.y;
     }
     mmaeEstimator->correct(measurement);
 
@@ -336,8 +342,6 @@ PersonList::~PersonList()
 
 void PersonList::updateList()
 {
-    //TODO
-
     for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();)
     {
 
