@@ -10,6 +10,7 @@
 #include <ros/ros.h>
 #include <ros/package.h>
 #include "../include/tracker/mmae.hpp"
+#include "../include/tracker/cameraModel.hpp"
 
 
 using namespace cv;
@@ -27,12 +28,6 @@ class PersonModel
 
     Rect_<int> projectBoundingBox();
 
-
-    //Five last velocities (Fast Five. lol) - not used yet
-    Point2d velocity[25];
-    Point2d filteredVelocity;
-    void updateVelocityArray(Point3d detectedPosition);
-    int method;
 
     public:
 
@@ -73,7 +68,6 @@ class PersonModel
     Mat getCovarianceOfMixture();
     void updateModel();
     Point3d getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point3d estimation);
-    Point2d velocityMedianFilter();
     double getScoreForAssociation(double height, Point3d detectedPosition, Mat detectionColorHist, Mat trackerColorHist);
 };
 
@@ -88,17 +82,19 @@ public:
     int numberOfFramesBeforeDestructionLocked;
     double associatingDistance;
     void associateData(vector<cv::Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects, vector<Mat> colorFeaturesList);
-    void addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram, int method = MMAETRACKING);
+    void addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram);
     std::vector<PersonModel> personList;
     std::deque<PersonModel> holdList;   //For Re-ID purposes
     void updateList();
-
-    int method;
 
     PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method=MMAETRACKING);
     ~PersonList();
     //Returns a vector containing positions associated to each tracker, that are valid after the median filter
     std::vector<PersonModel> getValidTrackerPosition();
+    //Returns a list of deleted tracklets
+    std::vector<int> trackletKiller();
+    cv::Mat plotReprojectionAndProbabilities(int targetId, cv::Mat baseFootprintToCameraTransform, CameraModel *cameramodel, cv::Mat lastImage);
+
 
 
 };

@@ -65,7 +65,7 @@ class Tracker{
 
 private:
 
-    cameraModel *cameramodel;
+    CameraModel *cameramodel;
     boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
     ros::NodeHandle n;
@@ -145,19 +145,6 @@ private:
     }
 
 public:
-
-    //Stuff to get results!
-    /*    void person1PosCallback(const nav_msgs::OdometryConstPtr &odom)
-    {
-        person1.x = odom->pose.pose.position.x;
-        person1.y = odom->pose.pose.position.y;
-    }
-
-    void person2PosCallback(const nav_msgs::OdometryConstPtr &odom)
-    {
-        person2.x = odom->pose.pose.position.x;
-        person2.y = odom->pose.pose.position.y;
-    }*/
 
     void processAutomaticFeedback(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
     {
@@ -721,188 +708,32 @@ public:
 
         vector<cv::Point3d> coordsInBaseFrame;
 
-
-        //      coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrameWithoutHomography(&rects,transform_opencv);
-
-
-        //ROS_ERROR_STREAM("Computing points on world frame");
         coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, baseFootprintToCameraTransform, rects);
-        //ROS_ERROR_STREAM("Computed");
 
-        //Before we associate the data we need to filter invalid detections
         detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, baseFootprintToCameraTransform);
 
-        //ROS_ERROR_STREAM("Associating data");
         personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
-        //ROS_ERROR_STREAM("Done");
 
-        //Delete the trackers that need to be deleted...
-        for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
+        std::vector<int> deletedTracklets = personList->trackletKiller();
+
+
+        //Check if one of the deleted ones is the target
+        if(deletedTracklets.size() > 0)
+        for(std::vector<int>::iterator itDeleted = deletedTracklets.begin(); itDeleted != deletedTracklets.end(); itDeleted++)
         {
-            if(it->toBeDeleted)
+            if(*itDeleted == targetId)
             {
-                if(it->id == targetId)
-                {
-                    personNotChosenFlag = true;
-                    it = personList->personList.erase(it);
-                    targetId = -1;
-
-                    //Send eyes to home position
-                    sendHome();
-                    ROS_INFO("Lost target. Sending eyes to home position");
-                }
-                else
-                {
-                    it = personList->personList.erase(it);
-                }
-            }
-            else
-            {
-                //results << frame << " " << (*it).id << " " << it->positionHistory[0].x << " " << it->positionHistory[0].y << endl;
-                it++;
-            }
-
-        }
-        vector<PersonModel> list = personList->getValidTrackerPosition();
-        /*        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
-        {
-
-            geometry_msgs::PointStamped personInBase;
-            geometry_msgs::PointStamped personInBaseFootprint;
-            personInBase.header.frame_id = filtering_frame_id;
-            personInBase.header.stamp = currentTime;
-            personInBase.point.x = it->positionHistory[0].x;
-            personInBase.point.y = it->positionHistory[0].y;
-            personInBase.point.z = it->positionHistory[0].z;
-
-            try{
-                listener->waitForTransform("base_footprint", currentTime, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(10) );
-                listener->transformPoint("base_footprint", currentTime, personInBase, fixed_frame_id, personInBaseFootprint);
-            }catch(tf::TransformException ex)
-            {
-                ROS_WARN("%s",ex.what());
-                //ros::Duration(1.0).sleep();
-                return;
-            }
-
-            results << it->id << " " << personInBaseFootprint.point.x << " " << personInBaseFootprint.point.z*2 << endl;
-        }*/
-
-
-        //Send the rects correctly ordered and identified back to the detector so that we can view it on the image
-
-        /*
-        *  TODO!
-        *
-        */
-
-
-        //SIMULATION ONLY
-        /*Write simulated persons positions to file. Frame | Id | x | y |*/
-        /*Person1 ID: -1, Person2 ID: -2*/
-
-        //      results << frame << " " << "-1 " << person1.x << " " << person1.y << endl;
-        //      results << frame << " " << "-2 " << person2.x << " " << person2.y << endl;
-
-        //If we haven't chosen a person to follow, show all detections with a green marker on Rviz
-        //that have median different than -1000 on either coordinate
-
-        //ros::Time now=ros::Time::now();
-
-
-        ////////////////////////////////////////////
-
-        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
-        {
-
-            //Get feet position
-            Point3d head = it->getPositionEstimate();
-
-            Point3d feet = head;
-            feet.z = 0;
-
-            //Project them into the image
-            Point2d feetOnImage;
-            Point2d headOnImage;
-
-            /*Code*/
-            Mat headMat = Mat::ones(4, 1, CV_32F);
-            headMat.at<float>(0,0) = head.x;
-            headMat.at<float>(1,0) = head.y;
-            headMat.at<float>(2,0) = head.z;
-
-            Mat feetMat = Mat::ones(4, 1, CV_32F);
-            feetMat.at<float>(0,0) = feet.x;
-            feetMat.at<float>(1,0) = feet.y;
-            feetMat.at<float>(2,0) = feet.z;
-
-            Mat intrinsics = cameramodel->getK();
-            intrinsics.convertTo(intrinsics, CV_32F);
-
-            Mat RtMat = baseFootprintToCameraTransform(Range(0, 3), Range(0, 4));
-            RtMat.convertTo(RtMat, CV_32F);
-
-            Mat feetOnImageMat = intrinsics*RtMat*feetMat;
-            Mat headOnImageMat = intrinsics*RtMat*headMat;
-
-            feetOnImage.x = feetOnImageMat.at<float>(0,0)/feetOnImageMat.at<float>(2,0);
-            feetOnImage.y = feetOnImageMat.at<float>(1,0)/feetOnImageMat.at<float>(2,0);
-
-            headOnImage.x = headOnImageMat.at<float>(0,0)/headOnImageMat.at<float>(2,0);
-            headOnImage.y = headOnImageMat.at<float>(1,0)/headOnImageMat.at<float>(2,0);
-
-            //Draw the rectangle from the point
-
-            int h = feetOnImage.y-headOnImage.y;
-            int width = h*52/128;
-
-            int topLeftX = headOnImage.x - width/2;
-            int topLeftY = headOnImage.y;
-
-            cv::Rect_<int> trackedBB(topLeftX, topLeftY, width, h);
-
-            if(h > 0)
-            {
-
-                //Bar plot of probabilities
-
-                int step = trackedBB.width/3;
-                int maxBarSize = trackedBB.height*4/5;
-                const static Scalar cores[3] = {Scalar(24, 54, 231), Scalar(239, 232, 31), Scalar(255, 0, 0)};
-
-                int ind = 0;
-                Point2d barBase(trackedBB.tl().x, trackedBB.br().y); //Bottom left corner of the bb
-                for(std::vector<double>::iterator pr = it->mmaeEstimator->probabilities.begin(); pr != it->mmaeEstimator->probabilities.end(); pr++)
-                {
-                    Point2d tl = barBase-Point2d(0, maxBarSize*(*pr));
-                    rectangle(lastImage, tl, barBase + Point2d(step, 0), cores[ind], CV_FILLED);
-
-                    if(ind < 2)
-                        ind++;
-                    else
-                        ind = 0;
-
-                    barBase = barBase + Point2d(step, 0);
-                }
-
-                ostringstream convert;
-
-                if(it->id == targetId)
-                {
-                    rectangle(lastImage, trackedBB, Scalar(0, 0, 255), 2);
-                    convert << "id: " << it->id << " | H = " << head.z;
-
-                }else{
-                    rectangle(lastImage, trackedBB, Scalar(0, 255, 0), 2);
-                    convert << "id: " << it->id;
-                }
-
-                putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
-
+                personNotChosenFlag = true;
+                targetId = -1;
+                sendHome();
             }
         }
 
-        sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", lastImage).toImageMsg();
+        /*Draw boxes and probabilities on an image*/
+
+        cv::Mat visualizationImage;
+        visualizationImage =  personList->plotReprojectionAndProbabilities(targetId, baseFootprintToCameraTransform, cameramodel, lastImage);
+        sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualizationImage).toImageMsg();
         image_pub.publish(msgImage);
 
 
@@ -963,7 +794,7 @@ public:
         //Initialize at infinity
         lastFixationPoint = Point3d(1000, 1000, 1000);
 
-        cameramodel = new cameraModel(cameraConfig, cameraInfoTopic);
+        cameramodel = new CameraModel(cameraConfig, cameraInfoTopic);
         detectionfilter = new DetectionFilter(maximum_person_height, minimum_person_height, cameramodel);
 
         ROS_INFO("Subscribing detections");
