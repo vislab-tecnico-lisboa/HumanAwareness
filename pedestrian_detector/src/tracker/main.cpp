@@ -60,6 +60,8 @@ class Tracker{
 
 private:
 
+    ros::Time lastUpdate;
+
     CameraModel *cameramodel;
     boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
@@ -585,6 +587,12 @@ public:
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
 
+        ros::Time now = ros::Time::now();
+        ros::Duration sampleTime = now - lastUpdate;
+        lastUpdate = now;
+
+        double delta_t = sampleTime.toSec();
+        personList->updateDeltaT(delta_t);
 
         cv_bridge::CvImagePtr cv_ptr;
 
@@ -695,7 +703,6 @@ public:
         }
 
         /*Draw boxes and probabilities on an image*/
-
         cv::Mat visualizationImage;
         visualizationImage =  personList->plotReprojectionAndProbabilities(targetId, baseFootprintToCameraTransform, cameramodel, lastImage);
         sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", visualizationImage).toImageMsg();
@@ -801,7 +808,7 @@ public:
 
         visualization_msgs::Marker diceRoll;
 
-        diceRoll.header.frame_id = "/base_footprint";
+        diceRoll.header.frame_id = fixed_frame_id;
         diceRoll.header.stamp = ros::Time();
         diceRoll.id = 1;
         diceRoll.ns = "automatic";
@@ -845,6 +852,8 @@ public:
 
         position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
         location_uncertainty = n.advertise<visualization_msgs::Marker>( "uncertainty_marker", 0 );
+
+        lastUpdate = ros::Time::now();
     }
 
     ~Tracker()

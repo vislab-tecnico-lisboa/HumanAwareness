@@ -76,13 +76,6 @@ Mat PersonModel::getCovarianceOfMixture()
 void PersonModel::updateModel()
 {
 
-    ros::Time now = ros::Time::now();
-    ros::Duration sampleTime = now - lastUpdate;
-
-    delta_t = sampleTime.toSec();
-    lastUpdate = now;
-
-
     for(int i=0; i < median_window-1; i++)
         positionHistory[median_window-1-i] = positionHistory[median_window-1-(i+1)];
 
@@ -118,7 +111,7 @@ void PersonModel::updateModel()
 
 }
 
-PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram, int method)
+PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram)
 {    
 
     static const double samplingRate = 100.0;
@@ -254,9 +247,6 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
 
     this->id = id;
     noDetection = 0;
-
-    lastUpdate = ros::Time::now();
-
     deadReckoning = false;
 }
 
@@ -319,6 +309,8 @@ Point3d PersonModel::medianFilter()
 }
 
 
+
+
 PersonList::PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method)
 {
     //This will never get reseted. That will make sure that we have a new id for every new detection
@@ -338,6 +330,17 @@ PersonList::~PersonList()
             delete it->mmaeEstimator;
     }
 }
+
+void PersonList::updateDeltaT(double delta_t)
+{
+
+    for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();it++)
+    {
+      it->delta_t = delta_t;
+    }
+
+}
+
 
 void PersonList::updateList()
 {

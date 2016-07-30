@@ -7,8 +7,6 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include <deque>
-#include <ros/ros.h>
-#include <ros/package.h>
 #include "../include/tracker/mmae.hpp"
 #include "../include/tracker/cameraModel.hpp"
 
@@ -19,10 +17,7 @@ using namespace std;
 class PersonModel
 {
 
-    private:
-
-    //Sampling time - not used yet
-    ros::Time lastUpdate;
+    private:    
     int median_window;
 
 
@@ -61,7 +56,7 @@ class PersonModel
     cv::Rect_<int> rectHistory[5];
     cv::Rect rect;
 
-    PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram, int method=MMAETRACKING);
+    PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram);
 
     Point3d medianFilter();
     Point3d getPositionEstimate();
@@ -86,6 +81,7 @@ public:
     std::vector<PersonModel> personList;
     std::deque<PersonModel> holdList;   //For Re-ID purposes
     void updateList();
+    void updateDeltaT(double delta_t);
 
     PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method=MMAETRACKING);
     ~PersonList();

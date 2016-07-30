@@ -1,6 +1,4 @@
 #include "../include/tracker/filtersAndUtilities.hpp"
-#include <ros/ros.h>
-
 
 
 //Compute the z coordinate in the world frame knowing both x and y

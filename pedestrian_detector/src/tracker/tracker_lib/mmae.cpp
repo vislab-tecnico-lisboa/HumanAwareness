@@ -1,6 +1,4 @@
 #include "../include/tracker/mmae.hpp"
-#include <ros/ros.h>
-#include <ros/package.h>
 
 MMAEFilterBank::~MMAEFilterBank()
 {
@@ -35,8 +33,6 @@ MMAEFilterBank::MMAEFilterBank(std::vector<KalmanFilter> & filterBank,
         if(it->statePost.rows > xMMAEsize)
             xMMAEsize = it->statePost.rows;
     }
-
- //   ROS_ERROR_STREAM("xmmae size: " << xMMAEsize);
 
     if(initialState.empty())
         xMMAE = Mat::zeros(xMMAEsize, 1, type);
@@ -109,12 +105,10 @@ void MMAEFilterBank::predict(Mat control)
 
         for(std::vector<KalmanFilter>::iterator itFilter = filterBank.begin(); itFilter != filterBank.end(); itFilter++, i++)
         {
-            // cout << "Pminus:" << itFilter->errorCovPre << endl;
             itFilter->predict(control);
 
             itFilter->errorCovPre = itFilter->errorCovPre+Mat::eye(itFilter->errorCovPre.rows, itFilter->errorCovPre.cols, itFilter->errorCovPre.type())*0.003;
 
-            // cout << "Pminus after:" << itFilter->errorCovPre << endl;
             //Aux vars
             Mat H = itFilter->measurementMatrix;
             Mat Pminus = itFilter->errorCovPre;
