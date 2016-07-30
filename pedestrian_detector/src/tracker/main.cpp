@@ -9,6 +9,8 @@
 #include <ros/package.h>
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
+#include <tf/message_filter.h>
+#include <message_filters/subscriber.h>
 #include "opencv2/core/eigen.hpp"
 #include "geometry_msgs/PoseStamped.h"
 #include <visualization_msgs/Marker.h>
@@ -54,13 +56,6 @@
 using namespace std;
 
 
-//Stuff for results from simulation...
-cv::Point2d person1;
-cv::Point2d person2;
-int frame = 1;
-//ofstream results;
-
-
 class Tracker{
 
 private:
@@ -68,13 +63,14 @@ private:
     CameraModel *cameramodel;
     boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
+
     ros::NodeHandle n;
     actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
     ros::NodeHandle nPriv;
 
+    boost::shared_ptr<message_filters::Subscriber<pedestrian_detector::DetectionList> > detection_sub;
+    boost::shared_ptr<tf::MessageFilter<pedestrian_detector::DetectionList> > detection_filter;
 
-    ros::Subscriber image_sub;
-    //ros::Subscriber odom_sub;
     bool personNotChosenFlag;
     bool automatic;
     Point3d targetCoords;
@@ -95,7 +91,6 @@ private:
     //Marker stuff
     interactive_markers::InteractiveMarkerServer *marker_server;
     visualization_msgs::InteractiveMarker int_marker;
-
     visualization_msgs::InteractiveMarker diceMarker;
 
 
@@ -107,14 +102,9 @@ private:
     image_transport::ImageTransport *it;
     image_transport::Publisher image_pub;
 
-    //Things to get results...
-    //    ros::Subscriber person1Topic;
-    //    ros::Subscriber person2Topic;
-
     std::string cameraFrameId;
     std::string fixed_frame_id;
     std::string cameraInfoTopic;
-    std::string markers_frame_id;
     std::string filtering_frame_id;
 
     std::string odom_frame_id;
@@ -604,7 +594,6 @@ public:
             }
         }
         marker_server->applyChanges();
-        frame++;
         //Write rectangles on image with ids and publish
 
     }
@@ -633,13 +622,8 @@ public:
 
         ros::Time currentTime = ros::Time::now();
 
-
-
-        //ROS_ERROR_STREAM("Getting transform at 228");
-
         try
-        {
-            listener->waitForTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.05) );
+        {            
             listener->lookupTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
         }
         catch(tf::TransformException ex)
@@ -688,8 +672,6 @@ public:
         // convert matrix from Eigen to openCV
         cv::Mat baseFootprintToCameraTransform;
         cv::eigen2cv(eigen_transform.matrix(), baseFootprintToCameraTransform);
-
-        //invert(transform_opencv, mapToCameraTransform);
 
         //Calculate the position from camera intrinsics and extrinsics
 
@@ -743,16 +725,13 @@ public:
         ROS_INFO("Waiting for action server to start.");
         //ac.waitForServer();
 
-        //For debug purposes
         it = new image_transport::ImageTransport(n);
         image_pub = it->advertise("image_out_tracker", 1);
-        //*****************************************
 
         nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
         nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/base_footprint");
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
-        nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/base_footprint");
 
         nPriv.param<std::string>("odom_frame_id", odom_frame_id, "/odom");
 
@@ -798,16 +777,10 @@ public:
         detectionfilter = new DetectionFilter(maximum_person_height, minimum_person_height, cameramodel);
 
         ROS_INFO("Subscribing detections");
-        image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
+        detection_sub=boost::shared_ptr<message_filters::Subscriber<pedestrian_detector::DetectionList> > (new message_filters::Subscriber<pedestrian_detector::DetectionList>(n, "detections", 1000));
+        detection_filter = boost::shared_ptr<tf::MessageFilter<pedestrian_detector::DetectionList> > (new tf::MessageFilter<pedestrian_detector::DetectionList>(*detection_sub, *listener, filtering_frame_id, 1000));
+        detection_filter->registerCallback(boost::bind(&Tracker::trackingCallback, this, _1));
         ROS_INFO("Subscribed");
-
-        //odom_sub=n.subscribe("odom", 1, &Tracker::odometryCallback, this);
-
-
-        //Stuff for results...
-        //     person1Topic = n.subscribe("/person1/odom", 1, &Tracker::person1PosCallback, this);
-        //     person2Topic = n.subscribe("/person2/odom", 1, &Tracker::person2PosCallback, this);
-
 
         //Prepare the marker
         marker_server = new interactive_markers::InteractiveMarkerServer("tracker");
@@ -836,7 +809,7 @@ public:
         click_me.name = "click";
         click_me.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
 
-        int_marker.header.frame_id = markers_frame_id;
+        int_marker.header.frame_id = filtering_frame_id;
         int_marker.scale = 1.5;
 
         int_marker.controls.push_back(click_me);
@@ -907,9 +880,6 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "tracker");
 
     stringstream ss;
-
-    //Simulation results file
-    //results.open("/home/avelino/altura_z.txt");
 
     ss << ros::package::getPath("pedestrian_detector");
     ss << "/camera_model/config.yaml";

@@ -102,7 +102,6 @@ void PersonModel::updateModel()
     if(filteredPoint.x == -1000 || filteredPoint.y == -1000)
     {
         measurement = Mat();
-        ROS_ERROR_STREAM("-1000!");
     }
     else
     {
@@ -523,14 +522,12 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                         if(norm(coords-testPoint) < 1.5)
                         {
-                            ROS_DEBUG("NOT CREATING: Exists in radius");
                             existsInRadius = true;
                             break;
                         }
                     }
                     if(!existsInRadius)
                     {
-                        ROS_DEBUG("Creating without -1");
                         addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
                     }
                 }
@@ -551,14 +548,12 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                     if(norm(coords-testPoint) < associatingDistance)
                     {
-                        ROS_DEBUG("NOT CREATING: Exists in radius");
                         existsInRadius = true;
                         break;
                     }
                 }
                 if(!existsInRadius)
                 {
-                    ROS_DEBUG("Creating");
                     addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
                 }
             }
@@ -587,14 +582,12 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0.0);
                 if(norm(coords-testPoint) < associatingDistance)
                 {
-                    ROS_DEBUG("NOT CREATING: Existis in radius");
                     existsInRadius = true;
                     break;
                 }
             }
             if(!existsInRadius)
             {
-                ROS_DEBUG("Creating");
                 addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
             }
         }

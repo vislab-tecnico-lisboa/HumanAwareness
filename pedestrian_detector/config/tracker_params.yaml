@@ -8,7 +8,6 @@ camera: l_camera_vision_link
 maximum_person_height: 2.1
 minimum_person_height: 0.8
 filtering_frame_id: base_footprint
-markers_frame_id: base_footprint
 fixed_frame_id: base_footprint
 odom_frame_id: odom
 
