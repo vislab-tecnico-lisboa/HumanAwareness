@@ -437,16 +437,16 @@ public:
                 int_marker.controls.at(0).markers.at(0).color.g = 1;
                 int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-                //results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
-
                 int_marker.pose.position.x = position.x;
                 int_marker.pose.position.y = position.y;
 
-                double yaw_mesh_offset=M_PI;
-                double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
-                double mesh_offset = M_PI/2;
-                tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
-                tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+                double yaw_mesh_offset=-M_PI/2;
+                double yaw= atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
+
+                int_marker.pose.orientation.w = cos(yaw/2);
+                int_marker.pose.orientation.x = 0;
+                int_marker.pose.orientation.y = 0;
+                int_marker.pose.orientation.z = sin(yaw/2);
 
                 marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
             }
@@ -482,11 +482,13 @@ public:
                     int_marker.name = name.str();
                     int_marker.description = description.str();
 
-                    double yaw_mesh_offset=M_PI;
-                    double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
-                    double mesh_offset = M_PI/2;
-                    tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
-                    tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+                    double yaw_mesh_offset=-M_PI/2;
+                    double yaw= atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
+
+                    int_marker.pose.orientation.w = cos(yaw/2);
+                    int_marker.pose.orientation.x = 0;
+                    int_marker.pose.orientation.y = 0;
+                    int_marker.pose.orientation.z = sin(yaw/2);
 
 
                     marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
@@ -517,29 +519,12 @@ public:
                         ac.sendGoal(fixationGoal);
                         ROS_INFO("Gaze Action server started, sending goal.");
 
-                        //bool finished_before_timeout =
-                        //ac.waitForResult(ros::Duration(2));
-
-
                         lastFixationPoint = Point3d(position.x, position.y, it->personHeight/2);
 
                     }
 
 
                     position_publisher.publish(final_position);
-
-                    //wait for the action to return
-                    /*              bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
-
-              if (finished_before_timeout)
-              {
-                  actionlib::SimpleClientGoalState state = ac.getState();
-                  ROS_INFO("Gaze action finished: %s",state.toString().c_str());
-              }
-              else
-                  ROS_INFO("Gaze action did not finish before the time out.");
-*/
-
                 }
                 else
                 {
@@ -551,7 +536,6 @@ public:
                     Point3d position = (*it).getPositionEstimate();
 
                     geometry_msgs::PointStamped personInBase;
-                    //ROS_ERROR_STREAM("Getting transform at 600");
                     try
                     {
 
@@ -581,12 +565,13 @@ public:
                     int_marker.name = name.str();
                     int_marker.description = description.str();
 
-                    double yaw_mesh_offset=M_PI;
-                    double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
-                    double mesh_offset = M_PI/2;
-                    tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
-                    tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+                    double yaw_mesh_offset=-M_PI/2;
+                    double yaw= atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
 
+                    int_marker.pose.orientation.w = cos(yaw/2);
+                    int_marker.pose.orientation.x = 0;
+                    int_marker.pose.orientation.y = 0;
+                    int_marker.pose.orientation.z = sin(yaw/2);
 
                     marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
 
@@ -594,8 +579,6 @@ public:
             }
         }
         marker_server->applyChanges();
-        //Write rectangles on image with ids and publish
-
     }
 
 
@@ -798,10 +781,10 @@ public:
         person_marker.color.a = 1.0;
         person_marker.pose.position.z = 0;
 
-        person_marker.pose.orientation.x = 1;
+        person_marker.pose.orientation.x = sin(M_PI/4);
         person_marker.pose.orientation.y = 0;
         person_marker.pose.orientation.z = 0;
-        person_marker.pose.orientation.w = 1;
+        person_marker.pose.orientation.w = cos(M_PI/4);
 
         visualization_msgs::InteractiveMarkerControl click_me;
         click_me.always_visible = true;
@@ -902,8 +885,6 @@ int main(int argc, char **argv)
 
         r.sleep();
     }
-
-    //results.close();
 
     return 0;
 }
