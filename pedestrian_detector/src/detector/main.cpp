@@ -101,6 +101,7 @@ private:
         pedestrian_detector::DetectionList detectionList;
 
         detectionList.header = msg->header;
+        detectionList.header.frame_id = "l_camera_vision_link";
 
 
         //Print rectangles on the image and add them to the detection list

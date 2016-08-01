@@ -9,6 +9,8 @@
 #include <ros/package.h>
 #include <tf/transform_listener.h>
 #include <tf_conversions/tf_eigen.h>
+#include <tf/message_filter.h>
+#include <message_filters/subscriber.h>
 #include "opencv2/core/eigen.hpp"
 #include "geometry_msgs/PoseStamped.h"
 #include <visualization_msgs/Marker.h>
@@ -55,27 +57,23 @@
 using namespace std;
 
 
-//Stuff for results from simulation...
-cv::Point2d person1;
-cv::Point2d person2;
-int frame = 1;
-//ofstream results;
-
-
 class Tracker{
 
 private:
 
-    cameraModel *cameramodel;
+    ros::Time lastUpdate;
+
+    CameraModel *cameramodel;
     boost::shared_ptr<tf::TransformListener> listener;
     tf::StampedTransform transform;
+
     ros::NodeHandle n;
     actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
     ros::NodeHandle nPriv;
 
+    boost::shared_ptr<message_filters::Subscriber<pedestrian_detector::DetectionList> > detection_sub;
+    boost::shared_ptr<tf::MessageFilter<pedestrian_detector::DetectionList> > detection_filter;
 
-    ros::Subscriber image_sub;
-    //ros::Subscriber odom_sub;
     bool personNotChosenFlag;
     bool automatic;
     Point3d targetCoords;
@@ -96,7 +94,6 @@ private:
     //Marker stuff
     interactive_markers::InteractiveMarkerServer *marker_server;
     visualization_msgs::InteractiveMarker int_marker;
-
     visualization_msgs::InteractiveMarker diceMarker;
 
 
@@ -109,14 +106,9 @@ private:
     image_transport::ImageTransport *it;
     image_transport::Publisher image_pub;
 
-    //Things to get results...
-    //    ros::Subscriber person1Topic;
-    //    ros::Subscriber person2Topic;
-
     std::string cameraFrameId;
     std::string fixed_frame_id;
     std::string cameraInfoTopic;
-    std::string markers_frame_id;
     std::string filtering_frame_id;
 
     std::string odom_frame_id;
@@ -147,19 +139,6 @@ private:
     }
 
 public:
-
-    //Stuff to get results!
-    /*    void person1PosCallback(const nav_msgs::OdometryConstPtr &odom)
-    {
-        person1.x = odom->pose.pose.position.x;
-        person1.y = odom->pose.pose.position.y;
-    }
-
-    void person2PosCallback(const nav_msgs::OdometryConstPtr &odom)
-    {
-        person2.x = odom->pose.pose.position.x;
-        person2.y = odom->pose.pose.position.y;
-    }*/
 
     void processAutomaticFeedback(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
     {
@@ -462,16 +441,16 @@ public:
                 int_marker.controls.at(0).markers.at(0).color.g = 1;
                 int_marker.controls.at(0).markers.at(0).color.b = 0;
 
-                //results << frame << " " << (*it).id << " " << position.x << " " << position.y << endl;
-
                 int_marker.pose.position.x = position.x;
                 int_marker.pose.position.y = position.y;
 
-                double yaw_mesh_offset=M_PI;
-                double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
-                double mesh_offset = M_PI/2;
-                tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
-                tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+                double yaw_mesh_offset=-M_PI/2;
+                double yaw= atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
+
+                int_marker.pose.orientation.w = cos(yaw/2);
+                int_marker.pose.orientation.x = 0;
+                int_marker.pose.orientation.y = 0;
+                int_marker.pose.orientation.z = sin(yaw/2);
 
                 marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
             }
@@ -507,11 +486,13 @@ public:
                     int_marker.name = name.str();
                     int_marker.description = description.str();
 
-                    double yaw_mesh_offset=M_PI;
-                    double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
-                    double mesh_offset = M_PI/2;
-                    tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
-                    tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+                    double yaw_mesh_offset=-M_PI/2;
+                    double yaw= atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
+
+                    int_marker.pose.orientation.w = cos(yaw/2);
+                    int_marker.pose.orientation.x = 0;
+                    int_marker.pose.orientation.y = 0;
+                    int_marker.pose.orientation.z = sin(yaw/2);
 
 
                     marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
@@ -542,29 +523,12 @@ public:
                         ac.sendGoal(fixationGoal);
                         ROS_INFO("Gaze Action server started, sending goal.");
 
-                        //bool finished_before_timeout =
-                        //ac.waitForResult(ros::Duration(2));
-
-
                         lastFixationPoint = Point3d(position.x, position.y, it->personHeight/2);
 
                     }
 
 
                     position_publisher.publish(final_position);
-
-                    //wait for the action to return
-                    /*              bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
-
-              if (finished_before_timeout)
-              {
-                  actionlib::SimpleClientGoalState state = ac.getState();
-                  ROS_INFO("Gaze action finished: %s",state.toString().c_str());
-              }
-              else
-                  ROS_INFO("Gaze action did not finish before the time out.");
-*/
-
                 }
                 else
                 {
@@ -576,7 +540,6 @@ public:
                     Point3d position = (*it).getPositionEstimate();
 
                     geometry_msgs::PointStamped personInBase;
-                    //ROS_ERROR_STREAM("Getting transform at 600");
                     try
                     {
 
@@ -606,12 +569,13 @@ public:
                     int_marker.name = name.str();
                     int_marker.description = description.str();
 
-                    double yaw_mesh_offset=M_PI;
-                    double yaw= -atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
-                    double mesh_offset = M_PI/2;
-                    tf::Quaternion person_orientation_quat(mesh_offset,yaw,mesh_offset);
-                    tf::quaternionTFToMsg(person_orientation_quat,int_marker.pose.orientation);
+                    double yaw_mesh_offset=-M_PI/2;
+                    double yaw= atan2(int_marker.pose.position.y, int_marker.pose.position.x)+yaw_mesh_offset;
 
+                    int_marker.pose.orientation.w = cos(yaw/2);
+                    int_marker.pose.orientation.x = 0;
+                    int_marker.pose.orientation.y = 0;
+                    int_marker.pose.orientation.z = sin(yaw/2);
 
                     marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
 
@@ -619,15 +583,18 @@ public:
             }
         }
         marker_server->applyChanges();
-        frame++;
-        //Write rectangles on image with ids and publish
-
     }
 
 
     void trackingCallback(const pedestrian_detector::DetectionList::ConstPtr &detection)
     {
 
+        ros::Time now = ros::Time::now();
+        ros::Duration sampleTime = now - lastUpdate;
+        lastUpdate = now;
+
+        double delta_t = sampleTime.toSec();
+        personList->updateDeltaT(delta_t);
 
         cv_bridge::CvImagePtr cv_ptr;
 
@@ -648,13 +615,8 @@ public:
 
         ros::Time currentTime = ros::Time::now();
 
-
-
-        //ROS_ERROR_STREAM("Getting transform at 228");
-
         try
-        {
-            listener->waitForTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, ros::Duration(0.05) );
+        {            
             listener->lookupTransform(cameraFrameId, detection->header.stamp, filtering_frame_id, currentTime, fixed_frame_id, transform);
         }
         catch(tf::TransformException ex)
@@ -704,7 +666,6 @@ public:
         cv::Mat baseFootprintToCameraTransform;
         cv::eigen2cv(eigen_transform.matrix(), baseFootprintToCameraTransform);
 
-
         //Calculate the position from camera intrinsics and extrinsics
 
         Mat feetImagePoints;
@@ -727,42 +688,32 @@ public:
         personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
 
 
-        /***Tracklet destruction**************/
-        for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end();)
+        pedestrian_detector::BBList listOfBBs;
+
+
+        std::vector<int> deletedTracklets = personList->trackletKiller();
+
+
+        //Check if one of the deleted ones is the target
+        if(deletedTracklets.size() > 0)
+        for(std::vector<int>::iterator itDeleted = deletedTracklets.begin(); itDeleted != deletedTracklets.end(); itDeleted++)
         {
-            if(it->toBeDeleted)
+            if(*itDeleted == targetId)
             {
-                if(it->id == targetId)
-                {
-                    personNotChosenFlag = true;
-                    it = personList->personList.erase(it);
-                    targetId = -1;
-
-                    //Send eyes to home position
-                    sendHome();
-                    ROS_INFO("Lost target. Sending eyes to home position");
-                }
-                else
-                {
-                    it = personList->personList.erase(it);
-                }
+                personNotChosenFlag = true;
+                targetId = -1;
+                sendHome();
             }
-            else
-            {
-                it++;
-            }
-
         }
-        /******************************************/
-
-        vector<PersonModel> list = personList->getValidTrackerPosition();
 
 
         /***********Reproject bounding boxes and probabilities to image*****************/
 
-        pedestrian_detector::BBList listOfBBs;
+        //pedestrian_detector::BBList listOfBBs;
 
-        for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
+
+        /*This block of code must be deleted*/
+        for(vector<PersonModel>::iterator it = personList->personList.begin(); it != personList->personList.end(); it++)
         {
 
             //Get feet position
@@ -862,6 +813,9 @@ public:
             }
         }
 
+        /*Draw boxes and probabilities on an image*/
+        //cv::Mat visualizationImage;
+        //visualizationImage =  personList->plotReprojectionAndProbabilities(targetId, baseFootprintToCameraTransform, cameramodel, lastImage);
         sensor_msgs::ImagePtr msgImage = cv_bridge::CvImage(std_msgs::Header(), "bgr8", lastImage).toImageMsg();
         image_pub.publish(msgImage);
 
@@ -875,16 +829,13 @@ public:
         ROS_INFO("Waiting for action server to start.");
         //ac.waitForServer();
 
-        //For debug purposes
         it = new image_transport::ImageTransport(n);
         image_pub = it->advertise("image_out_tracker", 1);
-        //*****************************************
 
         nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
         nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
         nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/base_footprint");
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
-        nPriv.param<std::string>("markers_frame_id", markers_frame_id, "/base_footprint");
 
         nPriv.param<std::string>("odom_frame_id", odom_frame_id, "/odom");
 
@@ -926,11 +877,13 @@ public:
         //Initialize at infinity
         lastFixationPoint = Point3d(1000, 1000, 1000);
 
-        cameramodel = new cameraModel(cameraConfig, cameraInfoTopic);
+        cameramodel = new CameraModel(cameraConfig, cameraInfoTopic);
         detectionfilter = new DetectionFilter(maximum_person_height, minimum_person_height, cameramodel);
 
         ROS_INFO("Subscribing detections");
-        image_sub = n.subscribe("detections", 1, &Tracker::trackingCallback, this);
+        detection_sub=boost::shared_ptr<message_filters::Subscriber<pedestrian_detector::DetectionList> > (new message_filters::Subscriber<pedestrian_detector::DetectionList>(n, "detections", 1000));
+        detection_filter = boost::shared_ptr<tf::MessageFilter<pedestrian_detector::DetectionList> > (new tf::MessageFilter<pedestrian_detector::DetectionList>(*detection_sub, *listener, filtering_frame_id, 1000));
+        detection_filter->registerCallback(boost::bind(&Tracker::trackingCallback, this, _1));
         ROS_INFO("Subscribed");
 
         //Prepare the marker
@@ -949,10 +902,10 @@ public:
         person_marker.color.a = 1.0;
         person_marker.pose.position.z = 0;
 
-        person_marker.pose.orientation.x = 1;
+        person_marker.pose.orientation.x = sin(M_PI/4);
         person_marker.pose.orientation.y = 0;
         person_marker.pose.orientation.z = 0;
-        person_marker.pose.orientation.w = 1;
+        person_marker.pose.orientation.w = cos(M_PI/4);
 
         visualization_msgs::InteractiveMarkerControl click_me;
         click_me.always_visible = true;
@@ -960,7 +913,7 @@ public:
         click_me.name = "click";
         click_me.interaction_mode = visualization_msgs::InteractiveMarkerControl::BUTTON;
 
-        int_marker.header.frame_id = markers_frame_id;
+        int_marker.header.frame_id = filtering_frame_id;
         int_marker.scale = 1.5;
 
         int_marker.controls.push_back(click_me);
@@ -969,7 +922,7 @@ public:
 
         visualization_msgs::Marker diceRoll;
 
-        diceRoll.header.frame_id = "/base_footprint";
+        diceRoll.header.frame_id = fixed_frame_id;
         diceRoll.header.stamp = ros::Time();
         diceRoll.id = 1;
         diceRoll.ns = "automatic";
@@ -1015,6 +968,7 @@ public:
         location_uncertainty = n.advertise<visualization_msgs::Marker>( "uncertainty_marker", 0 );
         trackerPublisher = n.advertise<pedestrian_detector::BBList>("bbs_with_id", 1);
 
+        lastUpdate = ros::Time::now();
     }
 
     ~Tracker()
@@ -1033,7 +987,6 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "tracker");
 
     stringstream ss;
-
 
     ss << ros::package::getPath("pedestrian_detector");
     ss << "/camera_model/config.yaml";
@@ -1056,8 +1009,6 @@ int main(int argc, char **argv)
 
         r.sleep();
     }
-
-
     return 0;
 }
 

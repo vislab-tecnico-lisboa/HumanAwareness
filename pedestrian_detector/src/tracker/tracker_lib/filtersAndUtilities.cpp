@@ -1,11 +1,9 @@
 #include "../include/tracker/filtersAndUtilities.hpp"
-#include <ros/ros.h>
-
 
 
 //Compute the z coordinate in the world frame knowing both x and y
 
-double getZ(Point2d center, Point2d worldXY, Mat mapToCameraTransform, cameraModel *cameramodel)
+double getZ(Point2d center, Point2d worldXY, Mat mapToCameraTransform, CameraModel *cameramodel)
 {
     Mat K = cameramodel->getK();
     Mat RT = mapToCameraTransform(Range(0,3), Range(0, 4));
@@ -24,7 +22,7 @@ double getZ(Point2d center, Point2d worldXY, Mat mapToCameraTransform, cameraMod
 }
 
 
-DetectionFilter::DetectionFilter(float maximum_person_height, float minimum_person_height, cameraModel *cameramodel)
+DetectionFilter::DetectionFilter(float maximum_person_height, float minimum_person_height, CameraModel *cameramodel)
 {
     this->maximum_person_height = maximum_person_height;
     this->minimum_person_height = minimum_person_height;
