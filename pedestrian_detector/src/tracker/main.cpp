@@ -52,7 +52,7 @@
 //Gaze control
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/client/terminal_state.h>
-#include <move_robot_msgs/GazeAction.h>
+#include <vizzy_msgs/GazeAction.h>
 #include <nav_msgs/Odometry.h>
 using namespace std;
 
@@ -68,7 +68,7 @@ private:
     tf::StampedTransform transform;
 
     ros::NodeHandle n;
-    actionlib::SimpleActionClient<move_robot_msgs::GazeAction> ac;
+    actionlib::SimpleActionClient<vizzy_msgs::GazeAction> ac;
     ros::NodeHandle nPriv;
 
     boost::shared_ptr<message_filters::Subscriber<pedestrian_detector::DetectionList> > detection_sub;
@@ -129,10 +129,10 @@ private:
 
     bool sendHome()
     {
-        move_robot_msgs::GazeGoal fixationGoal;
+        vizzy_msgs::GazeGoal fixationGoal;
         fixationGoal.fixation_point.header.stamp=ros::Time::now();
         fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
-        fixationGoal.type = move_robot_msgs::GazeGoal::HOME;
+        fixationGoal.type = vizzy_msgs::GazeGoal::HOME;
         ac.sendGoal(fixationGoal);
 
         return true;
@@ -510,7 +510,7 @@ public:
                     // CONTROL GAZE
                     if(position.x > 0.5) //DOnt send goals behind the robot
                     {
-                        move_robot_msgs::GazeGoal fixationGoal;
+                        vizzy_msgs::GazeGoal fixationGoal;
                         fixationGoal.fixation_point.header.stamp=currentTime;
                         fixationGoal.fixation_point.header.frame_id=filtering_frame_id;
                         fixationGoal.fixation_point.point.x = position.x;
@@ -969,6 +969,8 @@ public:
         trackerPublisher = n.advertise<pedestrian_detector::BBList>("bbs_with_id", 1);
 
         lastUpdate = ros::Time::now();
+
+        targetId = -1;
     }
 
     ~Tracker()

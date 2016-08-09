@@ -3,7 +3,6 @@
 #include <vector>
 #include <math.h>
 #include "../include/HungarianFunctions.hpp"
-#include "../include/tracker/cameraModel.hpp"
 
 Mat PersonModel::getBvtHistogram()
 {
@@ -643,7 +642,7 @@ std::vector<int> PersonList::trackletKiller()
     return deletedTracklets;
 }
 
-cv::Mat PersonList::plotReprojectionAndProbabilities(int targetId, cv::Mat baseFootprintToCameraTransform, CameraModel *cameramodel, cv::Mat lastImage)
+cv::Mat PersonList::plotReprojectionAndProbabilities(int targetId, cv::Mat baseFootprintToCameraTransform, Mat K, cv::Mat lastImage)
 {
     for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
     {
@@ -669,7 +668,7 @@ cv::Mat PersonList::plotReprojectionAndProbabilities(int targetId, cv::Mat baseF
         feetMat.at<float>(1,0) = feet.y;
         feetMat.at<float>(2,0) = feet.z;
 
-        Mat intrinsics = cameramodel->getK();
+        Mat intrinsics = K;
         intrinsics.convertTo(intrinsics, CV_32F);
 
         Mat RtMat = baseFootprintToCameraTransform(Range(0, 3), Range(0, 4));

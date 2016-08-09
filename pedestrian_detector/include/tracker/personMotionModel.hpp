@@ -8,7 +8,6 @@
 #include <vector>
 #include <deque>
 #include "../include/tracker/mmae.hpp"
-#include "../include/tracker/cameraModel.hpp"
 
 
 using namespace cv;
@@ -89,7 +88,7 @@ public:
     std::vector<PersonModel> getValidTrackerPosition();
     //Returns a list of deleted tracklets
     std::vector<int> trackletKiller();
-    cv::Mat plotReprojectionAndProbabilities(int targetId, cv::Mat baseFootprintToCameraTransform, CameraModel *cameramodel, cv::Mat lastImage);
+    cv::Mat plotReprojectionAndProbabilities(int targetId, cv::Mat baseFootprintToCameraTransform, cv::Mat K, cv::Mat lastImage);
 
 
 

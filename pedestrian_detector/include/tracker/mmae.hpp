@@ -1,7 +1,7 @@
 #ifndef MMAE_HPP
 #define MMAE_HPP
 
-#include <cv.h>
+#include <opencv2/opencv.hpp>
 #include <opencv2/video/tracking.hpp>
 
 using namespace cv;

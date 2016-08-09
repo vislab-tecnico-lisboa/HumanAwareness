@@ -1,5 +1,5 @@
 #include "../include/tracker/filtersAndUtilities.hpp"
-
+#include "ros/ros.h"
 
 //Compute the z coordinate in the world frame knowing both x and y
 
@@ -13,8 +13,11 @@ double getZ(Point2d center, Point2d worldXY, Mat mapToCameraTransform, CameraMod
 
     Mat P = K*RT;
 
+    double first = worldXY.x*(center.x/center.y*P.at<double>(1,0)-P.at<double>(0,0));
+    double second = worldXY.y*(center.x/center.y*P.at<double>(1,1)-P.at<double>(0,1));
+    double third = center.x/center.y*P.at<double>(1,3)-P.at<double>(0,3);
 
-    double z = worldXY.x*(center.x/center.y*P.at<double>(1,0)-P.at<double>(0,0))+worldXY.y*(center.x/center.y*P.at<double>(1,1)-P.at<double>(0,1))+center.x/center.y*P.at<double>(1,3)-P.at<double>(0,3);
+    double z = first+second+third;
 
     z = z/(P.at<double>(0,2)-center.x/center.y*P.at<double>(1,2));
 
