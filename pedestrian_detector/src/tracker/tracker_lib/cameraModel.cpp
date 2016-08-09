@@ -1,10 +1,10 @@
 #include "../include/tracker/cameraModel.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "../include/tracker/detectionProcess.hpp"
-#include <ros/ros.h>
 #include "sensor_msgs/CameraInfo.h"
 #include "../include/tracker/filtersAndUtilities.hpp"
 #include <fstream>
+#include <ros/ros.h>
 
 
 
@@ -13,15 +13,13 @@
 using namespace cv;
 using namespace std;
 
-cameraModel::cameraModel(string configFile, string cameraStr)
+CameraModel::CameraModel(string configFile, string cameraStr)
 {
   //Getting camera intrinsics from camera info topic
 
   ROS_INFO("Getting camera parameters");
 
   sensor_msgs::CameraInfoConstPtr l_camera_info = ros::topic::waitForMessage<sensor_msgs::CameraInfo>(cameraStr, ros::Duration(30));
-
-  ROS_ERROR_STREAM(cameraStr);
 
   //Check if timed out. If there is no topic, then load default parameters from file!
 
@@ -71,7 +69,7 @@ cameraModel::cameraModel(string configFile, string cameraStr)
 *  UPDATE: I wasn't... It was a bug on Gazebo. It's working awesomely well :)
 *
 */
-vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera, vector<cv::Rect_<int> >rects)
+vector<Point3d> CameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera, vector<cv::Rect_<int> >rects)
 {
 
   //Transform the points to homogeneous coordinates
@@ -138,6 +136,7 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
 
        Point2d bbCenter = getCenter(rects.at(i));
 
+
        point.z = getZ(bbCenter, Point2d(point.x, point.y), worldLinkToCamera, this);
        basePoints.push_back(point);
      }
@@ -150,7 +149,7 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
 //This method is used if we dont have access to Vizzy's upper body tfs.
 //Performing suprisingly good.
 
-vector<Point3d> cameraModel::calculatePointsOnWorldFrameWithoutHomography(vector<cv::Rect_<int> >* rects, Mat baseLinkToWorld)
+vector<Point3d> CameraModel::calculatePointsOnWorldFrameWithoutHomography(vector<cv::Rect_<int> >* rects, Mat baseLinkToWorld)
 {
   Mat imagePointsWithDepth(4, rects->size(), CV_32FC1);
 
@@ -200,19 +199,19 @@ vector<Point3d> cameraModel::calculatePointsOnWorldFrameWithoutHomography(vector
 
 }
 
-Mat cameraModel::getK()
+Mat CameraModel::getK()
 {
   return K_;
 }
 
 
-Mat cameraModel::getDistCoefs()
+Mat CameraModel::getDistCoefs()
 {
   return distCoefs_;
 }
 
 
-Mat cameraModel::getProjectionMat()
+Mat CameraModel::getProjectionMat()
 {
   return projectionMat_;
 }

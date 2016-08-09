@@ -4,14 +4,6 @@
 #include <math.h>
 #include "../include/HungarianFunctions.hpp"
 
-/*
-* Some motion models are implemented here in order to try to
-* get better position estimates, based on the velocity and
-* previous position of the person.
-*
-*
-*/
-
 Mat PersonModel::getBvtHistogram()
 {
     return bvtHistogram;
@@ -66,75 +58,22 @@ double PersonModel::getScoreForAssociation(double height, Point3d detectedPositi
 }
 
 
-void PersonModel::updateVelocityArray(Point3d detectedPosition)
-{
-    for(int i=0; i < 25; i++)
-        velocity[25-i] = velocity[25-(i+1)];
-
-    if(!deadReckoning)
-    {
-        if(positionHistory[1].x != -1000 && positionHistory[1].y != -1000)
-        {
-            velocity[0].x = -(detectedPosition.x - positionHistory[1].x)/delta_t;
-            velocity[0].y = -(detectedPosition.y - positionHistory[1].y)/delta_t;
-        }
-        else
-        {
-            Point2d vel;
-            vel = velocityMedianFilter();
-            velocity[0].x = vel.x;
-            velocity[0].y = vel.y;
-        }
-
-    }
-    else
-    {
-        //Dead reckoning.
-        velocity[0].x = velocity[1].x;
-        velocity[0].y = velocity[1].y;
-    }
-
-    //ROS_ERROR_STREAM("Id:" << id << " | velx: " << velocity[0].x << " | vely: " << velocity[0].y);
-
-    //This must be better thinked...
-
-}
-
 
 Point3d PersonModel::getPositionEstimate()
 {
-    //return filteredPosition+filteredVelocity*delta_t;
 
-    if(method == MEDIANTRACKING)
-        return medianFilter();
-    else if(method == MMAETRACKING)
-    {
-        Point3d estimate(mmaeEstimator->xMMAE.at<double>(mmaeEstimator->modelToxMMAEindexes.at(0).at(0), 0), mmaeEstimator->xMMAE.at<double>(mmaeEstimator->modelToxMMAEindexes.at(0).at(1), 0), personHeight);
-        //      ROS_ERROR_STREAM("STATE: " << mmaeEstimator->xMMAE);
-        return estimate;
-
-    }
-    return medianFilter();
+    Point3d estimate(mmaeEstimator->xMMAE.at<double>(mmaeEstimator->modelToxMMAEindexes.at(0).at(0), 0), mmaeEstimator->xMMAE.at<double>(mmaeEstimator->modelToxMMAEindexes.at(0).at(1), 0), personHeight);
+    return estimate;
 }
 
 Mat PersonModel::getCovarianceOfMixture()
 {
-  return mmaeEstimator->stateCovMMAE;
+    return mmaeEstimator->stateCovMMAE;
 }
 
 
 void PersonModel::updateModel()
 {
-
-    //Maybe applying a median filter to the velocity gives good predictive results
-
-    //updateVelocityArray(detectedPosition); - not used yet
-    ros::Time now = ros::Time::now();
-    ros::Duration sampleTime = now - lastUpdate;
-
-    delta_t = sampleTime.toSec();
-    lastUpdate = now;
-
 
     for(int i=0; i < median_window-1; i++)
         positionHistory[median_window-1-i] = positionHistory[median_window-1-(i+1)];
@@ -146,157 +85,135 @@ void PersonModel::updateModel()
     position.y = -1000;
     position.z = 0.95;
 
-    for(int i=0; i < 4; i++)
-        rectHistory[4-i] = rectHistory[4-(i+1)];
+    Mat measurement;
 
-    rectHistory[0] = rect;
+    cv::Point3d filteredPoint;
 
-    if(method == MMAETRACKING)
+    filteredPoint = medianFilter();
+
+    if(filteredPoint.x == -1000 || filteredPoint.y == -1000)
     {
-        Mat measurement;
-        if(positionHistory[0].x == -1000 || positionHistory[0].y == -1000)
-        {
-            measurement = Mat();
-        }
-        else
-        {
-            measurement = Mat(2, 1, CV_64F);
-            measurement.at<double>(0, 0) = positionHistory[0].x;
-            measurement.at<double>(1, 0) = positionHistory[0].y;
-        }
-        mmaeEstimator->correct(measurement);
-
-        //Correct the person height.
-        heightK = heightP/(heightP+heightR);
-        personHeight += heightK*(positionHistory[0].z*2-personHeight);
-        heightP = (1-heightK)*heightP;
+        measurement = Mat();
     }
+    else
+    {
+        measurement = Mat(2, 1, CV_64F);
+        measurement.at<double>(0, 0) = filteredPoint.x;
+        measurement.at<double>(1, 0) = filteredPoint.y;
+    }
+    mmaeEstimator->correct(measurement);
 
+    //Correct the person height.
+    heightK = heightP/(heightP+heightR);
+    personHeight += heightK*(positionHistory[0].z*2-personHeight);
+    heightP = (1-heightK)*heightP;
 
 }
 
-PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram, int method)
-{
-    this->method = method;
+PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram)
+{    
 
-    if(method == MEDIANTRACKING)
-    {
+    static const double samplingRate = 100.0;
+    T = 1.0/samplingRate;
+    delta_t = T;  //Initialize delta t for first predict
 
-        mmaeEstimator = NULL;
+    //Constant position filter
 
-    }
-    else if(method==MMAETRACKING)
-    {
-        static const double samplingRate = 100.0;
-        T = 1.0/samplingRate;
-        delta_t = T;  //Initialize delta t for first predict
+    KalmanFilter constantPosition(2, 2, 0, CV_64F);
 
-        //Constant position filter
+    //Phi
+    constantPosition.transitionMatrix = (Mat_<double>(2, 2) << 1, 0, 0, 1);
+    //H
+    constantPosition.measurementMatrix = (Mat_<double>(2, 2) << 1, 0, 0, 1);
+    //Q
+    constantPosition.processNoiseCov = (Mat_<double>(2, 2) << pow(T, 2), 0, 0, pow(T, 2));  //Q*sigma
+    constantPosition.processNoiseCov  = constantPosition.processNoiseCov*1;
+    //R
+    constantPosition.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
+    constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*0.05; //R*sigma
 
-        KalmanFilter constantPosition(2, 2, 0, CV_64F);
+    //P0
+    constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*0.5;
 
-        //Phi
-        constantPosition.transitionMatrix = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        //H
-        constantPosition.measurementMatrix = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        //Q
-        constantPosition.processNoiseCov = (Mat_<double>(2, 2) << pow(T, 2), 0, 0, pow(T, 2));  //Q*sigma
-        constantPosition.processNoiseCov  = constantPosition.processNoiseCov*1;
-        //R
-        constantPosition.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*0.05; //R*sigma
+    //Constant velocity filter
 
-        //P0
-        constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*0.5;
+    KalmanFilter constantVelocity(4, 2, 0, CV_64F);
 
-        //Constant velocity filter
+    //Phi
+    constantVelocity.transitionMatrix = (Mat_<double>(4, 4) << 1, 0, T, 0, 0, 1, 0, T, 0, 0, 1, 0, 0, 0, 0, 1);
+    //H
+    constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 1, 0, 0);
+    //Q1
+    constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, 0, pow(T,3)/2, 0, 0, pow(T,4)/4, 0, pow(T,3)/2, pow(T,3)/2, 0, pow(T,2), 0, 0, pow(T,3)/2, 0, pow(T,2));
+    constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*1;  //Q*sigma
+    //R
+    constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
+    constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*0.05; //R*sigma
 
-        KalmanFilter constantVelocity(4, 2, 0, CV_64F);
+    //P0
+    constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*0.5;
 
-        //Phi
-        constantVelocity.transitionMatrix = (Mat_<double>(4, 4) << 1, 0, T, 0, 0, 1, 0, T, 0, 0, 1, 0, 0, 0, 0, 1);
-        //H
-        constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 1, 0, 0);
-        //Q1
-        constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, 0, pow(T,3)/2, 0, 0, pow(T,4)/4, 0, pow(T,3)/2, pow(T,3)/2, 0, pow(T,2), 0, 0, pow(T,3)/2, 0, pow(T,2));
-        constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*1;  //Q*sigma
-        //R
-        constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*0.05; //R*sigma
+    //Constant acceleration filter
 
-        //P0
-        constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*0.5;
+    KalmanFilter constantAcceleration(6, 2, 0, CV_64F);
 
-        //Constant acceleration filter
+    //Phi
+    constantAcceleration.transitionMatrix = (Mat_<double>(6, 6) << 1, 0, T, 0, pow(T, 2)/2, 0, 0, 1, 0, T, 0, pow(T, 2)/2, 0, 0, 1, 0, T, 0, 0, 0, 0, 1, 0, T, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1 );
+    //H
+    constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0);
+    //Q
+    constantAcceleration.processNoiseCov = (Mat_<double>(6, 6) << pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, 0, pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T, 0, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T);
+    constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*1;  //Q*sigma
+    //R
+    constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
+    constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*0.05; //R*sigma
 
-        KalmanFilter constantAcceleration(6, 2, 0, CV_64F);
+    //P0
+    constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*0.5;
 
-        //Phi
-        constantAcceleration.transitionMatrix = (Mat_<double>(6, 6) << 1, 0, T, 0, pow(T, 2)/2, 0, 0, 1, 0, T, 0, pow(T, 2)/2, 0, 0, 1, 0, T, 0, 0, 0, 0, 1, 0, T, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1 );
-        //H
-        constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0);
-        //Q
-        constantAcceleration.processNoiseCov = (Mat_<double>(6, 6) << pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, 0, pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T, 0, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T);
-        constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*1;  //Q*sigma
-        //R
-        constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-        constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*0.05; //R*sigma
+    // Put them all in the bank
+    std::vector<KalmanFilter> kalmanBank;
+    kalmanBank.push_back(constantPosition);
+    kalmanBank.push_back(constantVelocity);
+    kalmanBank.push_back(constantAcceleration);
 
-        //P0
-        constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*0.5;
+    // Link each of these filters states to the ponderated state
 
-        // Put them all in the bank
-        std::vector<KalmanFilter> kalmanBank;
-        kalmanBank.push_back(constantPosition);
-        kalmanBank.push_back(constantVelocity);
-        kalmanBank.push_back(constantAcceleration);
+    //State [i] from models corresponds to State indexes[i] in xMMAEx
 
-        // Link each of these filters states to the ponderated state
-
-        //State [i] from models corresponds to State indexes[i] in xMMAEx
-
-        /*      With 3 models
+    /*      With 3 models
  *      int indexes1[] = {0, 3};
         int indexes2[] = {0, 1, 3, 4};
         int indexes3[] = {0, 1, 2, 3, 4, 5};*/
 
-        int indexes1[] = {0, 1};
-        int indexes2[] = {0, 1, 2, 3};
-        int indexes3[] = {0, 1, 2, 3, 4, 5};
+    int indexes1[] = {0, 1};
+    int indexes2[] = {0, 1, 2, 3};
+    int indexes3[] = {0, 1, 2, 3, 4, 5};
 
-        std::vector<int> indexes1_(indexes1, indexes1+sizeof(indexes1)/sizeof(int));
-        std::vector<int> indexes2_(indexes2, indexes2+sizeof(indexes2)/sizeof(int));
-        std::vector<int> indexes3_(indexes3, indexes3+sizeof(indexes3)/sizeof(int));
+    std::vector<int> indexes1_(indexes1, indexes1+sizeof(indexes1)/sizeof(int));
+    std::vector<int> indexes2_(indexes2, indexes2+sizeof(indexes2)/sizeof(int));
+    std::vector<int> indexes3_(indexes3, indexes3+sizeof(indexes3)/sizeof(int));
 
-        std::vector<std::vector<int> > indexList;
-        indexList.push_back(indexes1_);
-        indexList.push_back(indexes2_);
-        indexList.push_back(indexes3_);
+    std::vector<std::vector<int> > indexList;
+    indexList.push_back(indexes1_);
+    indexList.push_back(indexes2_);
+    indexList.push_back(indexes3_);
 
-        //Guess the initial states - a good guess for the position is the measurement we just got!
+    //Guess the initial states - a good guess for the position is the measurement we just got!
 
-      //        For 3 models
-        double states[] = {detectedPosition.x, detectedPosition.y, 0, 0, 0, 0};
-//        double states[] = {0, 0, 0, 0, 0, 0};
-        Mat initialStates = Mat(6, 1, CV_64F, states).clone();
+    //        For 3 models
+    double states[] = {detectedPosition.x, detectedPosition.y, 0, 0, 0, 0};
+    //        double states[] = {0, 0, 0, 0, 0, 0};
+    Mat initialStates = Mat(6, 1, CV_64F, states).clone();
 
-//        double states[] = {detectedPosition.x, 0, detectedPosition.y, 0};
-//        Mat initialStates = Mat(4, 1, CV_64F, states).clone();
+    //        double states[] = {detectedPosition.x, 0, detectedPosition.y, 0};
+    //        Mat initialStates = Mat(4, 1, CV_64F, states).clone();
 
-        //Build the Bank!
-        mmaeEstimator = new MMAEFilterBank(kalmanBank, indexList, false, false, initialStates, CV_64F);
-    }
-
+    //Build the Bank!
+    mmaeEstimator = new MMAEFilterBank(kalmanBank, indexList, false, false, initialStates, CV_64F);
 
     this->median_window = median_window;
     toBeDeleted = false;
-
-
-    //  positionHistory = new Point2d[median_window];
-
-
-    for(int i=0; i < 25; i++)
-        velocity[i] = Point2d(0, 0);
 
     position = detectedPosition;
 
@@ -313,7 +230,6 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
 
 
     rect = bb;
-    rectHistory[0] = bb;
 
     positionHistory[0] = detectedPosition;
 
@@ -330,9 +246,6 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
 
     this->id = id;
     noDetection = 0;
-
-    lastUpdate = ros::Time::now();
-
     deadReckoning = false;
 }
 
@@ -394,31 +307,8 @@ Point3d PersonModel::medianFilter()
 
 }
 
-Point2d PersonModel::velocityMedianFilter()
-{
-    //Optimize this later
-
-    double x[25];
-    double y[25];
-
-    for(int i = 0; i<25; i++)
-    {
-        x[i] = velocity[i].x;
-        y[i] = velocity[i].y;
-    }
-
-    vector<double> x_vect(x, x + sizeof(x)/sizeof(x[0]));
-    vector<double> y_vect(y, y + sizeof(y)/sizeof(y[0]));
-
-    std::sort(x_vect.begin(), x_vect.begin() + 5);
-    std::sort(y_vect.begin(), y_vect.begin() + 5);
 
 
-    Point2d medianPoint(x_vect.at(2), y_vect.at(2));
-
-    return medianPoint;
-
-}
 
 PersonList::PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method)
 {
@@ -428,7 +318,6 @@ PersonList::PersonList(int median_window, int numberOfFramesBeforeDestruction, i
     this->numberOfFramesBeforeDestructionLocked = numberOfFramesBeforeDestructionLocked;
     this-> associatingDistance = associatingDistance;
     this->median_window = median_window;
-    this->method = method;
 
 }
 
@@ -441,24 +330,30 @@ PersonList::~PersonList()
     }
 }
 
+void PersonList::updateDeltaT(double delta_t)
+{
+
+    for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();it++)
+    {
+      it->delta_t = delta_t;
+    }
+
+}
+
+
 void PersonList::updateList()
 {
-    //TODO
-
     for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();)
     {
 
-        if(method == MMAETRACKING)
-        {
-            //Predict the right ammount of times to simulate a constant sampling period
-            int times = it->delta_t/it->T;
-            for(int lol = 0; lol < times; lol++)
-                it->mmaeEstimator->predict();
+        //Predict the right ammount of times to simulate a constant sampling period
+        int times = it->delta_t/it->T;
+        for(int lol = 0; lol < times; lol++)
+            it->mmaeEstimator->predict();
 
-            //Predict the height covariance P_minus. No need to predict the size. We assume
-            //its a constant model
-            it->heightP += it->heightQ; //
-        }
+        //Predict the height covariance P_minus. No need to predict the size. We assume
+        //its a constant model
+        it->heightP += it->heightQ; //
 
         if((*it).position.x != -1000 && (*it).position.y != -1000)
         {
@@ -483,9 +378,9 @@ void PersonList::updateList()
 
 }
 
-void PersonList::addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram, int method)
+void PersonList::addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram)
 {
-    PersonModel person(pos, rect, nPersons, median_window, bvtHistogram, method);
+    PersonModel person(pos, rect, nPersons, median_window, bvtHistogram);
     personList.push_back(person);
     nPersons++;
 
@@ -577,7 +472,6 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             }
         }
 
-        //ROS_INFO("YAAAAAAAAAAAAAA");
         assignmentoptimal(assignment, cost, distMatrixIn, nDetections, nTrackers);
 
         //assignment vector positions represents the detections and the value in each position represents the assigned tracker
@@ -588,16 +482,6 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
         for(int i=0; i<nDetections; i++)
         {
-
-            /*
-            Mat trackerColorHist = personList.at(assignment[i]).getBvtHistogram();
-            Mat detectionColorHist = colorFeaturesList.at(i);
-
-
-            detectionColorHist.convertTo(detectionColorHist, CV_32F);
-            trackerColorHist.convertTo(trackerColorHist, CV_32F);
-*/
-            //double colorDist = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
 
             //If there is an associated tracker and the distance is less than 2 meters we update the position
             if(assignment[i] != -1)
@@ -640,15 +524,13 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                         if(norm(coords-testPoint) < 1.5)
                         {
-                            ROS_DEBUG("NOT CREATING: Exists in radius");
                             existsInRadius = true;
                             break;
                         }
                     }
                     if(!existsInRadius)
                     {
-                        ROS_DEBUG("Creating without -1");
-                        addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
+                        addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
                     }
                 }
             }
@@ -668,15 +550,13 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                     if(norm(coords-testPoint) < associatingDistance)
                     {
-                        ROS_DEBUG("NOT CREATING: Exists in radius");
                         existsInRadius = true;
                         break;
                     }
                 }
                 if(!existsInRadius)
                 {
-                    ROS_DEBUG("Creating");
-                    addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
+                    addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
                 }
             }
         }
@@ -704,15 +584,13 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0.0);
                 if(norm(coords-testPoint) < associatingDistance)
                 {
-                    ROS_DEBUG("NOT CREATING: Existis in radius");
                     existsInRadius = true;
                     break;
                 }
             }
             if(!existsInRadius)
             {
-                ROS_DEBUG("Creating");
-                addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i), MMAETRACKING);
+                addPerson(coordsInBaseFrame.at(i), rects.at(i), colorFeaturesList.at(i));
             }
         }
 
@@ -731,25 +609,131 @@ std::vector<PersonModel> PersonList::getValidTrackerPosition()
 
     for(std::vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
     {
-        if(method == MEDIANTRACKING)
+        Point3d estimate = it->getPositionEstimate();
+        if(estimate.x != -1000 && estimate.y != -1000)
         {
-            Point3d med;
-            med = (*it).medianFilter();
+            validTrackers.push_back(*it);
+        }
 
-            if(med.x != -1000 and med.y != -1000)
-                validTrackers.push_back(*it);
-        }
-        else
-        {
-            Point3d estimate = it->getPositionEstimate();
-            if(estimate.x != -1000 && estimate.y != -1000)
-            {
-                validTrackers.push_back(*it);
-            }
-        }
     }
 
     return validTrackers;
 
+}
+
+std::vector<int> PersonList::trackletKiller()
+{
+
+    std::vector<int> deletedTracklets;
+
+    for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();)
+    {
+        if(it->toBeDeleted)
+        {
+            deletedTracklets.push_back(it->id);
+            it = personList.erase(it);
+        }
+        else
+        {
+            it++;
+        }
+    }
+
+    return deletedTracklets;
+}
+
+cv::Mat PersonList::plotReprojectionAndProbabilities(int targetId, cv::Mat baseFootprintToCameraTransform, Mat K, cv::Mat lastImage)
+{
+    for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
+    {
+
+        //Get feet position
+        Point3d head = it->getPositionEstimate();
+
+        Point3d feet = head;
+        feet.z = 0;
+
+        //Project them into the image
+        Point2d feetOnImage;
+        Point2d headOnImage;
+
+        /*Code*/
+        Mat headMat = Mat::ones(4, 1, CV_32F);
+        headMat.at<float>(0,0) = head.x;
+        headMat.at<float>(1,0) = head.y;
+        headMat.at<float>(2,0) = head.z;
+
+        Mat feetMat = Mat::ones(4, 1, CV_32F);
+        feetMat.at<float>(0,0) = feet.x;
+        feetMat.at<float>(1,0) = feet.y;
+        feetMat.at<float>(2,0) = feet.z;
+
+        Mat intrinsics = K;
+        intrinsics.convertTo(intrinsics, CV_32F);
+
+        Mat RtMat = baseFootprintToCameraTransform(Range(0, 3), Range(0, 4));
+        RtMat.convertTo(RtMat, CV_32F);
+
+        Mat feetOnImageMat = intrinsics*RtMat*feetMat;
+        Mat headOnImageMat = intrinsics*RtMat*headMat;
+
+        feetOnImage.x = feetOnImageMat.at<float>(0,0)/feetOnImageMat.at<float>(2,0);
+        feetOnImage.y = feetOnImageMat.at<float>(1,0)/feetOnImageMat.at<float>(2,0);
+
+        headOnImage.x = headOnImageMat.at<float>(0,0)/headOnImageMat.at<float>(2,0);
+        headOnImage.y = headOnImageMat.at<float>(1,0)/headOnImageMat.at<float>(2,0);
+
+        //Draw the rectangle from the point
+
+        int h = feetOnImage.y-headOnImage.y;
+        int width = h*52/128;
+
+        int topLeftX = headOnImage.x - width/2;
+        int topLeftY = headOnImage.y;
+
+        cv::Rect_<int> trackedBB(topLeftX, topLeftY, width, h);
+
+        if(h > 0)
+        {
+
+            //Bar plot of probabilities
+
+            int step = trackedBB.width/3;
+            int maxBarSize = trackedBB.height*4/5;
+            const static Scalar cores[3] = {Scalar(24, 54, 231), Scalar(239, 232, 31), Scalar(255, 0, 0)};
+
+            int ind = 0;
+            Point2d barBase(trackedBB.tl().x, trackedBB.br().y); //Bottom left corner of the bb
+            for(std::vector<double>::iterator pr = it->mmaeEstimator->probabilities.begin(); pr != it->mmaeEstimator->probabilities.end(); pr++)
+            {
+                Point2d tl = barBase-Point2d(0, maxBarSize*(*pr));
+                rectangle(lastImage, tl, barBase + Point2d(step, 0), cores[ind], CV_FILLED);
+
+                if(ind < 2)
+                    ind++;
+                else
+                    ind = 0;
+
+                barBase = barBase + Point2d(step, 0);
+            }
+
+            ostringstream convert;
+
+            if(it->id == targetId)
+            {
+                rectangle(lastImage, trackedBB, Scalar(0, 0, 255), 2);
+                convert << "id: " << it->id << " | H = " << head.z;
+
+            }else{
+                rectangle(lastImage, trackedBB, Scalar(0, 255, 0), 2);
+                convert << "id: " << it->id;
+            }
+
+            putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
+
+        }
+    }
+
+    return lastImage;
 }
 
