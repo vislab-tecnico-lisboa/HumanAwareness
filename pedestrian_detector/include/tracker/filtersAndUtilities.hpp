@@ -18,7 +18,7 @@ private:
 
 public:
     DetectionFilter(float maximum_person_height, float minimum_person_height, CameraModel *cameramodel);
-    void filterDetectionsByPersonSize(std::vector<cv::Point3d> &coordsInBaseFrame, vector<cv::Rect_<int> > rects, Mat mapToCameraTransform);
+    void filterDetectionsByPersonSize(std::vector<cv::Point3d> &coordsInBaseFrame, vector<cv::Rect_<int> > &rects, Mat mapToCameraTransform, vector<Mat> &colorFeaturesList, vector<double> &lambdas);
 };
 
 

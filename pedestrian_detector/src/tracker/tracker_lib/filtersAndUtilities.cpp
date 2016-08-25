@@ -33,10 +33,23 @@ DetectionFilter::DetectionFilter(float maximum_person_height, float minimum_pers
 }
 
 //There will be detections that make no sense, so we can filter them by person size.
-void  DetectionFilter::filterDetectionsByPersonSize(std::vector<cv::Point3d> &coordsInBaseFrame, vector<cv::Rect_<int> > rects, Mat mapToCameraTransform)
+
+
+
+// BUG BUG BUG BUG BUG BUG BUGB UBGUBGUBGUBGUBGUGBUBGUG!!!!_----------------------!!!
+/*
+ *
+ *          BUUUUUUUUUUUUUUUUUUUUUUUUUUUUUGGGG
+ **/
+
+
+
+void  DetectionFilter::filterDetectionsByPersonSize(std::vector<cv::Point3d> &coordsInBaseFrame, vector<cv::Rect_<int> > &rects, Mat mapToCameraTransform, vector<Mat> &colorFeaturesList, vector<double> &lambdas)
 {
 
     vector<cv::Rect_<int> >::iterator itRect = rects.begin();
+    vector<Mat>::iterator itColors = colorFeaturesList.begin();
+    vector<double>::iterator itLambdas = lambdas.begin();
 
     for(vector<Point3d>::iterator itCoords = coordsInBaseFrame.begin(); itCoords != coordsInBaseFrame.end();)
     {
@@ -54,11 +67,17 @@ void  DetectionFilter::filterDetectionsByPersonSize(std::vector<cv::Point3d> &co
             //discard detection
             itRect = rects.erase(itRect);
             itCoords = coordsInBaseFrame.erase(itCoords);
+            itColors = colorFeaturesList.erase(itColors);
+            itLambdas = lambdas.erase(itLambdas);
+            //collr feaures
+            //lambdas ...
         }
         else
         {
             itRect++;
             itCoords++;
+            itColors++;
+            itLambdas++;
         }
     }
 }

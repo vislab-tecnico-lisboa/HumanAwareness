@@ -3,57 +3,37 @@
 #include <vector>
 #include <math.h>
 #include "../include/HungarianFunctions.hpp"
+#include "../include/tracker/utils.hpp"
 
 Mat PersonModel::getBvtHistogram()
 {
     return bvtHistogram;
 }
 
-double PersonModel::getScoreForAssociation(double height, Point3d detectedPosition, Mat detectionColorHist, Mat trackerColorHist)
+double PersonModel::getScoreForAssociation(double height, Point3d detectedPosition, Mat detCov, Mat detectionColorHist, Mat trackerColorHist)
 {
-    //pdf of the height
-    //double innovation = heightP+heightR;
 
     double p_colors = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
-    //double p_height = (1.0/(sqrt(2*CV_PI)*sqrt(innovation)))*exp(-pow((height-personHeight), 2)/(2*innovation));
 
 
-    //Get the pdfs from the mmae
     Mat measurement = Mat(2, 1, CV_64F);
     measurement.at<double>(0, 0) = detectedPosition.x;
     measurement.at<double>(1, 0) = detectedPosition.y;
-    /*
-    double density = 0;
-    int l = 0;
-    double p_models = 0;*/
-    /*
 
-    for(std::vector<KalmanFilter>::iterator it = mmaeEstimator->filterBank.begin(); it != mmaeEstimator->filterBank.end(); it++, l++)
-    {
-        Mat residue = measurement-mmaeEstimator->filterBank.at(l).measurementMatrix*mmaeEstimator->filterBank.at(l).statePre;
-        residue.convertTo(residue, CV_64F);
-        Mat trResidue;
-        transpose(residue, trResidue);
-        Mat q = trResidue*mmaeEstimator->invAk.at(l)*residue;
-        q.convertTo(q, CV_64F);
-        Mat expTerm = ((-1.0/2.0))*q;
-        cv::exp(expTerm, expTerm);
+    Mat aux;
+    this->getCovarianceOfMixture().copyTo(aux);
+    Mat errorCovPost = aux(cv::Range(0,2),cv::Range(0,2));
 
-        CV_Assert(expTerm.rows == 1 && expTerm.cols == 1);
+    Point3d trackerPos2d = this->getPositionEstimate();
 
-        if(expTerm.type() == CV_32F)
-        {
-          density = mmaeEstimator->betas.at(l)*static_cast<double>(expTerm.at<float>(0, 0));
-        }
-        else if(expTerm.type() == CV_64F)
-        {
-          density = mmaeEstimator->betas.at(l)*expTerm.at<double>(0, 0);
-        }
-        p_models += density*mmaeEstimator->probabilities.at(l);
-    }*/
+    Mat tracker2dPos = Mat::zeros(2, 1, CV_32F);
+    tracker2dPos.at<float>(0,0) = trackerPos2d.x;
+    tracker2dPos.at<float>(1,0) = trackerPos2d.y;
 
-    //return (500-(log(p_colors)+log(p_height)+log(p_models)));
-    //return 500-p_colors*p_height*(p_const_pos+p_const_vel+p_const_accel);
+
+    //double dist = hellingerDist(measurement, detCov, tracker2dPos, errorCovPost);
+
+
     return p_colors;
 }
 
@@ -111,7 +91,7 @@ void PersonModel::updateModel()
 }
 
 PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, int median_window, Mat bvtHistogram)
-{    
+{
 
     static const double samplingRate = 100.0;
     T = 1.0/samplingRate;
@@ -127,13 +107,13 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
     constantPosition.measurementMatrix = (Mat_<double>(2, 2) << 1, 0, 0, 1);
     //Q
     constantPosition.processNoiseCov = (Mat_<double>(2, 2) << pow(T, 2), 0, 0, pow(T, 2));  //Q*sigma
-    constantPosition.processNoiseCov  = constantPosition.processNoiseCov*1;
+    constantPosition.processNoiseCov  = constantPosition.processNoiseCov*const_pos_var;
     //R
-    constantPosition.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-    constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*0.05; //R*sigma
+    constantPosition.measurementNoiseCov = (Mat_<double>(2, 2) << 0.4421, 0.3476, 0.3476, 0.2747);
+    constantPosition.measurementNoiseCov = constantPosition.measurementNoiseCov*1; //R*sigma
 
     //P0
-    constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*0.5;
+    constantPosition.errorCovPost = Mat::eye(2, 2, CV_64F)*100;
 
     //Constant velocity filter
 
@@ -145,13 +125,13 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
     constantVelocity.measurementMatrix = (Mat_<double>(2, 4) << 1, 0, 0, 0, 0, 1, 0, 0);
     //Q1
     constantVelocity.processNoiseCov = (Mat_<double>(4, 4) << pow(T,4)/4, 0, pow(T,3)/2, 0, 0, pow(T,4)/4, 0, pow(T,3)/2, pow(T,3)/2, 0, pow(T,2), 0, 0, pow(T,3)/2, 0, pow(T,2));
-    constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*1;  //Q*sigma
+    constantVelocity.processNoiseCov  = constantVelocity.processNoiseCov*const_vel_var;  //Q*sigma
     //R
-    constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-    constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*0.05; //R*sigma
+    constantVelocity.measurementNoiseCov = (Mat_<double>(2, 2) << 0.4421, 0.3476, 0.3476, 0.2747);
+    constantVelocity.measurementNoiseCov = constantVelocity.measurementNoiseCov*1; //R*sigma
 
     //P0
-    constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*0.5;
+    constantVelocity.errorCovPost = Mat::eye(4, 4, CV_64F)*100;
 
     //Constant acceleration filter
 
@@ -163,13 +143,13 @@ PersonModel::PersonModel(Point3d detectedPosition, cv::Rect_<int> bb, int id, in
     constantAcceleration.measurementMatrix = (Mat_<double>(2, 6) << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0);
     //Q
     constantAcceleration.processNoiseCov = (Mat_<double>(6, 6) << pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, 0, pow(T, 5)/20, 0, pow(T, 4)/8, 0, pow(T, 3)/6, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, 0, pow(T, 4)/8, 0, pow(T, 3)/6, 0, pow(T, 2)/2, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T, 0, 0, pow(T, 3)/6, 0, pow(T, 2)/2, 0, T);
-    constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*1;  //Q*sigma
+    constantAcceleration.processNoiseCov  = constantAcceleration.processNoiseCov*const_accel_var;  //Q*sigma
     //R
-    constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 1, 0, 0, 1);
-    constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*0.05; //R*sigma
+    constantAcceleration.measurementNoiseCov = (Mat_<double>(2, 2) << 0.4421, 0.3476, 0.3476, 0.2747);
+    constantAcceleration.measurementNoiseCov = constantAcceleration.measurementNoiseCov*1; //R*sigma
 
     //P0
-    constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*0.5;
+    constantAcceleration.errorCovPost = Mat::eye(6, 6, CV_64F)*100;
 
     // Put them all in the bank
     std::vector<KalmanFilter> kalmanBank;
@@ -310,14 +290,22 @@ Point3d PersonModel::medianFilter()
 
 
 
-PersonList::PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method)
+PersonList::PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double creation_threshold, double validation_gate, double metric_weight, double recognition_threshold, double c_learning_rate, double const_pos_var, double const_vel_var, double const_accel_var)
 {
     //This will never get reseted. That will make sure that we have a new id for every new detection
     nPersons = 0;
+    this->median_window = median_window;
     this->numberOfFramesBeforeDestruction = numberOfFramesBeforeDestruction;
     this->numberOfFramesBeforeDestructionLocked = numberOfFramesBeforeDestructionLocked;
-    this-> associatingDistance = associatingDistance;
-    this->median_window = median_window;
+    this->creation_threshold = creation_threshold;
+    this->validation_gate = validation_gate;
+    this->metric_weight = metric_weight;
+    this->recognition_threshold = recognition_threshold;
+    this->c_learning_rate = c_learning_rate;
+    this->const_pos_var = const_pos_var;
+    this->const_vel_var = const_vel_var;
+    this->const_accel_var = const_accel_var;
+
 
 }
 
@@ -335,15 +323,14 @@ void PersonList::updateDeltaT(double delta_t)
 
     for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();it++)
     {
-      it->delta_t = delta_t;
+        it->delta_t = delta_t;
     }
 
 }
 
-
-void PersonList::updateList()
+void PersonList::predictList()
 {
-    for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();)
+    for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();it++)
     {
 
         //Predict the right ammount of times to simulate a constant sampling period
@@ -354,6 +341,14 @@ void PersonList::updateList()
         //Predict the height covariance P_minus. No need to predict the size. We assume
         //its a constant model
         it->heightP += it->heightQ; //
+    }
+}
+
+void PersonList::updateList()
+{
+
+    for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end();it++)
+    {
 
         if((*it).position.x != -1000 && (*it).position.y != -1000)
         {
@@ -372,8 +367,6 @@ void PersonList::updateList()
         {
             it->toBeDeleted = true;
         }
-
-        it++;
     }
 
 }
@@ -381,17 +374,27 @@ void PersonList::updateList()
 void PersonList::addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram)
 {
     PersonModel person(pos, rect, nPersons, median_window, bvtHistogram);
+
+    //Initial predict
+    int times = person.delta_t/person.T;
+    for(int lol = 0; lol < times; lol++)
+       person.mmaeEstimator->predict();
+
+    person.metric_weight = this->metric_weight;
+    person.const_pos_var = this->const_pos_var;
+    person.const_vel_var = this->const_vel_var;
+    person.const_accel_var = this->const_accel_var;
     personList.push_back(person);
     nPersons++;
 
 }
 
-void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects, vector<Mat> colorFeaturesList)
+void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects, vector<Mat> colorFeaturesList, vector<Mat> means, vector<Mat> covariances)
 {
     //Create distance matrix.
     //Rows represent the detections and columns represent the trackers
 
-
+    predictList();
     int nTrackers = personList.size();
     int nDetections = coordsInBaseFrame.size();
 
@@ -411,6 +414,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
     *  [l1c1, l2c1, l3c1, l1c2,l2c2,l3c2]
     */
 
+
         int row = 0;
 
         //Each detection -> a row
@@ -428,6 +432,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 Mat detectionColorHist = colorFeaturesList.at(row);
 
 
+
                 detectionColorHist.convertTo(detectionColorHist, CV_32F);
                 trackerColorHist.convertTo(trackerColorHist, CV_32F);
 
@@ -439,35 +444,59 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                 Point3d detectionPos = (*itrow);
 
+                //Get x, y State covariance
+
+                Mat aux;
+                itcolumn->getCovarianceOfMixture().copyTo(aux);
+                Mat errorCovPost = aux(cv::Range(0,2),cv::Range(0,2));
+
                 double height = detectionPos.z*2.0;
 
                 detectionPos.z = 0.0;
 
-                double dist = norm(trackerPos-detectionPos); // usar distancia de mahalanobis
+
+
+                Mat detection2dPos = Mat::zeros(2, 1, CV_32F);
+                detection2dPos.at<float>(0,0) = detectionPos.x;
+                detection2dPos.at<float>(1,0) = detectionPos.y;
+
+                Mat tracker2dPos = Mat::zeros(2, 1, CV_32F);
+                tracker2dPos.at<float>(0,0) = trackerPos.x;
+                tracker2dPos.at<float>(1,0) = trackerPos.y;
+
+                Mat detCov = covariances.at(row);
+
+                //Mean of the discretization error is not 0!
+                Mat meanDiscreteError = means.at(row);
+                meanDiscreteError.convertTo(meanDiscreteError, CV_32F);
+                //double dist = norm(trackerPos-detectionPos); // usar distancia de mahalanobis
+
+                //Mahalanobis
+                Mat innovationCov = errorCovPost+detCov;
+                Mat error = tracker2dPos-detection2dPos;
+                double dist = mahalanobisDist(error, meanDiscreteError, innovationCov);
+
+
+                //Bhattacharya
+                //double dist = hellingerDist(detection2dPos, detCov, tracker2dPos, errorCovPost);
 
                 double colorDist;
-
                 colorDist = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
-                if(dist < 3.0)
+
+               // cout << "Number of detections: " << colorFeaturesList.size() << std::endl;
+               // cout << "Color ist of detection " << row << " to tracklet " << (*itcolumn).id << ": " << colorDist << endl;
+
+
+                if(dist < validation_gate)
                 {
-                    if(colorDist > 0.7)
+                    if(colorDist > recognition_threshold)
                         distMatrixIn[row+col*nDetections] = 1000; //Colors are too different. It cant be the same person...
                     else
-                        distMatrixIn[row+col*nDetections] = itcolumn->getScoreForAssociation(height, detectionPos, detectionColorHist, trackerColorHist);
+                        distMatrixIn[row+col*nDetections] = itcolumn->getScoreForAssociation(height, detectionPos, detCov, detectionColorHist, trackerColorHist);
                 }
                 else
                 {
-                    double best = 1000;
-                    for(int i = 1; i<median_window; i++)
-                    {
-                        Point3d hist((*itcolumn).positionHistory[i].x, (*itcolumn).positionHistory[i].y, 0);
-                        double distHist = norm(hist-detectionPos);
-                        if(distHist < 1.8)
-                            if(distHist < best)
-                                best = distHist;
-                    }
-
-                    distMatrixIn[row+col*nDetections] = itcolumn->getScoreForAssociation(height, detectionPos, detectionColorHist, trackerColorHist);
+                    distMatrixIn[row+col*nDetections] = 1000;
                 }
             }
         }
@@ -483,7 +512,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
         for(int i=0; i<nDetections; i++)
         {
 
-            //If there is an associated tracker and the distance is less than 2 meters we update the position
+            //If there is an associated tracker and the distance is less than the validation gate we update the position
             if(assignment[i] != -1)
             {
 
@@ -494,23 +523,50 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
                 double colorDist = compareHist(detectionColorHist, trackerColorHist, CV_COMP_BHATTACHARYYA);
                 trackPos.z = 0.0;
 
-                if(norm(detPos-trackPos) < 2.0 && colorDist < 0.7)
+                Mat x = Mat::zeros(2, 1, CV_64F);
+                x.at<float>(0,0) = detPos.x;
+                x.at<float>(1,0) = detPos.y;
+
+
+
+                Mat u = Mat::zeros(2, 1, CV_64F);
+                u.at<float>(0,0) = trackPos.x;
+                u.at<float>(1,0) = trackPos.y;
+
+                Mat aux;
+                personList.at(assignment[i]).getCovarianceOfMixture().copyTo(aux);
+                Mat S = aux(cv::Range(0,2),cv::Range(0,2));
+
+                Mat detCov = covariances.at(i);
+                Mat meanDiscreteError = means.at(i);
+                Mat innovationCov = S+detCov;
+                Mat error = x-u;
+                double posDist = mahalanobisDist(error, meanDiscreteError, innovationCov);
+
+                if(posDist < validation_gate && colorDist < recognition_threshold)
                 {
-                    personList.at(assignment[i]).position.x = coordsInBaseFrame.at(i).x;
-                    personList.at(assignment[i]).position.y = coordsInBaseFrame.at(i).y;
+                    double px = coordsInBaseFrame.at(i).x+meanDiscreteError.at<double>(0,0);
+                    double py = coordsInBaseFrame.at(i).y+meanDiscreteError.at<double>(1,0);
+                    personList.at(assignment[i]).position.x = px;
+                    personList.at(assignment[i]).position.y = py;
                     personList.at(assignment[i]).position.z = coordsInBaseFrame.at(i).z;
 
+
+                    //Observation covariance update
+                    personList.at(assignment[i]).mmaeEstimator->filterBank.at(0).measurementNoiseCov = detCov;
+                    personList.at(assignment[i]).mmaeEstimator->filterBank.at(1).measurementNoiseCov = detCov;
+                    personList.at(assignment[i]).mmaeEstimator->filterBank.at(2).measurementNoiseCov = detCov;
 
                     //Bounding boxes...
                     personList.at(assignment[i]).rect = rects.at(i);
 
                     //Color histograms I'm not going to update it now lol
-                    personList.at(assignment[i]).bvtHistogram = personList.at(assignment[i]).bvtHistogram*0.8+0.2*colorFeaturesList.at(i);
+                    personList.at(assignment[i]).bvtHistogram = personList.at(assignment[i]).bvtHistogram*(c_learning_rate)+(1-c_learning_rate)*colorFeaturesList.at(i);
                 }
                 else
                 {
 
-                    //If there isn't, create a new tracker for each one - IF THERE IS NO OTHER TRACKER IN A 1.5m radius
+                    //If there isn't, create a new tracker for each one - IF THERE IS NO OTHER TRACKER IN A ... radius
                     bool existsInRadius = false;
 
                     Point3d coords = coordsInBaseFrame.at(i);
@@ -522,7 +578,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                         Point3d testPoint(posEstimate.x, posEstimate.y, 0);
 
-                        if(norm(coords-testPoint) < 1.5)
+                        if(norm(coords-testPoint) < creation_threshold)
                         {
                             existsInRadius = true;
                             break;
@@ -548,7 +604,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
 
                     Point3d testPoint(posEstimate.x, posEstimate.y, 0.0);
 
-                    if(norm(coords-testPoint) < associatingDistance)
+                    if(norm(coords-testPoint) < creation_threshold)
                     {
                         existsInRadius = true;
                         break;
@@ -571,7 +627,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
     }
     else
     {
-        //We create a tracker for each detection, and if there are none, we do nothing! - can't create 2 trackers in the same 1.5m radius
+        //We create a tracker for each detection, and if there are none, we do nothing! - can't create 2 trackers in the same creation_threshold radius
         for(int i=0; i<nDetections; i++)
         {
             bool existsInRadius = false;
@@ -582,7 +638,7 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
             for(vector<PersonModel>::iterator it = personList.begin(); it != personList.end(); it++)
             {
                 Point3d testPoint((*it).positionHistory[0].x, (*it).positionHistory[0].y, 0.0);
-                if(norm(coords-testPoint) < associatingDistance)
+                if(norm(coords-testPoint) < creation_threshold)
                 {
                     existsInRadius = true;
                     break;
@@ -597,7 +653,6 @@ void PersonList::associateData(vector<Point3d> coordsInBaseFrame, vector<cv::Rec
     }
     //for each associated tracker we update the detection. For everyone else there is Mastercard. Just kidding... trackers
     //wich have no detections associated will be updated with a -1000, -1000 detection
-
     updateList();
 
 }
@@ -736,4 +791,3 @@ cv::Mat PersonList::plotReprojectionAndProbabilities(int targetId, cv::Mat baseF
 
     return lastImage;
 }
-

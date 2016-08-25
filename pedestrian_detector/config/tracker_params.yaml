@@ -2,14 +2,23 @@ gaze_threshold: 0.2
 fixation_tolerance: 0.5
 median_window: 3
 number_of_frames_before_destruction: 60
-number_of_frames_before_destruction_locked: 300
-associating_distance: 0.8
+number_of_frames_before_destruction_locked: 60
+
 camera: l_camera_vision_link
 maximum_person_height: 2.1
 minimum_person_height: 0.8
 filtering_frame_id: base_footprint
 fixed_frame_id: base_footprint
 odom_frame_id: odom
+
+creation_threshold: 0.5
+validation_gate: 1000000
+metric_weight: 0.8
+recognition_threshold: 0.6
+c_learning_rate: 0.8
+const_pos_var: 0.5
+const_vel_var: 0.5
+const_accel_var: 0.5
 
 #odom parameters
 alpha_1: 0.05

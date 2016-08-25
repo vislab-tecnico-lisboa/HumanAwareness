@@ -78,22 +78,6 @@ private:
     {
         tic();
 
-        stringstream ss3;
-        ss3 << ros::package::getPath("pedestrian_detector");
-        ss3 << "/testBVT.jpg";
-
-        Mat imageBVT;
-        Mat newBvt;
-        imageBVT = imread(ss3.str(), CV_LOAD_IMAGE_COLOR);
-
-        if(!imageBVT.data)
-        {
-
-            ROS_ERROR_STREAM("FILE NOT FOUND! "<< ss3.str()) ;
-        }
-
-        extractBVT(imageBVT, newBvt, 10, partMasks);
-
         cv_bridge::CvImagePtr cv_ptr;
         try
         {

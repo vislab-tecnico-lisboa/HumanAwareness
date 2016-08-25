@@ -22,6 +22,7 @@
 #include "../include/tracker/cameraModel.hpp"
 #include "../include/tracker/personMotionModel.hpp"
 #include "../include/tracker/filtersAndUtilities.hpp"
+#include "../include/tracker/utils.hpp"
 
 //OpenCV Includes
 #include <opencv2/opencv.hpp>
@@ -117,9 +118,16 @@ private:
     double fixation_tolerance;
     int numberOfFramesBeforeDestruction;
     int numberOfFramesBeforeDestructionLocked;
-    double associatingDistance;
     double minimum_person_height;
     double maximum_person_height;
+    double creation_threshold;
+    double validation_gate;
+    double metric_weight;
+    double recognition_threshold;
+    double c_learning_rate;
+    double const_pos_var;
+    double const_vel_var;
+    double const_accel_var;
 
     // Odometry auxiliars
     nav_msgs::Odometry last_odom_msg;
@@ -681,12 +689,25 @@ public:
 
         vector<cv::Point3d> coordsInBaseFrame;
 
-        coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, baseFootprintToCameraTransform, rects);
 
-        detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, baseFootprintToCameraTransform);
+        vector<double> lambdas;
+        coordsInBaseFrame = cameramodel->calculatePointsOnWorldFrame(feetImagePoints, baseFootprintToCameraTransform, rects, lambdas);
 
-        personList->associateData(coordsInBaseFrame, rects, colorFeaturesList);
+        //--------------------  GRANDE BUG --------------------------- !!
+        // AINDA MAIOR! FALTAM LAMBDAS! -------------------_//
+        detectionfilter->filterDetectionsByPersonSize(coordsInBaseFrame, rects, baseFootprintToCameraTransform, colorFeaturesList, lambdas);
 
+        std::vector<cv::Mat> covMatrices;
+        std::vector<cv::Mat> meansArray;
+
+
+        //Ineficient...
+
+        computeMeasurementStatistics( cameramodel->getK(), baseFootprintToCameraTransform, lambdas, coordsInBaseFrame, rects, meansArray, covMatrices);
+        //............
+
+
+        personList->associateData(coordsInBaseFrame, rects, colorFeaturesList, meansArray, covMatrices);
 
         pedestrian_detector::BBList listOfBBs;
 
@@ -844,7 +865,16 @@ public:
         nPriv.param("fixation_tolerance", fixation_tolerance, 0.1);
         nPriv.param("number_of_frames_before_destruction", numberOfFramesBeforeDestruction, 25);
         nPriv.param("number_of_frames_before_destruction_locked", numberOfFramesBeforeDestructionLocked, 35);
-        nPriv.param("associating_distance", associatingDistance, 0.5);
+
+        nPriv.param("creation_threshold", creation_threshold, 0.5);
+        nPriv.param("validation_gate", validation_gate, 100000.0);
+        nPriv.param("metric_weight", metric_weight, 0.8);
+        nPriv.param("recognition_threshold", recognition_threshold, 0.6);
+        nPriv.param("c_learning_rate", c_learning_rate, 0.8);
+        nPriv.param("const_pos_var", const_pos_var, 0.5);
+        nPriv.param("const_vel_var", const_vel_var, 0.5);
+        nPriv.param("const_accel_var", const_accel_var, 0.5);
+
         nPriv.param("alpha_1",alpha_1, 0.05);
         nPriv.param("alpha_2",alpha_2, 0.001);
         nPriv.param("alpha_3",alpha_3, 5.0);
@@ -869,8 +899,7 @@ public:
 
 
 
-        personList = new PersonList(median_window,numberOfFramesBeforeDestruction, numberOfFramesBeforeDestructionLocked, associatingDistance, MMAETRACKING);
-
+        personList = new PersonList(median_window, numberOfFramesBeforeDestruction, numberOfFramesBeforeDestructionLocked, creation_threshold, validation_gate, metric_weight, recognition_threshold, c_learning_rate, const_pos_var, const_vel_var, const_accel_var);
         personNotChosenFlag = true;
         automatic = false;
 

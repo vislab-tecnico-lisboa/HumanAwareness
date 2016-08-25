@@ -69,7 +69,7 @@ CameraModel::CameraModel(string configFile, string cameraStr)
 *  UPDATE: I wasn't... It was a bug on Gazebo. It's working awesomely well :)
 *
 */
-vector<Point3d> CameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera, vector<cv::Rect_<int> >rects)
+vector<Point3d> CameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat worldLinkToCamera, vector<cv::Rect_<int> >rects, vector<double> &lambdas)
 {
 
   //Transform the points to homogeneous coordinates
@@ -133,6 +133,8 @@ vector<Point3d> CameraModel::calculatePointsOnWorldFrame(Mat imagePoints, Mat wo
        Point3d point;
        point.x = homogeneousP.at<float>(0, i)/homogeneousP.at<float>(2, i);
        point.y = homogeneousP.at<float>(1, i)/homogeneousP.at<float>(2, i);
+
+       lambdas.push_back(double(homogeneousP.at<float>(2, i)));
 
        Point2d bbCenter = getCenter(rects.at(i));
 

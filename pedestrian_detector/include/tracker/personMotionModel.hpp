@@ -10,22 +10,26 @@
 #include "../include/tracker/mmae.hpp"
 
 
+
 using namespace cv;
 using namespace std;
 
 class PersonModel
 {
 
-    private:    
+    private:
     int median_window;
-
 
     Rect_<int> projectBoundingBox();
 
 
     public:
+    double const_pos_var;
+    double const_vel_var;
+    double const_accel_var;
 
     int id;
+    double metric_weight;
     MMAEFilterBank *mmaeEstimator;
     //KALMAN de uma variavel ahahahahahaha
     double personHeight;
@@ -62,7 +66,7 @@ class PersonModel
     Mat getCovarianceOfMixture();
     void updateModel();
     Point3d getNearestPoint(vector<cv::Point3d> coordsInBaseFrame, Point3d estimation);
-    double getScoreForAssociation(double height, Point3d detectedPosition, Mat detectionColorHist, Mat trackerColorHist);
+    double getScoreForAssociation(double height, Point3d detectedPosition, Mat detCov, Mat detectionColorHist, Mat trackerColorHist);
 };
 
 class PersonList
@@ -74,15 +78,23 @@ public:
     int median_window;
     int numberOfFramesBeforeDestruction;
     int numberOfFramesBeforeDestructionLocked;
-    double associatingDistance;
-    void associateData(vector<cv::Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects, vector<Mat> colorFeaturesList);
+    double validation_gate;
+    double metric_weight;
+    double creation_threshold;
+    double recognition_threshold;
+    double c_learning_rate;
+    double const_pos_var;
+    double const_vel_var;
+    double const_accel_var;
+    void associateData(vector<cv::Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects, vector<Mat> colorFeaturesList, vector<Mat> means, vector<Mat> covariances);
     void addPerson(Point3d pos, cv::Rect_<int> rect, Mat bvtHistogram);
     std::vector<PersonModel> personList;
     std::deque<PersonModel> holdList;   //For Re-ID purposes
+    void predictList();
     void updateList();
     void updateDeltaT(double delta_t);
 
-    PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double associatingDistance, int method=MMAETRACKING);
+    PersonList(int median_window, int numberOfFramesBeforeDestruction, int numberOfFramesBeforeDestructionLocked, double creation_threshold, double validation_gate, double metric_weight, double recognition_threshold, double c_learning_rate, double const_pos_var, double const_vel_var, double const_accel_var);
     ~PersonList();
     //Returns a vector containing positions associated to each tracker, that are valid after the median filter
     std::vector<PersonModel> getValidTrackerPosition();
@@ -94,4 +106,6 @@ public:
 
 };
 
+
 #endif // PERSONMOTIONMODEL_HPP
+
