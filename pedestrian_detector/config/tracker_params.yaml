@@ -1,5 +1,4 @@
-gaze_threshold: 0.2
-fixation_tolerance: 0.5
+fixation_tolerance: 0.1
 median_window: 3
 number_of_frames_before_destruction: 60
 number_of_frames_before_destruction_locked: 60

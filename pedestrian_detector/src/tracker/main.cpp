@@ -113,7 +113,7 @@ private:
     std::string filtering_frame_id;
 
     std::string odom_frame_id;
-    double gaze_threshold;
+
     int median_window;
     double fixation_tolerance;
     int numberOfFramesBeforeDestruction;
@@ -860,7 +860,7 @@ public:
 
         nPriv.param<std::string>("odom_frame_id", odom_frame_id, "/odom");
 
-        nPriv.param("gaze_threshold", gaze_threshold, 0.2);
+
         nPriv.param("median_window", median_window, 5);
         nPriv.param("fixation_tolerance", fixation_tolerance, 0.1);
         nPriv.param("number_of_frames_before_destruction", numberOfFramesBeforeDestruction, 25);

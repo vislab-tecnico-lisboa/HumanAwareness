@@ -208,7 +208,7 @@ public:
 
 
         nPriv.param<std::string>("detector_type", detectorType, "full");
-        nPriv.param<double>("min_score", minDetectionScore, 0);
+        nPriv.param<double>("min_score", minDetectionScore, 30);
 
         stringstream ss;
         ss << ros::package::getPath("pedestrian_detector");

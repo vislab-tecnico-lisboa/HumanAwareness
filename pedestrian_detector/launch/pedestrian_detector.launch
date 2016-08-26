@@ -14,6 +14,7 @@
     <remap from="image_out" to="$(arg image_out)"/>
     <param name="detector_type" type="str" value="$(arg detector_type)"/>
     <param name="camera" type="str" value="$(arg camera)"/>
+    <rosparam file="$(find pedestrian_detector)/config/detector_params.yaml" command="load"/>
   </node>
   <node pkg="pedestrian_detector" type="tracker" name="tracker" output="screen">
 	<rosparam file="$(find pedestrian_detector)/config/tracker_params.yaml" command="load"/>
