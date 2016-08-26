@@ -127,8 +127,8 @@ public:
     helperXMLParser *parsed;
     helperXMLParser *parsedHeads;
 
-    vector<cv::Rect_<int> >* boundingBoxes;
-    vector<cv::Rect_<int> >* headBoundingBoxes;
+    vector<DetectionWithScore>* boundingBoxes;
+    vector<DetectionWithScore>* headBoundingBoxes;
 
     std::string detectorType;
     

@@ -165,7 +165,7 @@ int directionNotSat(int row){
 /*
  * Strong Classifier Tree (sct)
  */
-vector<cv::Rect_<int> >* sctRun(pyrOutput *outputPyr, classifierInput *cInput)
+vector<DetectionWithScore>* sctRun(pyrOutput *outputPyr, classifierInput *cInput)
 {
 	int (*featureLUT)[3]=cInput->featureLUT;
     /*
@@ -379,7 +379,7 @@ vector<cv::Rect_<int> >* sctRun(pyrOutput *outputPyr, classifierInput *cInput)
 
 	    //Compute area of each BB
 	    vector<double> areas(nDetections);
-	    list<Detection>::iterator itDetections;
+        list<Detection>::iterator itDetections;
 	    vector<double>::iterator itV;
 	    itV=areas.begin();
 	    for(itDetections=detections.begin(); itDetections!=detections.end(); ++itDetections){
@@ -431,8 +431,10 @@ vector<cv::Rect_<int> >* sctRun(pyrOutput *outputPyr, classifierInput *cInput)
 	}
     }
     
-    vector<cv::Rect_<int> > *listRect = new vector<cv::Rect_<int> >();
+    vector<DetectionWithScore> *listDetections = new vector<DetectionWithScore>();
+
     list<Detection>::iterator itDetections;
+
     for(itDetections=detections.begin(); itDetections!=detections.end(); ++itDetections){
         if(verbose)
           cout << itDetections->confidence 
@@ -443,12 +445,18 @@ vector<cv::Rect_<int> >* sctRun(pyrOutput *outputPyr, classifierInput *cInput)
                << ", " 
                << itDetections->V1 
                << ")" << endl;
+
+
                
         int ax = itDetections->U0;
         int ay = itDetections->V0;
         int aw = itDetections->U1 - ax;
         int ah = itDetections->V1 - ay;
-        listRect->push_back(Rect_<int>(ax, ay, aw, ah));
+
+        DetectionWithScore det;
+        det.bbox = Rect_<int>(ax, ay, aw, ah);
+        det.score = itDetections->confidence;
+        listDetections->push_back(det);
     }
-    return listRect;
+    return listDetections;
 }

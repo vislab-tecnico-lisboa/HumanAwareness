@@ -66,6 +66,7 @@ private:
     image_transport::Subscriber image_sub;
     image_transport::Publisher image_pub;
     std::string detectorType;
+    double minDetectionScore;
 
     //Our detectors
     pedestrianDetector *person_detector;
@@ -107,13 +108,17 @@ private:
         //Print rectangles on the image and add them to the detection list
         //Print detection numbers so that we can initialize the tracker using Rviz
         //And send a marker with each detection number to Rviz
-        vector<cv::Rect_<int> >::iterator it;
+        vector<DetectionWithScore>::iterator it;
 
         if(detectorType.compare("pedestrian") == 0 || detectorType.compare("full") == 0)
         {
             for(it = person_detector->boundingBoxes->begin(); it != person_detector->boundingBoxes->end(); it++){
 
-                Mat person = image(*it);
+
+                if(it->score < minDetectionScore)
+                    continue;
+
+                Mat person = image(it->bbox);
                 Mat resizedPerson;
                 //Resize it for 52x128
 
@@ -137,13 +142,16 @@ private:
 
                 colorFeatures.features = vec;
 
-                rectangle(imageDisplay, *it, Scalar_<int>(0,255,0), 3);
+                rectangle(imageDisplay, it->bbox, Scalar_<int>(0,255,0), 3);
+                stringstream sss;
+                sss << it->score;
+                putText(imageDisplay, sss.str(), it->bbox.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
 
                 pedestrian_detector::BoundingBox bb;
-                bb.x = (*it).x;
-                bb.y = (*it).y;
-                bb.width = (*it).width;
-                bb.height = (*it).height;
+                bb.x = it->bbox.x;
+                bb.y = it->bbox.y;
+                bb.width = it->bbox.width;
+                bb.height = it->bbox.height;
                 detectionList.bbVector.push_back(bb);
                 detectionList.featuresVector.push_back(colorFeatures);
             }
@@ -175,7 +183,7 @@ private:
         {
             for(it = person_detector->headBoundingBoxes->begin(); it != person_detector->headBoundingBoxes->end(); it++)
             {
-                rectangle(imageDisplay, *it, Scalar_<int>(0,0,255), 3);
+                rectangle(imageDisplay, it->bbox, Scalar_<int>(0,0,255), 3);
             }
         }
 
@@ -200,6 +208,7 @@ public:
 
 
         nPriv.param<std::string>("detector_type", detectorType, "full");
+        nPriv.param<double>("min_score", minDetectionScore, 0);
 
         stringstream ss;
         ss << ros::package::getPath("pedestrian_detector");

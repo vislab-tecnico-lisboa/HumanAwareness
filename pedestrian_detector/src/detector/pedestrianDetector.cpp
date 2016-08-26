@@ -232,6 +232,12 @@ pedestrianDetector::~pedestrianDetector(){
 
 void pedestrianDetector::runDetector(const Mat img_original){
 
+    if(headBoundingBoxes != NULL)
+        delete(headBoundingBoxes);
+
+    if(boundingBoxes != NULL)
+        delete(boundingBoxes);
+
     // These are helper variables
     Mat image, imagef, imageO = img_original;
 
@@ -293,22 +299,22 @@ void pedestrianDetector::runDetector(const Mat img_original){
     /*
    * Running the detector
    */
-    vector<cv::Rect_<int> >* rects = NULL;
-    vector<cv::Rect_<int> >* rectsHeads = NULL;
+    vector<DetectionWithScore>* det = NULL;
+    vector<DetectionWithScore>* detHeads = NULL;
 
 
     if(detectorType.compare("pedestrian") == 0 || detectorType.compare("full") == 0)
     {
-        rects = sctRun(pOutput, sctInput);
+        det = sctRun(pOutput, sctInput);
     }
 
     if(detectorType.compare("headandshoulders") == 0 || detectorType.compare("full") == 0)
     {
         sctInputHeads->verticalSuperPadding=12;
-        rectsHeads = sctRun(pOutput, sctInputHeads);
+        detHeads = sctRun(pOutput, sctInputHeads);
     }
 
     delete pOutput;
-    boundingBoxes = rects;
-    headBoundingBoxes = rectsHeads;
+    boundingBoxes = det;
+    headBoundingBoxes = detHeads;
 }

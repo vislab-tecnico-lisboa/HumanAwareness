@@ -28,6 +28,13 @@
 #include "chnsPyramid.hpp"
 #include "readFiles.hpp"
 
+class DetectionWithScore{
+
+public:
+    double score;
+    cv::Rect_<int> bbox;
+};
+
 class classifierInput {
 public:
 	ClassData *classData;
@@ -111,7 +118,7 @@ int directionNotSat(int row);
  * Actual Strong Classifier Tree Algorithm
  */
 const double magicThreshold = -1.0;
-vector<cv::Rect_<int> >* sctRun(pyrOutput *outputPyr, classifierInput *cInput);
+vector<DetectionWithScore>* sctRun(pyrOutput *outputPyr, classifierInput *cInput);
 
 using namespace std;
 
