@@ -65,6 +65,7 @@ private:
     double planner_activation_distance;
     double kv;
     double kalfa;
+    double frequency;
 
     tf::TransformListener listener;
 
@@ -122,7 +123,6 @@ public:
         //hold = true;
         //currentState = STOPPED;
         //nextState = STOPPED;
-        rate = new ros::Rate(50);
 
         nPriv.param<std::string>("world_frame", world_frame, "world_lol");
         nPriv.param<std::string>("robot_frame", robot_frame, "robot");
@@ -133,6 +133,9 @@ public:
         nPriv.param("distance_to_target", distance_to_target, 1.5);
         nPriv.param<double>("kv", kv, 0.03);
         nPriv.param<double>("kalfa", kalfa, 0.08);
+        nPriv.param<double>("rate", frequency, 10);
+        rate = new ros::Rate(frequency);
+
         nPriv.param<std::string>("control_type", cType, "planner");
 
         if(cType == "planner")
@@ -172,8 +175,8 @@ public:
                 {
 
                     nextState = PLANNER;
-                    delete rate;
-                    rate = new ros::Rate(50);
+                    //delete rate;
+                    //rate = new ros::Rate(50);
                     geometry_msgs::Twist goal;
                     goal.angular.x = 0;
                     goal.angular.y = 0;
@@ -186,8 +189,8 @@ public:
                 else if(distanceToPerson < planner_activation_distance && distanceToPerson > minimum_distance && hold == false)
                 {
                     nextState = LOCALCONTROLLER;
-                    delete rate;
-                    rate = new ros::Rate(50);
+                    //delete rate;
+                    //rate = new ros::Rate(50);
                     geometry_msgs::Twist goal;
                     goal.angular.x = 0;
                     goal.angular.y = 0;
@@ -197,8 +200,8 @@ public:
                     goal.linear.z = 0;
                     cmdPub.publish(goal);
                 }
-                else
-                {/*
+                /*else
+                {
                     nextState = STOPPED;
                     geometry_msgs::Twist goal;
                     goal.angular.x = 0;
@@ -208,8 +211,8 @@ public:
                     goal.linear.y = 0;
                     goal.linear.z = 0;
                     cmdPub.publish(goal);
-                    rate->sleep();*/
-                }
+                    rate->sleep();
+                }*/
 
                 break;
             case PLANNER:
@@ -227,13 +230,12 @@ public:
 
                     segwayController::proportionalController(personPoint, cmdPub, kv, kalfa);
 
-                    rate->sleep();
                 }
                 else if( distanceToPerson < minimum_planner_distance && distanceToPerson >= minimum_distance && hold == false)
                 {
                     nextState = LOCALCONTROLLER;
-                    delete rate;
-                    rate = new ros::Rate(50);
+                    //delete rate;
+                    //rate = new ros::Rate(50);
 
                     geometry_msgs::Twist goal;
                     goal.angular.x = 0;
@@ -256,8 +258,8 @@ public:
                     goal.linear.y = 0;
                     goal.linear.z = 0;
                     cmdPub.publish(goal);
-                    delete rate;
-                    rate = new ros::Rate(50);
+                    //delete rate;
+                    //rate = new ros::Rate(50);
                 }
 
                 break;
@@ -297,8 +299,8 @@ public:
 
 
                     nextState = PLANNER;
-                    delete rate;
-                    rate = new ros::Rate(50);
+                    //delete rate;
+                    //rate = new ros::Rate(50);
 
                 }
 
@@ -306,6 +308,8 @@ public:
             }
             ros::spinOnce();
             currentState = nextState;
+            rate->sleep();
+
         }
     }
 

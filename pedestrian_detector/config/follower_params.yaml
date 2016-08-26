@@ -8,3 +8,4 @@ fixed_frame: odom
 kv: 0.2
 kalfa: 0.8
 control_type: local
+rate: 10.0
