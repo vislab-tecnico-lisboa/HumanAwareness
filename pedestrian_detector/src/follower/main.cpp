@@ -133,8 +133,8 @@ public:
         nPriv.param("distance_to_target", distance_to_target, 1.5);
         nPriv.param<double>("kv", kv, 0.03);
         nPriv.param<double>("kalfa", kalfa, 0.08);
-        nPriv.param<double>("rate", frequency, 10);
-        rate = new ros::Rate(frequency);
+        //nPriv.param<double>("rate", frequency, 10);
+        rate = new ros::Rate(10.0);
 
         nPriv.param<std::string>("control_type", cType, "planner");
 
@@ -163,7 +163,7 @@ public:
 
         while(ros::ok())
         {
-
+            rate->sleep();
             //If we are receiving data
             switch(currentState)
             {
@@ -211,7 +211,7 @@ public:
                     goal.linear.y = 0;
                     goal.linear.z = 0;
                     cmdPub.publish(goal);
-                    rate->sleep();
+
                 }*/
 
                 break;
@@ -308,7 +308,7 @@ public:
             }
             ros::spinOnce();
             currentState = nextState;
-            rate->sleep();
+
 
         }
     }
@@ -320,71 +320,72 @@ public:
 
         while(ros::ok())
         {
-
+            rate->sleep();
             //If we are receiving data
             switch(currentState)
             {
-            case STOPPED:
-                //ROS_ERROR("STOPPED!");
-                //Next state
-                if(distanceToPerson > planner_activation_distance && hold == false)
-                {
-                    nextState = PLANNER;
-                    delete rate;
-                    rate = new ros::Rate(10);
-                }
+		    case STOPPED:
+		        //ROS_ERROR("STOPPED!");
+		        //Next state
+		        if(distanceToPerson > planner_activation_distance && hold == false)
+		        {
+		            nextState = PLANNER;
+		            delete rate;
+		            rate = new ros::Rate(10);
+		        }
 
-                break;
-            case PLANNER:
-                ROS_ERROR("PLANNER");
+		        break;
+		    case PLANNER:
+		        ROS_ERROR("PLANNER");
 
-                if(distanceToPerson >= minimum_planner_distance && hold == false)
-                {
-                    nextState = PLANNER;
-                    //Get transforms
-                    tf::StampedTransform transform;
-                    try
-                    {
-                        listener.waitForTransform(world_frame, robot_frame, ros::Time(0), ros::Duration(10.0) );
-                        listener.lookupTransform(world_frame, robot_frame,ros::Time(0), transform);
-                    }
-                    catch(tf::TransformException ex)
-                    {
-                        ROS_ERROR("%s",ex.what());
-                        ros::Duration(1.0).sleep();
-                    }
+		        if(distanceToPerson >= minimum_planner_distance && hold == false)
+		        {
+		            nextState = PLANNER;
+		            //Get transforms
+		            tf::StampedTransform transform;
+		            try
+		            {
+		                listener.waitForTransform(world_frame, robot_frame, ros::Time(0), ros::Duration(10.0) );
+		                listener.lookupTransform(world_frame, robot_frame,ros::Time(0), transform);
+		            }
+		            catch(tf::TransformException ex)
+		            {
+		                ROS_ERROR("%s",ex.what());
+		                ros::Duration(1.0).sleep();
+		            }
 
-                    Eigen::Affine3d eigen_transform;
-                    tf::transformTFToEigen(transform, eigen_transform);
+		            Eigen::Affine3d eigen_transform;
+		            tf::transformTFToEigen(transform, eigen_transform);
 
 
-                    // convert matrix from Eigen to openCV
-                    cv::Mat baseLinkToMap;
-                    cv::eigen2cv(eigen_transform.matrix(), baseLinkToMap);
+		            // convert matrix from Eigen to openCV
+		            cv::Mat baseLinkToMap;
+		            cv::eigen2cv(eigen_transform.matrix(), baseLinkToMap);
 
-                    cv::Point3d personPoint;
-                    personPoint.x = personInRobotBaseFrame.point.x;
-                    personPoint.y = personInRobotBaseFrame.point.y;
-                    personPoint.z = personInRobotBaseFrame.point.z;
-                    segwayController::moveBase(personPoint, baseLinkToMap, ac, distance_to_target);
-                    rate->sleep();
-                }
+		            cv::Point3d personPoint;
+		            personPoint.x = personInRobotBaseFrame.point.x;
+		            personPoint.y = personInRobotBaseFrame.point.y;
+		            personPoint.z = personInRobotBaseFrame.point.z;
+		            segwayController::moveBase(personPoint, baseLinkToMap, ac, distance_to_target);
 
-                else if(distanceToPerson < minimum_planner_distance || hold == true)
-                {
-                    nextState = STOPPED;
-                    ac->cancelAllGoals();
-                    delete rate;
-                    rate = new ros::Rate(10);
-                }
+		        }
 
-                break;
-            default:
-                nextState = STOPPED;
-                ac->cancelAllGoals();
-            }
+		        else if(distanceToPerson < minimum_planner_distance || hold == true)
+		        {
+		            nextState = STOPPED;
+		            ac->cancelAllGoals();
+		            delete rate;
+		            rate = new ros::Rate(10);
+		        }
+
+		        break;
+		    default:
+		        nextState = STOPPED;
+		        ac->cancelAllGoals();
+	    }
             ros::spinOnce();
             currentState = nextState;
+
         }
     }
 

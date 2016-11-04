@@ -13,6 +13,7 @@
 #include <message_filters/subscriber.h>
 #include "opencv2/core/eigen.hpp"
 #include "geometry_msgs/PoseStamped.h"
+#include "geometry_msgs/Point.h"
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <interactive_markers/interactive_marker_server.h>
@@ -201,12 +202,12 @@ public:
             targetId = -1;
             sendHome();
 
-            ROS_INFO("No target selected. Sending eyes to home position");
+            //ROS_INFO("No target selected. Sending eyes to home position");
         }
 
-        ROS_INFO_STREAM( feedback->marker_name << " is now at "
+        /*ROS_INFO_STREAM( feedback->marker_name << " is now at "
                          << feedback->pose.position.x << ", " << feedback->pose.position.y
-                         << ", " << feedback->pose.position.z );
+                         << ", " << feedback->pose.position.z );*/
     }
 
     void odometry()
@@ -529,7 +530,7 @@ public:
 
 
                         ac.sendGoal(fixationGoal);
-                        ROS_INFO("Gaze Action server started, sending goal.");
+                        //ROS_INFO("Gaze Action server started, sending goal.");
 
                         lastFixationPoint = Point3d(position.x, position.y, it->personHeight/2);
 
@@ -809,24 +810,29 @@ public:
 
                 ostringstream convert;
 
+		pedestrian_detector::BoundingBox bBoxWithId;
                 if(it->id == targetId)
                 {
                     rectangle(lastImage, trackedBB, Scalar(0, 0, 255), 2);
                     convert << "id: " << it->id << " | H = " << head.z;
+		    bBoxWithId.tracked = true;
 
                 }else{
                     rectangle(lastImage, trackedBB, Scalar(0, 255, 0), 2);
                     convert << "id: " << it->id;
+		    bBoxWithId.tracked=false;
                 }
 
-                pedestrian_detector::BoundingBox bBoxWithId;
-
+                
+		//geometry_msgs::Point currentPosition
                 bBoxWithId.id = it->id;
                 bBoxWithId.x = trackedBB.x;
                 bBoxWithId.y = trackedBB.y;
                 bBoxWithId.width = trackedBB.width;
                 bBoxWithId.height = trackedBB.height;
-
+		bBoxWithId.person3dLocation.x = head.x;
+		bBoxWithId.person3dLocation.y = head.y;
+		bBoxWithId.person3dLocation.z = head.z;
                 listOfBBs.bbVector.push_back(bBoxWithId);
 
                 putText(lastImage, convert.str(), trackedBB.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
@@ -1024,7 +1030,7 @@ int main(int argc, char **argv)
 
     Tracker tracker(ss.str());
 
-    ros::Rate r(100);
+    ros::Rate r(30);
 
     while(ros::ok())
     {

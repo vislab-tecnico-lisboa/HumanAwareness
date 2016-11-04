@@ -8,6 +8,7 @@
   <arg name="detector_type" default="full" />
   <arg name="camera" default="l_camera" />
   <arg name="follower" default="true" />
+  <arg name="following_planner_mode" default="global_map" />
   
   <node pkg="pedestrian_detector" type="detector" name="detector" output="screen">
     <remap from="image_in" to="$(arg image_in)"/>
@@ -22,7 +23,7 @@
   <group if="$(arg follower)">
   <node pkg="pedestrian_detector" type="follower" name="follower" output="log">
 	<remap from="twist_topic" to="/vizzy/twist2nav2d"/>
-	<rosparam file="$(find pedestrian_detector)/config/follower_params.yaml" command="load"/>
+	  <rosparam file="$(find pedestrian_detector)/config/follower_params_$(arg following_planner_mode).yaml" command="load"/>
   </node>
   </group>
 </launch>
