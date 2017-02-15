@@ -1,5 +1,9 @@
 # Human Awareness_ROS
 
+
+##THIS REPOSITORY IS UNDER HIGH MAINTENANCE##
+
+
 ## ROS Nodes ##
 
 Detector - Performs pedestrian detection and/or head-and-shoulder detection using Aggregate Channel Features (AFC). Also extracts BVT histogram from each detection.
