@@ -24,7 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
 )
 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV 2.4 REQUIRED)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../binAndDataFiles)
@@ -54,7 +54,7 @@ catkin_package(
 ## Build ##
 ###########
   SET(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} -Wall") #the -g option is implicit...
-  SET(CMAKE_CXX_FLAGS_RELEASE "-Wall -O2 -finline-functions -fpredictive-commoning -fgcse-after-reload -ftree-slp-vectorize -ftree-loop-distribute-patterns -fipa-cp-clone -funswitch-loops -fvect-cost-model -ftree-partial-pre -g")
+  SET(CMAKE_CXX_FLAGS_RELEASE "-Wall -O2 -finline-functions -fpredictive-commoning -fgcse-after-reload -ftree-slp-vectorize -ftree-loop-distribute-patterns -fipa-cp-clone -funswitch-loops -fvect-cost-model -ftree-partial-pre -std=c++11")
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_RELEASE}") #Default build mode is release mode
 
 include_directories(include)
@@ -72,14 +72,19 @@ target_link_libraries(detector ${catkin_LIBRARIES})
 add_dependencies(detector pedestrian_detector_generate_messages_cpp)
 
 add_library(tracker_lib ${tracker_lib_folder_header} ${tracker_lib_folder_source} ${common_folder_source})
+
 target_link_libraries(tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
+
 add_dependencies(tracker_lib pedestrian_detector_generate_messages_cpp)
 
 add_executable(tracker ${tracker_folder_header} ${tracker_folder_source} ${common_folder_source})
+
 target_link_libraries(tracker tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
+
 add_dependencies(tracker pedestrian_detector_generate_messages_cpp)
 
 add_executable(follower ${follower_folder_header} ${follower_folder_source} ${common_folder_source})
+
 target_link_libraries(follower ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
 add_dependencies(follower pedestrian_detector_generate_messages_cpp)
 

@@ -57,7 +57,7 @@ double hellingerDist(cv::Mat& u1, cv::Mat& S1, cv::Mat& u2, cv::Mat& S2)
 
 }
 
-void computeMeasurementStatistics(Mat K, Mat transform, std::vector<double> lambdas, std::vector<cv::Point3d> coordsInBaseFrame, vector<cv::Rect_<int> > rects,std::vector<cv::Mat> &meansArray, std::vector<cv::Mat> &covMatrices)
+void computeMeasurementStatistics(Mat K, Mat transform, std::vector<double> lambdas, std::vector<cv::Point3d> coordsInBaseFrame, std::vector<cv::Rect_<int> > rects,std::vector<cv::Mat> &meansArray, std::vector<cv::Mat> &covMatrices)
 {
 
     Mat RT = transform(Range(0, 3), Range(0, 4));
@@ -76,10 +76,10 @@ void computeMeasurementStatistics(Mat K, Mat transform, std::vector<double> lamb
     Mat H;
     invert(hDir, H);
 
-    vector<cv::Rect_<int> >::iterator itRect = rects.begin();
-    vector<double>::iterator itLambdas = lambdas.begin();
+    std::vector<cv::Rect_<int> >::iterator itRect = rects.begin();
+    std::vector<double>::iterator itLambdas = lambdas.begin();
 
-    for(vector<Point3d>::iterator itCoords = coordsInBaseFrame.begin(); itCoords != coordsInBaseFrame.end();)
+    for(std::vector<Point3d>::iterator itCoords = coordsInBaseFrame.begin(); itCoords != coordsInBaseFrame.end();)
     {
 
         int Qscx = (int) round(itRect->width*(pow(2.0, 1.0/8.0)-1)/2);

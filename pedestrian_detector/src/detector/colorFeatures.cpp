@@ -1,9 +1,10 @@
 #include "../include/detector/colorFeatures.hpp"
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv/highgui.h>
 #include <opencv/cv.h>
 
 using namespace std;
-
+using namespace cv;
 //inputImage must be in the BGR color space
 
 void extractBVT(cv::Mat& inputImage, cv::Mat& bvtHistogram, int bgBins, std::vector<cv::Rect> partMasks)
