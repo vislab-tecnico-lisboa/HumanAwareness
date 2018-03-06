@@ -24,7 +24,8 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
 )
 
-find_package(OpenCV 2.4 REQUIRED)
+find_package(OpenCV REQUIRED)
+
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../binAndDataFiles)
@@ -79,7 +80,7 @@ add_dependencies(tracker_lib pedestrian_detector_generate_messages_cpp)
 
 add_executable(tracker ${tracker_folder_header} ${tracker_folder_source} ${common_folder_source})
 
-target_link_libraries(tracker tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES})
+target_link_libraries(tracker tracker_lib ${catkin_LIBRARIES} ${Eigen_LIBRARIES} ${OpenCV_LIBRARIES})
 
 add_dependencies(tracker pedestrian_detector_generate_messages_cpp)
 
