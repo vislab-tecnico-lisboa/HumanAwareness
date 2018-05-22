@@ -102,6 +102,7 @@ private:
 
     //Message
     ros::Publisher position_publisher;
+    ros::Publisher closest_publisher;
     ros::Publisher location_uncertainty;
     ros::Publisher trackerPublisher;
 
@@ -435,6 +436,12 @@ public:
 
         if(personNotChosenFlag)
         {
+            
+            Point3d closestPosition;
+            closestPosition.x = 1000.0;
+            closestPosition.y = 1000.0;
+            closestPosition.z = 1000.0;
+
 
             for(vector<PersonModel>::iterator it = list.begin(); it != list.end(); it++)
             {
@@ -463,7 +470,27 @@ public:
                 int_marker.pose.orientation.z = sin(yaw/2);
 
                 marker_server->insert(int_marker, boost::bind(&Tracker::processFeedback, this, _1));
+
+                //Send closest person to topic
+                if(cv::norm(closestPosition) > cv::norm(position))
+                {
+                    if(position.x > 0.5)
+                    closestPosition = position;
+                }
             }
+
+            if(cv::norm(closestPosition) < 10 && closestPosition.x > 0.5)
+            {
+
+                geometry_msgs::PointStamped closest;
+                closest.header.stamp = currentTime;
+                closest.header.frame_id = filtering_frame_id;
+                closest.point.x = closestPosition.x;
+                closest.point.y = closestPosition.y;
+                closest.point.z = closestPosition.z*0.9;
+                closest_publisher.publish(closest);
+            }
+                
         }
         else
         {
@@ -1001,6 +1028,7 @@ public:
 
 
         position_publisher = n.advertise<geometry_msgs::PointStamped>("person_position", 1);
+        closest_publisher = n.advertise<geometry_msgs::PointStamped>("closest_person", 1);
         location_uncertainty = n.advertise<visualization_msgs::Marker>( "uncertainty_marker", 0 );
         trackerPublisher = n.advertise<pedestrian_detector::BBList>("bbs_with_id", 1);
 
