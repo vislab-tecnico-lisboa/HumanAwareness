@@ -66,6 +66,7 @@ private:
     image_transport::Subscriber image_sub;
     image_transport::Publisher image_pub;
     std::string detectorType;
+    double rescale_factor;
     double minDetectionScore;
 
     //Our detectors
@@ -92,9 +93,12 @@ private:
 
         cv::Mat image(cv_ptr->image);
 
+        //Rescale image by...
+        cv::Mat rescaled;
+        cv::resize(image, rescaled, cv::Size(), rescale_factor, rescale_factor);
 
 
-        person_detector->runDetector(image);
+        person_detector->runDetector(rescaled);
         Mat imageDisplay = image.clone();
 
 
@@ -102,7 +106,7 @@ private:
         pedestrian_detector::DetectionList detectionList;
 
         detectionList.header = msg->header;
-        detectionList.header.frame_id = "l_camera_vision_link";
+        detectionList.header.frame_id = "r_camera_vision_link";
 
 
         //Print rectangles on the image and add them to the detection list
@@ -118,7 +122,7 @@ private:
                 if(it->score < minDetectionScore)
                     continue;
 
-                Mat person = image(it->bbox);
+                Mat person = rescaled(it->bbox);
                 Mat resizedPerson;
                 //Resize it for 52x128
 
@@ -142,16 +146,23 @@ private:
 
                 colorFeatures.features = vec;
 
-                rectangle(imageDisplay, it->bbox, Scalar_<int>(0,255,0), 3);
+                //Rescale bounding box to original image...
+                cv::Rect_<int> rescaled_bbox;
+                rescaled_bbox.x = (int) it->bbox.x/rescale_factor;
+                rescaled_bbox.y = (int) it->bbox.y/rescale_factor;
+                rescaled_bbox.height = (int) it->bbox.height/rescale_factor;
+                rescaled_bbox.width = (int) it->bbox.width/rescale_factor;
+
+                rectangle(imageDisplay, rescaled_bbox, Scalar_<int>(0,255,0), 3);
                 stringstream sss;
                 sss << it->score;
-                putText(imageDisplay, sss.str(), it->bbox.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 2);
+                putText(imageDisplay, sss.str(), rescaled_bbox.tl(), CV_FONT_HERSHEY_SIMPLEX, 1, Scalar_<int>(255,0,0), 20);
 
                 pedestrian_detector::BoundingBox bb;
-                bb.x = it->bbox.x;
-                bb.y = it->bbox.y;
-                bb.width = it->bbox.width;
-                bb.height = it->bbox.height;
+                bb.x = rescaled_bbox.x;
+                bb.y = rescaled_bbox.y;
+                bb.width = rescaled_bbox.width;
+                bb.height = rescaled_bbox.height;
                 detectionList.bbVector.push_back(bb);
                 detectionList.featuresVector.push_back(colorFeatures);
             }
@@ -183,7 +194,12 @@ private:
         {
             for(it = person_detector->headBoundingBoxes->begin(); it != person_detector->headBoundingBoxes->end(); it++)
             {
-                rectangle(imageDisplay, it->bbox, Scalar_<int>(0,0,255), 3);
+                cv::Rect_<int> rescaled_bbox;
+                rescaled_bbox.x = (int) it->bbox.x/rescale_factor;
+                rescaled_bbox.y = (int) it->bbox.y/rescale_factor;
+                rescaled_bbox.height = (int) it->bbox.height/rescale_factor;
+                rescaled_bbox.width = (int) it->bbox.width/rescale_factor;
+                rectangle(imageDisplay, rescaled_bbox, Scalar_<int>(0,0,255), 3);
             }
         }
 
@@ -208,6 +224,7 @@ public:
 
 
         nPriv.param<std::string>("detector_type", detectorType, "full");
+        nPriv.param<double>("rescale_factor", rescale_factor, 1.0/6.0);
         nPriv.param<double>("min_score", minDetectionScore, 30);
 
         stringstream ss;
@@ -221,7 +238,7 @@ public:
 
         //Subscribe to vizzy's left camera
         //Change this later
-        image_sub = it->subscribe("/vizzy/l_camera/image_rect_color", 1, &PedDetector::imageCb, this);
+        image_sub = it->subscribe("/vizzy/r_camera/image_rect_color", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("/vizzy/l_camera/image_raw", 1, &PedDetector::imageCb, this);
         //image_sub = it->subscribe("image_in", 1, &PedDetector::imageCb, this);
     }

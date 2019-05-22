@@ -3,10 +3,10 @@
 <launch>
 <!--  <arg name="image_in" default="/vizzy/l_camera/image_rect_color" /> -->
 
-  <arg name="image_in" default="/vizzy/l_camera/image_raw" />
+  <arg name="image_in" default="/vizzy/r_camera/image_raw" />
   <arg name="image_out" default="pedestrian_detector_image" />
   <arg name="detector_type" default="full" />
-  <arg name="camera" default="l_camera" />
+  <arg name="camera" default="r_camera" />
   <arg name="follower" default="true" />
   <arg name="following_planner_mode" default="global_map" />
   

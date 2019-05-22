@@ -887,8 +887,8 @@ public:
         it = new image_transport::ImageTransport(n);
         image_pub = it->advertise("image_out_tracker", 1);
 
-        nPriv.param<std::string>("camera", cameraFrameId, "l_camera_vision_link");
-        nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/l_camera/camera_info");
+        nPriv.param<std::string>("camera", cameraFrameId, "r_camera_vision_link");
+        nPriv.param<std::string>("camera_info_topic", cameraInfoTopic, "/vizzy/r_camera/camera_info");
         nPriv.param<std::string>("filtering_frame_id", filtering_frame_id, "/base_footprint");
         nPriv.param<std::string>("fixed_frame_id", fixed_frame_id, "/base_footprint");
 
